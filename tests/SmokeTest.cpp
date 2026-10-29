@@ -79,6 +79,8 @@ int main (int argc, char** argv)
     check (instance->acceptsMidi(), "accepts MIDI");
     check (instance->producesMidi(), "produces MIDI");
     check (instance->getName().isNotEmpty(), "has a name: " + instance->getName());
+    std::cout << "  info  buses in=" << instance->getBusCount (true)
+              << " out=" << instance->getBusCount (false) << "\n";
 
     instance->setPlayHead (new MockPlayHead());
     instance->prepareToPlay (48000.0, 64);

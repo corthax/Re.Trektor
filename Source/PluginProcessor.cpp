@@ -3,7 +3,11 @@
 
 //==============================================================================
 ReTtrektorAudioProcessor::ReTtrektorAudioProcessor()
+#if RETREKTOR_INSTRUMENT_FALLBACK
+    : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+#else
     : AudioProcessor (BusesProperties())
+#endif
 {
     syncPlaybackModel();
 }

@@ -143,10 +143,20 @@ hex, `0`–`15` in decimal).
   integration is not enabled yet.
 * No audio processing of any kind.
 * The Linux VST3 build exposes the plug-in as an effect (`Fx` category). Hosts
-  that hide MIDI effects can route it as an instrument track; a fallback
-  `IS_SYNTH` build flag may be needed for such hosts.
-* Interactive behaviour has been verified with JUCE's plug-in host and Carla;
-  a full Reaper session has not been run in this environment.
+  that hide MIDI effects (Reaper in some routing setups) can use the
+  instrument fallback build instead:
+
+  ```sh
+  cmake -S . -B build-instrument -DCMAKE_BUILD_TYPE=Release \
+      -DRETREKTOR_INSTRUMENT_FALLBACK=ON
+  cmake --build build-instrument -j"$(nproc)"
+  ```
+
+  That build exposes a silent stereo output and `IS_SYNTH`, so it can be
+  inserted like a normal instrument while still only producing MIDI.
+* Interactive behaviour has been verified with JUCE's plug-in host, headless
+  editor interaction tests and Carla; a full Reaper session has not been run
+  in this environment.
 * Only the CC command type is implemented; pitch bend and macro commands are
   future work.
 * Note entry assumes a US keyboard layout.

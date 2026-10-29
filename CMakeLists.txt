@@ -8,6 +8,20 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(JUCE)
 
+# Default build: a pure MIDI effect with no audio buses. Some hosts hide
+# plug-ins without audio pins, so this option builds the same plug-in as an
+# instrument with a silent stereo output instead.
+option(RETREKTOR_INSTRUMENT_FALLBACK
+       "Build as an instrument with a silent stereo output (host compatibility fallback)" OFF)
+
+set(RTR_PLUGIN_KIND IS_MIDI_EFFECT TRUE)
+set(RTR_VST3_CATEGORIES "Fx")
+
+if (RETREKTOR_INSTRUMENT_FALLBACK)
+    set(RTR_PLUGIN_KIND IS_SYNTH TRUE)
+    set(RTR_VST3_CATEGORIES "Instrument")
+endif()
+
 juce_add_plugin(ReTtrektor
     COMPANY_NAME "Corthax"
     BUNDLE_ID "com.corthax.retrektor"
@@ -15,13 +29,17 @@ juce_add_plugin(ReTtrektor
     PLUGIN_CODE Rtrk
     FORMATS VST3
     PRODUCT_NAME "Re.Trektor"
-    IS_MIDI_EFFECT TRUE
+    ${RTR_PLUGIN_KIND}
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT TRUE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
     COPY_PLUGIN_AFTER_BUILD FALSE
-    VST3_CATEGORIES "Fx"
+    VST3_CATEGORIES "${RTR_VST3_CATEGORIES}"
 )
+
+if (RETREKTOR_INSTRUMENT_FALLBACK)
+    target_compile_definitions(ReTtrektor PUBLIC RETREKTOR_INSTRUMENT_FALLBACK=1)
+endif()
 
 juce_generate_juce_header(ReTtrektor)
 
