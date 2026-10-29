@@ -33,7 +33,7 @@ private:
     juce::Slider* addSlider (const juce::String& label, const juce::String& hint, double min, double max,
                              double interval, double value, std::function<void (double)> onChange);
 
-    void syncFromSettings();
+    int rowH() const;
 
     ReTtrektorAudioProcessor& proc;
     rtr::Song& song;

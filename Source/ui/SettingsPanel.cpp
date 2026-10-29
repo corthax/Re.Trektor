@@ -174,6 +174,12 @@ void SettingsPanel::refresh()
 }
 
 //==============================================================================
+int SettingsPanel::rowH() const
+{
+    const int count = juce::jmax (1, (int) rows.size());
+    return juce::jlimit (26, 40, (getHeight() - 56) / count);
+}
+
 void SettingsPanel::paint (juce::Graphics& g)
 {
     g.fillAll (theme::background);
@@ -185,6 +191,8 @@ void SettingsPanel::paint (juce::Graphics& g)
     g.setColour (theme::textDim);
     g.setFont (theme::monoFont (10.5f));
 
+    const int rh = rowH();
+    const bool showHints = rh >= 34;
     int y = 48;
 
     for (auto& r : rows)
@@ -198,22 +206,28 @@ void SettingsPanel::paint (juce::Graphics& g)
         }
 
         g.setColour (theme::outline.withAlpha (0.4f));
-        g.drawHorizontalLine (y + 37, 20.0f, (float) getWidth() - 20.0f);
-        g.setColour (theme::textDim);
-        g.setFont (theme::monoFont (10.0f));
-        g.drawText (r.hint, 20, y + 21, juce::jmax (100, getWidth() - 320), 13,
-                    juce::Justification::centredLeft, false);
-        y += 40;
+        g.drawHorizontalLine (y + rh - 3, 20.0f, (float) getWidth() - 20.0f);
+
+        if (showHints)
+        {
+            g.setColour (theme::textDim);
+            g.setFont (theme::monoFont (10.0f));
+            g.drawText (r.hint, 20, y + 21, juce::jmax (100, getWidth() - 320), 13,
+                        juce::Justification::centredLeft, false);
+        }
+
+        y += rh;
     }
 }
 
 void SettingsPanel::resized()
 {
+    const int rh = rowH();
     int y = 48;
 
     for (auto& r : rows)
     {
-        auto area = juce::Rectangle<int> (20, y, getWidth() - 40, 21);
+        auto area = juce::Rectangle<int> (20, y, getWidth() - 40, juce::jmin (21, rh - 4));
 
         if (r.toggle != nullptr)
         {
@@ -224,7 +238,7 @@ void SettingsPanel::resized()
             r.slider->setBounds (area.removeFromRight (150));
         }
 
-        y += 40;
+        y += rh;
     }
 }
 

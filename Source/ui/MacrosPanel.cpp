@@ -169,18 +169,34 @@ void MacrosPanel::paint (juce::Graphics& g)
     g.drawText ("PARAM 1", 380, 58, 70, 12, juce::Justification::centredLeft, false);
     g.drawText ("PARAM 2", 460, 58, 70, 12, juce::Justification::centredLeft, false);
 
+    const int step = rowStep();
+
     for (int i = 0; i < (int) song.macros.size() && i < kMaxRows; ++i)
     {
-        const int y = 76 + i * 28;
+        const int y = 76 + i * step;
+
+        if (y + 28 > getHeight() - 40)
+            break;
+
         g.setColour (i % 2 == 0 ? theme::panel.withAlpha (0.5f) : theme::background);
         g.fillRect (16, y - 3, getWidth() - 32, 26);
     }
+}
+
+int MacrosPanel::rowStep() const
+{
+    const int count = juce::jmax (1, (int) song.macros.size());
+    const int available = juce::jmax (0, getHeight() - 116);
+    return juce::jlimit (22, 28, available / count);
 }
 
 void MacrosPanel::resized()
 {
     addButton.setBounds (20, getHeight() - 34, 110, 22);
     removeButton.setBounds (138, getHeight() - 34, 120, 22);
+
+    const int step = rowStep();
+    const int bottomLimit = getHeight() - 38;
 
     for (int i = 0; i < kMaxRows; ++i)
     {
@@ -189,12 +205,25 @@ void MacrosPanel::resized()
         if (r.name == nullptr)
             continue;
 
-        const int y = 74 + i * 28;
-        r.name->setBounds (20, y, 222, 22);
-        r.kind->setBounds (250, y, 120, 22);
-        r.p1->setBounds (380, y, 70, 22);
-        r.p2->setBounds (460, y, 70, 22);
+        const bool used = i < (int) song.macros.size();
+        const int y = 74 + i * step;
+        const bool visible = used && y + 23 <= bottomLimit;
+
+        r.name->setVisible (visible);
+        r.kind->setVisible (visible);
+        r.p1->setVisible (visible);
+        r.p2->setVisible (visible);
+
+        if (visible)
+        {
+            r.name->setBounds (20, y, 222, 22);
+            r.kind->setBounds (250, y, 120, 22);
+            r.p1->setBounds (380, y, 70, 22);
+            r.p2->setBounds (460, y, 70, 22);
+        }
     }
+
+    addButton.setEnabled ((int) song.macros.size() < kMaxRows);
 }
 
 } // namespace rtr

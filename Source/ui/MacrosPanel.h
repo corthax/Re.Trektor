@@ -34,6 +34,7 @@ private:
 
     void rebuild();
     void syncValues();
+    int rowStep() const;
 
     ReTtrektorAudioProcessor& proc;
     rtr::Song& song;
