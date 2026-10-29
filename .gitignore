@@ -1,0 +1,12 @@
+# Build output
+build/
+tests/build/
+
+# Editor / tooling artefacts
+*.png
+*.log
+
+# User/IDE files
+.vscode/
+.idea/
+*.user
