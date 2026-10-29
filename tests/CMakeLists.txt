@@ -88,3 +88,38 @@ PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )
+
+juce_add_gui_app(ReTtrektorUiTest PRODUCT_NAME "ReTtrektorUiTest")
+
+target_sources(ReTtrektorUiTest PRIVATE
+    UiTest.cpp
+    ../Source/PluginProcessor.cpp
+    ../Source/PluginEditor.cpp
+    ../Source/Model.cpp
+    ../Source/PlaybackEngine.cpp
+    ../Source/ui/TimelineComponent.cpp
+    ../Source/ui/TrackerComponent.cpp
+    ../Source/ui/PoolComponent.cpp
+    ../Source/ui/ToolsPanel.cpp
+    ../Source/ui/SettingsPanel.cpp
+    ../Source/ui/MacrosPanel.cpp
+)
+
+target_include_directories(ReTtrektorUiTest PRIVATE ../Source)
+
+target_compile_definitions(ReTtrektorUiTest PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_MODAL_LOOPS_PERMITTED=0
+    JUCE_STRICT_REFCOUNTEDPOINTER=1
+    JUCE_DISPLAY_SPLASH_SCREEN=0
+)
+
+target_link_libraries(ReTtrektorUiTest PRIVATE
+    juce::juce_audio_processors
+    juce::juce_audio_utils
+    juce::juce_gui_extra
+PUBLIC
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags
+)

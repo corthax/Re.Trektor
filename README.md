@@ -41,6 +41,8 @@ cmake --build tests/build -j"$(nproc)"
 
 * `ReTtrektorCoreTest` – model, sequencing, snapping, slicing, paste, state
 * `ReTtrektorSmoke` – loads the built VST3, checks MIDI behavior and state
+* `ReTtrektorUiTest` – drives the editor components (tracker keys, column
+  chips, tools, timeline drop, pool placement) and confirms MIDI output
 * `ReTtrektorEditorShot` – renders the editor headlessly and can dump the
   component layout (`--dump`, optionally `--tab=settings|macros`)
 
@@ -48,6 +50,7 @@ Example:
 
 ```sh
 tests/build/ReTtrektorCoreTest_artefacts/Release/ReTtrektorCoreTest
+tests/build/ReTtrektorUiTest_artefacts/Release/ReTtrektorUiTest
 tests/build/ReTtrektorSmoke_artefacts/Release/ReTtrektorSmoke \
     build/ReTtrektor_artefacts/Release/VST3/Re.Trektor.vst3
 DISPLAY=:0 tests/build/ReTtrektorEditorShot_artefacts/Release/ReTtrektorEditorShot \
