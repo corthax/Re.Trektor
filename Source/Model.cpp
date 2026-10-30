@@ -62,7 +62,7 @@ void Song::reset()
     activePatternId = p.id;
     addClip (p.id, 0.0);
 
-    macros.push_back ({ "Arp +3/+7", 0, 7, 4 });
+    macros.push_back ({ "Arp 7x+4", 0, 7, 4 });
 }
 
 //==============================================================================
@@ -680,7 +680,7 @@ void Song::fromValueTree (const juce::ValueTree& root)
         nextPatternId = juce::jmax (nextPatternId, p.id + 1);
 
     if (macros.empty())
-        macros.push_back ({ "Arp +3/+7", 0, 7, 4 });
+        macros.push_back ({ "Arp 7x+4", 0, 7, 4 });
 }
 
 } // namespace rtr

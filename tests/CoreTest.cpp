@@ -9,6 +9,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 using namespace rtr;
 
@@ -37,6 +38,7 @@ struct Harness
     Song song;
     PlaybackEngine engine;
     std::vector<NoteEvent> notes;
+    std::vector<int> bends;
     double ppq = 0.0;
 
     static constexpr int blockSize = 512;
@@ -69,6 +71,8 @@ struct Harness
                     else if (m.isNoteOff())
                         notes.push_back ({ metadata.samplePosition, false, m.getChannel(),
                                            m.getNoteNumber(), 0 });
+                    else if (m.isPitchWheel())
+                        bends.push_back (m.getPitchWheelValue());
                 }
             }
 
@@ -76,7 +80,7 @@ struct Harness
         }
     }
 
-    void resetEvents() { notes.clear(); }
+    void resetEvents() { notes.clear(); bends.clear(); }
 };
 } // namespace
 
@@ -199,6 +203,88 @@ int main()
                 ++on60;
 
         check (on60 == 1, "identical note on two tracker channels is played once, got " + juce::String (on60));
+    }
+
+    //== Command macros =======================================================
+    {
+        std::cout << "Command macros (arpeggiator)\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        // default song includes one macro (M0); redefine as a small arpeggiator
+        h.song.macros[0].name = "Arp 3x+2";
+        h.song.macros[0].kind = 0;
+        h.song.macros[0].param1 = 3;
+        h.song.macros[0].param2 = 2;
+
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+        p.cell (0, 0).cmd = 128; // call M0
+
+        h.runBlocks (12);
+
+        std::vector<int> ons;
+        for (auto& n : h.notes)
+            if (n.on)
+                ons.push_back (n.note);
+
+        check (ons.size() == 3, "arpeggiator re-triggers the note once per slot, got " + juce::String ((int) ons.size()));
+        check (std::find (ons.begin(), ons.end(), 62) != ons.end(), "arp adds the +2 semitone note");
+        check (std::find (ons.begin(), ons.end(), 64) != ons.end(), "arp adds the +4 semitone note");
+    }
+    {
+        std::cout << "Command macros (pitch glide)\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        h.song.macros[0].kind = 1;
+        h.song.macros[0].param1 = 5; // bend target in semitones
+        h.song.macros[0].param2 = 4; // ramp steps
+
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = 128;
+
+        h.runBlocks (12);
+
+        check (h.bends.size() == 4, "glide sweeps the pitch wheel in the configured number of steps, got " + juce::String ((int) h.bends.size()));
+
+        bool rising = ! h.bends.empty();
+        for (int i = 0; i < (int) h.bends.size() && rising; ++i)
+            if (h.bends[(size_t) i] <= 8192 || h.bends[(size_t) i] > 16383)
+                rising = false;
+
+        check (rising, "pitch wheel ramps upward from centre");
+        check (! h.bends.empty() && h.bends.back() == 16383, "glide reaches the configured bend target");
+    }
+    {
+        std::cout << "Command macros (slide)\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        h.song.macros[0].kind = 2;
+        h.song.macros[0].param1 = 2; // semitone step
+        h.song.macros[0].param2 = 1; // one up/down pair
+
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+        p.cell (0, 0).cmd = 128;
+
+        h.runBlocks (12);
+
+        std::vector<int> ons;
+        for (auto& n : h.notes)
+            if (n.on)
+                ons.push_back (n.note);
+
+        check (ons.size() == 3, "slide adds an up and a down re-trigger, got " + juce::String ((int) ons.size()));
+        check (std::find (ons.begin(), ons.end(), 62) != ons.end(), "slide oscillates up to +2 semitones");
+        check (std::find (ons.begin(), ons.end(), 58) != ons.end(), "slide oscillates down to -2 semitones");
     }
 
     //== Grid snapping ========================================================

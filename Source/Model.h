@@ -13,6 +13,8 @@ constexpr int kNoteOff = 253;
 constexpr int kMaxRows = 1024;
 constexpr int kMaxTrackerChannels = 127;
 constexpr int kMidiChannelCount = 16;
+constexpr int kMaxMacros = 16;
+constexpr int kMacroCmdBase = 128; // command values 128..143 call macros M0..M15
 
 //==============================================================================
 /** A single tracker cell (one row of one tracker channel). */
@@ -22,7 +24,7 @@ struct Cell
     int inst = kEmpty;    // kEmpty or 0..15 (MIDI output channel)
     int vol = kEmpty;     // kEmpty or 0..127
     int pan = kEmpty;     // kEmpty or 0..127
-    int cmd = kEmpty;     // kEmpty or 0..127 (CC number for now)
+    int cmd = kEmpty;     // kEmpty or 0..143 (0..127 = CC; 128..143 = macro call M0..M15)
     int cmdVal = kEmpty;  // kEmpty or 0..127
 
     bool empty() const noexcept
@@ -106,11 +108,17 @@ struct Clip
 };
 
 //==============================================================================
-/** A user defined macro command (arpeggiator etc.) - stored for later use. */
+/** A user defined macro command (arpeggiator etc.), callable from the Command
+    column with cmd = kMacroCmdBase + index. Parameters per kind:
+
+    kind 0 (arpeggiator): param1 = cycle slots (1..16),  param2 = semitone step (1..24)
+    kind 1 (pitch glide): param1 = bend semitones (1..24), param2 = ramp steps (2..16)
+    kind 2 (slide up/down): param1 = semitone step (1..24), param2 = oscillation pairs (1..16)
+*/
 struct Macro
 {
     juce::String name { "Arpeggio" };
-    int kind = 0; // 0 = arpeggiator, 1 = pitch glide, 2 = slide
+    int kind = 0;   // 0 = arpeggiator, 1 = pitch glide, 2 = slide up/down
     int param1 = 0;
     int param2 = 0;
 };

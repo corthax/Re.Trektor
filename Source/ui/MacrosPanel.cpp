@@ -160,7 +160,7 @@ void MacrosPanel::paint (juce::Graphics& g)
 
     g.setColour (theme::textDim);
     g.setFont (theme::monoFont (10.5f));
-    g.drawText ("Macro definitions are stored with the song. Playback integration is not enabled yet.", 20, 34, getWidth() - 40, 14,
+    g.drawText ("Call macros with command 128-143 (hex 80-8F) = M0-M15, drawn orange in the tracker.", 20, 34, getWidth() - 40, 14,
                 juce::Justification::centredLeft, false);
 
     g.setFont (theme::monoFont (10.0f));

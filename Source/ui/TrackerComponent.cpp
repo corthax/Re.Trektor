@@ -546,7 +546,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                             if (cmdNum >= 0)
                             {
                                 text = valueString (cmdNum, hex, 2);
-                                colour = theme::cmdCC;
+                                colour = cmdNum >= kMacroCmdBase ? theme::cmdMacro : theme::cmdCC;
                                 dim = ! hasOwn;
                             }
                             else
@@ -895,7 +895,7 @@ int TrackerComponent::clampValue (Field field, int value) const
         case Field::inst: return juce::jlimit (0, 15, value);
         case Field::vol: return juce::jlimit (0, 127, value);
         case Field::pan: return juce::jlimit (0, 127, value);
-        case Field::cmdNum: return juce::jlimit (0, 127, value);
+        case Field::cmdNum: return juce::jlimit (0, kMacroCmdBase + kMaxMacros - 1, value);
         case Field::cmdVal: return juce::jlimit (0, 127, value);
         default: return value;
     }

@@ -51,6 +51,7 @@ private:
         int activeMidiCh = 0;
         juce::Uuid activeClip;
         int lastRow = -1;
+        int lastBendPos = 8192; // 14-bit pitch wheel centre
     };
 
     struct PendingEvent
@@ -62,7 +63,8 @@ private:
 
     void allNotesOff (std::vector<PendingEvent>& events, int offset);
     void processRow (const Pattern& pattern, const Clip& clip, int row,
-                     std::vector<PendingEvent>& events, int offset);
+                     std::vector<PendingEvent>& events, int offset,
+                     double rowSpanSamples, const std::vector<Macro>& macros);
 
     void startNote (std::vector<PendingEvent>& events, int offset, int ch, int midiCh, int note, int velocity);
     void stopNote (std::vector<PendingEvent>& events, int offset, int ch, int midiCh, int note);

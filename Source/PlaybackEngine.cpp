@@ -5,6 +5,9 @@
 namespace rtr
 {
 
+constexpr int kBendCentre = 8192;   // 14-bit pitch wheel centre
+constexpr int kBendFull   = 16383;  // full positive bend
+
 void PlaybackEngine::reset()
 {
     for (int i = 0; i < kMaxTrackerChannels; ++i)
@@ -30,6 +33,12 @@ void PlaybackEngine::allNotesOff (std::vector<PendingEvent>& events, int offset)
 
         if (c.activeNote >= 0)
             events.push_back ({ offset, 0, juce::MidiMessage::noteOff (c.activeMidiCh + 1, c.activeNote) });
+
+        if (c.lastBendPos != kBendCentre)
+        {
+            events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (c.activeMidiCh + 1, kBendCentre) });
+            c.lastBendPos = kBendCentre;
+        }
 
         c.activeNote = -1;
         c.lastRow = -1;
@@ -62,6 +71,12 @@ void PlaybackEngine::startNote (std::vector<PendingEvent>& events, int offset, i
     if (c.activeNote >= 0)
         events.push_back ({ offset, 0, juce::MidiMessage::noteOff (c.activeMidiCh + 1, c.activeNote) });
 
+    if (c.lastBendPos != kBendCentre)
+    {
+        events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (c.activeMidiCh + 1, kBendCentre) });
+        c.lastBendPos = kBendCentre;
+    }
+
     events.push_back ({ offset, 1, juce::MidiMessage::noteOn (midiCh + 1, note, (juce::uint8) juce::jlimit (1, 127, velocity)) });
 
     c.activeNote = note;
@@ -75,12 +90,19 @@ void PlaybackEngine::stopNote (std::vector<PendingEvent>& events, int offset, in
 
     auto& c = channels[(size_t) ch];
 
+    if (c.lastBendPos != kBendCentre)
+    {
+        events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh + 1, kBendCentre) });
+        c.lastBendPos = kBendCentre;
+    }
+
     if (c.activeNote == note)
         c.activeNote = -1;
 }
 
 void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int row,
-                                 std::vector<PendingEvent>& events, int offset)
+                                 std::vector<PendingEvent>& events, int offset,
+                                 double rowSpanSamples, const std::vector<Macro>& macros)
 {
     std::set<std::pair<int, int>> notesThisRow;
 
@@ -135,9 +157,75 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             events.push_back ({ offset, 2, juce::MidiMessage::controllerEvent (midiCh + 1, 10, juce::jlimit (0, 127, cell.pan)) });
 
         if (cell.cmd != kEmpty)
-            events.push_back ({ offset, 3, juce::MidiMessage::controllerEvent (midiCh + 1,
-                                                                              juce::jlimit (0, 127, cell.cmd),
-                                                                              juce::jlimit (0, 127, cell.cmdVal >= 0 ? cell.cmdVal : 0)) });
+        {
+            if (cell.cmd >= kMacroCmdBase && cell.cmd < kMacroCmdBase + kMaxMacros)
+            {
+                const int mi = cell.cmd - kMacroCmdBase;
+
+                if (mi < (int) macros.size())
+                {
+                    const auto& macro = macros[(size_t) mi];
+                    const int baseNote = cell.note != kEmpty ? cell.note : state.activeNote;
+                    const int vel = cell.vol != kEmpty ? cell.vol
+                                                       : juce::jlimit (1, 127, state.lastVol > 0 ? state.lastVol : 100);
+
+                    if (baseNote >= 0 && baseNote <= 127)
+                    {
+                        if (macro.kind == 0) // arpeggiator
+                        {
+                            const int slots = juce::jlimit (1, 16, macro.param1);
+                            const int step = juce::jlimit (1, 24, macro.param2);
+
+                            // an explicit note in this row already started slot 0
+                            for (int k = (cell.note != kEmpty ? 1 : 0); k < slots; ++k)
+                            {
+                                const int arpNote = juce::jlimit (0, 127, baseNote + (k * step) % 12);
+                                const int sub = offset + (int) std::llround ((double) k * rowSpanSamples / (double) slots);
+                                startNote (events, sub, ch, midiCh, arpNote, vel);
+                            }
+                        }
+                        else if (macro.kind == 1 && state.activeNote >= 0) // pitch glide
+                        {
+                            const int semis = juce::jlimit (1, 24, macro.param1);
+                            const int steps = juce::jlimit (2, 16, macro.param2);
+
+                            events.push_back ({ offset, 2, juce::MidiMessage::controllerEvent (state.activeMidiCh + 1, 105, semis) });
+
+                            for (int k = 1; k <= steps; ++k)
+                            {
+                                const int pos = kBendCentre + (int) std::llround (8191.0 * (double) k / (double) steps);
+                                const int sub = offset + (int) std::llround ((double) k * rowSpanSamples / (double) steps);
+                                events.push_back ({ sub, 1, juce::MidiMessage::pitchWheel (state.activeMidiCh + 1, pos) });
+                                state.lastBendPos = pos;
+                            }
+                        }
+                        else if (macro.kind == 2) // slide up/down
+                        {
+                            const int step = juce::jlimit (1, 24, macro.param1);
+                            const int pairs = juce::jlimit (1, 16, macro.param2);
+                            const int total = 2 * pairs;
+
+                            for (int j = 1; j <= total; ++j)
+                            {
+                                const int n = (j + 1) / 2;
+                                const int delta = (j % 2 == 1 ? n : -n) * step;
+                                const int slideNote = baseNote + delta;
+
+                                if (slideNote < 0 || slideNote > 127)
+                                    continue;
+
+                                const int sub = offset + (int) std::llround ((double) j * rowSpanSamples / (double) total);
+                                startNote (events, sub, ch, midiCh, slideNote, vel);
+                            }
+                        }
+                    }
+                }
+            }
+            else
+                events.push_back ({ offset, 3, juce::MidiMessage::controllerEvent (midiCh + 1,
+                                                                                  juce::jlimit (0, 127, cell.cmd),
+                                                                                  juce::jlimit (0, 127, cell.cmdVal >= 0 ? cell.cmdVal : 0)) });
+        }
 
         uiRow[(size_t) ch].store (row);
     }
@@ -181,6 +269,7 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     }
 
     const double rowsPerBeat = (double) juce::jmax (1, song.settings.rowsPerBeat);
+    const double rowSpanSamples = (60.0 / juce::jmax (1.0, t.bpm)) * sampleRate / rowsPerBeat;
 
     for (auto& clip : song.clips)
     {
@@ -208,7 +297,7 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
             const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
                                              (int) std::llround ((rowTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
 
-            processRow (*pattern, clip, row, events, offset);
+            processRow (*pattern, clip, row, events, offset, rowSpanSamples, song.macros);
 
             for (int ch = 0; ch < pattern->channels && ch < kMaxTrackerChannels; ++ch)
                 channels[(size_t) ch].lastRow = row;
@@ -224,7 +313,7 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 const double rowTime = clipStart + (double) rowAtStart / rowsPerBeat;
 
                 if (rowTime < ppqStart - 1.0e-9)
-                    processRow (*pattern, clip, rowAtStart, events, 0);
+                    processRow (*pattern, clip, rowAtStart, events, 0, rowSpanSamples, song.macros);
             }
         }
 
