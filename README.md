@@ -45,7 +45,8 @@ cmake --build tests/build -j"$(nproc)"
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column
   chips, tools, timeline drop, pool placement) and confirms MIDI output
 * `ReTrektorEditorShot` – renders the editor headlessly and can dump the
-  component layout (`--dump`, optionally `--tab=settings|macros`)
+  component layout (`--dump`, optionally `--tab=settings|macros` and
+  `--expand-pool` to show the pool grid preview)
 
 Example:
 
@@ -64,7 +65,11 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   zoom out/in, host position.
 * **Left panel** – pattern pool. Every pattern is listed with id and name.
   Unused patterns can be edited and placed; used patterns show an "in use"
-  marker. Drag a pattern onto the timeline to place it.
+  marker. Drag a pattern onto the timeline to place it. Right-click a pattern
+  for actions (edit, place, copy, paste, duplicate, rename, delete) including
+  "Toggle grid preview", which grows the item into a preview of its first 12
+  rows × up to 4 channels (notes, `===` note-offs, channel dividers, beat
+  lines, and a teal/orange tick where a command is present).
 * **Timeline** – free (non-grid) horizontal arrangement of pattern clips.
   Clips can be moved, resized, sliced, copied and pasted. Timeline edits are
   disabled while the host is playing; cell editing and pattern selection stay
@@ -229,14 +234,15 @@ Core test tests/CoreTest.cpp (Model + PlaybackEngine): PASS 0 failures (defaults
 tests/EditorShot.cpp renders the editor standalone to PNG (host snapshot was black because VST3 native view needs a window); screenshot generated with 2805 distinct colors.
 Fixed ReTtrektor class-name typo across all sources/build files (commit c36c6c7, 22 files); restored working tree from HEAD; plugin + all 4 test targets rebuilt; CoreTest/UiTest/Smoke all PASS.
 Wired command macros into playback (commit 49ec706): Command 128-143 (hex 80-8F) = M0-M15 calls; arpeggiator kind 0 re-triggers P1 slots at (k*P2)%12 semitones over the row span; kind 1 pitch glide sends CC105=P1 then sweeps 14-bit pitch wheel 8192 to 16383 in P2 steps (needs active note); kind 2 slide oscillates +/-P1 over 2*P2 re-triggers; processRow now takes rowSpanSamples + song.macros; wheel re-centred in startNote/stopNote/allNotesOff; macro calls drawn theme::cmdMacro orange in tracker, cmdNum entry clamped 0..143; MacrosPanel caption documents 128-143; CoreTest +3 macro sections (bends collected); default song macro renamed "Arp 7x+4"; plugin + tests rebuilt, all suites PASS; two headless 1240x760 screenshots (tracker --dump, macros --tab=macros) visually verified in Review pane: no overlapping/misplaced controls (settings rows, header chips, bottom bar).
+Expandable grid preview in pattern pool (commit de11909): pool items have variable pitch (collapsed 42 / expanded kExpandedPitch 138; cumulative cellBounds/paint layout); right-click context menu "Toggle grid preview" (expandedIds by pattern id, not serialized); drawGridPreview shows first 12 rows x up to 4 channels (noteName green, === noteOff, dim ---, channel dividers, beat lines every song.settings.rowsPerBeat, 2px cmdCC/cmdMacro tick per command cell); EditorShot gained --expand-pool; plugin + tests rebuilt, Core/Ui/Smoke PASS; third 1240x760 screenshot with expanded pool item visually verified (grid fits, second item shifts down cleanly, dump shows no new OUTSIDE PARENT lines).
 Active
 None.
 Blocked
 No Reaper installed; VST3 host testing limited to JUCE smoke test + Carla availability.
 Next Move
-Optional: pattern-pool "expandable grid" refinement (currently id+name list).
 Verify pool drag-drop preview and context-menu paste/slice flows interactively in Carla; confirm Reaper compatibility of the MIDI effect (instrument fallback IS_SYNTH build compiles locally but is untested in Reaper).
 Further command kinds: dedicated pitch bend CC105/CC106 pair command, tempo and song position commands.
+Grid preview currently always starts at row 0 (no preview scrolling yet).
 Relevant Files
 /media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
 /media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization.
@@ -258,7 +264,7 @@ Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$
 Tests: cmake -S tests -B tests/build -DCMAKE_BUILD_TYPE=Release then build targets ReTrektorSmoke, ReTrektorCoreTest, ReTrektorEditorShot.
 Smoke run: DISPLAY=:0 tests/build/ReTrektorSmoke_artefacts/Release/ReTrektorSmoke <bundle> [--screenshot=path].
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git (newest first): 49ec706 macro playback wiring; c36c6c7 ReTtrektor typo fix; 4263853 instrument fallback option; f89454e headless UI interaction test; c168e8b panels fit minimum window; a2ec7c9 Re.Trektor sources; ccc50f2 vendored JUCE 8.0.9.
+Git (newest first): de11909 pool grid preview; c4a8422 README macro-playback update; 49ec706 macro playback wiring; c36c6c7 ReTtrektor typo fix; 4263853 instrument fallback option; f89454e headless UI interaction test; c168e8b panels fit minimum window; a2ec7c9 Re.Trektor sources; ccc50f2 vendored JUCE 8.0.9.
 DISPLAY=:0 / wayland-0 available; no Reaper; /usr/bin/carla exists.
 Missing xcb-util-devel/xcb-util-wm-devel were installed via sudo dnf earlier (leftover from iPlug2 attempt, harmless).
 iPlug2 and its VST3 SDK clone deleted from workspace; .gitmodules removed.
