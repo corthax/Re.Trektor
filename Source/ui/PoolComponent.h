@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../PluginProcessor.h"
+#include <vector>
 
 namespace rtr
 {
@@ -29,6 +30,12 @@ public:
     /** Optional snap function supplied by the editor (uses the timeline grid). */
     std::function<double (double)> snapBeat;
 
+    /** Expandable grid: pool items can grow to preview the pattern's note
+        grid (first rows x channels). Toggled from the pattern context menu. */
+    bool isExpanded (int index) const;
+    int poolContentHeight() const;
+    void toggleGridPreview (int patternId);
+
 private:
     void timerCallback() override;
     void showContextMenu (int patternId);
@@ -38,11 +45,16 @@ private:
     int itemHeight = 42;
     int scrollY = 0;
 
+    void drawGridPreview (juce::Graphics& g, const Pattern& p,
+                          const juce::Rectangle<int>& r) const;
+
     ReTrektorAudioProcessor& proc;
     rtr::Song& song;
 
     bool dragging = false;
     int dragIndex = -1;
+
+    std::vector<int> expandedIds; // pattern ids currently showing the grid preview
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PoolComponent)
 };

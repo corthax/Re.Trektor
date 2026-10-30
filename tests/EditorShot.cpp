@@ -7,6 +7,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ui/PoolComponent.h"
 
 #include <juce_graphics/juce_graphics.h>
 #include <iostream>
@@ -64,6 +65,9 @@ int main (int argc, char** argv)
 
     const bool doDump = args.contains ("--dump");
     args.removeString ("--dump");
+
+    const bool expandPool = args.contains ("--expand-pool");
+    args.removeString ("--expand-pool");
 
     juce::String tab;
     for (int i = args.size(); --i >= 0;)
@@ -126,6 +130,33 @@ int main (int argc, char** argv)
             if (auto* button = dynamic_cast<juce::TextButton*> (child))
                 if (button->getButtonText().toLowerCase() == tab && button->onClick != nullptr)
                     button->onClick();
+    }
+
+    if (expandPool)
+    {
+        std::function<rtr::PoolComponent* (juce::Component&)> findPool;
+        findPool = [&findPool] (juce::Component& c) -> rtr::PoolComponent*
+        {
+            if (auto* pool = dynamic_cast<rtr::PoolComponent*> (&c))
+                return pool;
+
+            for (auto* child : c.getChildren())
+                if (auto* found = findPool (*child))
+                    return found;
+
+            return nullptr;
+        };
+
+        if (auto* pool = findPool (*editor))
+        {
+            const juce::ScopedLock sl (proc.getModelLock());
+
+            if (! proc.getSong().patterns.empty())
+            {
+                pool->toggleGridPreview (proc.getSong().patterns.front().id);
+                pool->refresh();
+            }
+        }
     }
 
     if (doDump)

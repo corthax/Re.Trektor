@@ -1,10 +1,12 @@
 #include "PoolComponent.h"
 #include "Theme.h"
+#include <algorithm>
 
 namespace rtr
 {
 
 static constexpr const char* kClipDragPrefix = "rtr-pattern:";
+static constexpr int kExpandedPitch = 138; // expanded item pitch (grid preview)
 
 PoolComponent::PoolComponent (ReTrektorAudioProcessor& processor)
     : proc (processor), song (processor.getSong())
@@ -26,11 +28,42 @@ void PoolComponent::timerCallback()
 }
 
 //==============================================================================
+bool PoolComponent::isExpanded (int index) const
+{
+    if (index < 0 || index >= (int) song.patterns.size())
+        return false;
+
+    const int id = song.patterns[(size_t) index].id;
+    return std::find (expandedIds.begin(), expandedIds.end(), id) != expandedIds.end();
+}
+
+int PoolComponent::poolContentHeight() const
+{
+    int total = 0;
+
+    for (int i = 0; i < (int) song.patterns.size(); ++i)
+        total += isExpanded (i) ? kExpandedPitch : itemHeight;
+
+    return total;
+}
+
+void PoolComponent::toggleGridPreview (int patternId)
+{
+    if (auto it = std::find (expandedIds.begin(), expandedIds.end(), patternId); it != expandedIds.end())
+        expandedIds.erase (it);
+    else
+        expandedIds.push_back (patternId);
+}
+
 juce::Rectangle<int> PoolComponent::cellBounds (int index) const
 {
-    const int headerH = 26;
-    const int w = juce::jmax (60, getWidth() - 8);
-    return { 4, headerH + 4 + index * itemHeight - scrollY, w, itemHeight - 4 };
+    int y = 30; // header (26) + 4
+
+    for (int i = 0; i < index; ++i)
+        y += isExpanded (i) ? kExpandedPitch : itemHeight;
+
+    const int pitch = isExpanded (index) ? kExpandedPitch : itemHeight;
+    return { 4, y - scrollY, juce::jmax (60, getWidth() - 8), pitch - 4 };
 }
 
 int PoolComponent::patternIndexAt (juce::Point<int> p) const
@@ -68,10 +101,15 @@ void PoolComponent::paint (juce::Graphics& g)
     g.reduceClipRegion (getLocalBounds().withTrimmedTop (26));
     g.setFont (theme::monoFont (11.5f));
 
+    int y = 30; // first item top (header 26 + 4)
+
     for (int i = 0; i < (int) song.patterns.size(); ++i)
     {
         auto& p = song.patterns[(size_t) i];
-        auto r = cellBounds (i);
+        const bool exp = isExpanded (i);
+        const int pitch = exp ? kExpandedPitch : itemHeight;
+        juce::Rectangle<int> r (4, y - scrollY, juce::jmax (60, getWidth() - 8), pitch - 4);
+        y += pitch;
 
         if (r.getBottom() < 26 || r.getY() > getHeight())
             continue;
@@ -106,6 +144,9 @@ void PoolComponent::paint (juce::Graphics& g)
         g.drawText (info, r.getX() + 30, r.getY() + 21, r.getWidth() - 36, 14,
                     juce::Justification::centredLeft, false);
         g.setFont (theme::monoFont (11.5f));
+
+        if (exp)
+            drawGridPreview (g, p, r);
     }
 
     g.restoreState();
@@ -113,7 +154,7 @@ void PoolComponent::paint (juce::Graphics& g)
 
 void PoolComponent::resized()
 {
-    const int maxScroll = juce::jmax (0, (int) song.patterns.size() * itemHeight - (getHeight() - 34));
+    const int maxScroll = juce::jmax (0, poolContentHeight() - (getHeight() - 34));
     scrollY = juce::jlimit (0, maxScroll, scrollY);
 }
 
@@ -212,9 +253,71 @@ void PoolComponent::mouseDoubleClick (const juce::MouseEvent& e)
 
 void PoolComponent::mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails& wheel)
 {
-    const int maxScroll = juce::jmax (0, (int) song.patterns.size() * itemHeight - (getHeight() - 34));
+    const int maxScroll = juce::jmax (0, poolContentHeight() - (getHeight() - 34));
     scrollY = juce::jlimit (0, maxScroll, scrollY + (int) std::round (-wheel.deltaY * 60.0f));
     repaint();
+}
+
+//==============================================================================
+void PoolComponent::drawGridPreview (juce::Graphics& g, const Pattern& p,
+                                     const juce::Rectangle<int>& r) const
+{
+    const int rows = juce::jmin (p.length, 12);
+    const int cols = juce::jmin (p.channels, 4);
+    const int gx = r.getX() + 30;
+    const int gw = juce::jmax (0, r.getWidth() - 36);
+    const int gy = r.getY() + 37; // below id badge / name / info line
+    const int cellH = 8;
+    const int cellW = gw / cols;
+
+    // channel separators
+    g.setColour (theme::outline.withAlpha (0.6f));
+    for (int c = 1; c < cols; ++c)
+        g.drawVerticalLine ((float) (gx + c * cellW), (float) gy, (float) (gy + rows * cellH));
+
+    // subtle beat lines every rowsPerBeat rows
+    const int rpb = juce::jmax (1, song.settings.rowsPerBeat);
+    g.setColour (theme::beatLine);
+    for (int row = rpb; row < rows; row += rpb)
+        g.drawHorizontalLine ((float) (gy + row * cellH - 1), (float) gx, (float) (gx + gw));
+
+    g.setFont (theme::monoFont (7.5f));
+
+    for (int row = 0; row < rows; ++row)
+    {
+        const int y = gy + row * cellH;
+
+        for (int c = 0; c < cols; ++c)
+        {
+            const auto& cell = p.cell (row, c);
+            const int x = gx + c * cellW;
+
+            if (cell.note == kEmpty)
+            {
+                g.setColour (theme::textDim.withAlpha (0.4f));
+                g.drawText ("---", x + 2, y + 1, cellW - 5, cellH - 2,
+                            juce::Justification::centredLeft, false);
+            }
+            else if (cell.note == kNoteOff)
+            {
+                g.setColour (theme::noteOff);
+                g.drawText ("===", x + 2, y + 1, cellW - 5, cellH - 2,
+                            juce::Justification::centredLeft, false);
+            }
+            else
+            {
+                g.setColour (theme::note);
+                g.drawText (noteName (cell.note), x + 2, y + 1, cellW - 5, cellH - 2,
+                            juce::Justification::centredLeft, false);
+            }
+
+            if (cell.cmd != kEmpty)
+            {
+                g.setColour (cell.cmd >= kMacroCmdBase ? theme::cmdMacro : theme::cmdCC);
+                g.fillRect (x + cellW - 3, y + 1, 2, 2);
+            }
+        }
+    }
 }
 
 //==============================================================================
@@ -241,6 +344,8 @@ void PoolComponent::showContextMenu (int patternId)
     menu.addItem (7, "Duplicate pattern");
     menu.addItem (8, "Rename pattern");
     menu.addItem (9, "Delete pattern", ! inUse);
+    menu.addSeparator();
+    menu.addItem (10, "Toggle grid preview");
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
                         [this, patternId] (int result)
@@ -340,6 +445,10 @@ void PoolComponent::showContextMenu (int patternId)
 
                                 case 9:
                                     song.removePattern (patternId);
+                                    break;
+
+                                case 10:
+                                    toggleGridPreview (patternId);
                                     break;
 
                                 default:
