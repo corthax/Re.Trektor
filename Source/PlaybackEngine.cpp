@@ -20,6 +20,16 @@ void PlaybackEngine::reset()
         uiMidiChannel[(size_t) i].store (c.lastInst);
     }
 
+    for (int i = 0; i < kMidiChannelCount; ++i)
+        everPlayed[(size_t) i].reset();
+
+    wasPlaying = false;
+    previousPpq = -1.0;
+    justStarted = false;
+}
+
+void PlaybackEngine::forgetTransport()
+{
     wasPlaying = false;
     previousPpq = -1.0;
     justStarted = false;
@@ -71,6 +81,12 @@ void PlaybackEngine::startNote (std::vector<PendingEvent>& events, int offset, i
     if (c.activeNote >= 0)
         events.push_back ({ offset, 0, juce::MidiMessage::noteOff (c.activeMidiCh + 1, c.activeNote) });
 
+    // The state may have been cleared while the synth still holds this pitch
+    // (Reaper does not call a MIDI effect when the transport is stopped, so
+    // stop-time note-offs may never be delivered). Guarantee re-articulation.
+    if (everPlayed[(size_t) midiCh].test (note) && c.activeNote != note)
+        events.push_back ({ offset, 0, juce::MidiMessage::noteOff (midiCh + 1, note) });
+
     if (c.lastBendPos != kBendCentre)
     {
         events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (c.activeMidiCh + 1, kBendCentre) });
@@ -78,6 +94,7 @@ void PlaybackEngine::startNote (std::vector<PendingEvent>& events, int offset, i
     }
 
     events.push_back ({ offset, 1, juce::MidiMessage::noteOn (midiCh + 1, note, (juce::uint8) juce::jlimit (1, 127, velocity)) });
+    everPlayed[(size_t) midiCh].set (note);
 
     c.activeNote = note;
     c.activeMidiCh = midiCh;
@@ -271,6 +288,17 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     const double rowsPerBeat = (double) juce::jmax (1, song.settings.rowsPerBeat);
     const double rowSpanSamples = (60.0 / juce::jmax (1.0, t.bpm)) * sampleRate / rowsPerBeat;
 
+    // Hosts report per-block positions with their own rounding; a transport
+    // stopping exactly at a clip end can end a hair before the computed bound.
+    const double span = (double) numSamples * ppqPerSample;
+    const double spanEps = std::max (1.0e-6, span * 1.0e-3);
+
+    // Rows the previous block already covered must not be processed twice
+    // (hosts may report a block start a few ulps below the previous computed
+    // end); a deliberate backwards seek is excluded from this dedup.
+    const double drift = std::max (1.0e-9, span * 1.0e-4);
+    const bool nearContinuous = previousPpq >= 0.0 && ppqStart >= previousPpq - drift;
+
     for (auto& clip : song.clips)
     {
         const auto* pattern = song.findPattern (clip.patternId);
@@ -291,8 +319,14 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
         {
             const double rowTime = clipStart + (double) row / rowsPerBeat;
 
-            if (rowTime < ppqStart - 1.0e-9 || rowTime >= ppqEnd)
+            if (rowTime >= ppqEnd)
                 continue;
+
+            if (rowTime < ppqStart && ! (nearContinuous && rowTime >= previousPpq && rowTime >= ppqStart - drift))
+                continue;
+
+            if (nearContinuous && rowTime >= ppqStart && rowTime < previousPpq)
+                continue; // covered by the previous block already
 
             const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
                                              (int) std::llround ((rowTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
@@ -318,7 +352,7 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
         }
 
         // Notes that were started by this clip must stop when the clip ends.
-        if (ppqStart < clipEnd && ppqEnd >= clipEnd)
+        if (ppqStart < clipEnd && ppqEnd + spanEps >= clipEnd)
         {
             const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
                                              (int) std::llround ((clipEnd - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
@@ -351,7 +385,10 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
             if (pattern != nullptr)
             {
                 const double end = clip->startBeats + (double) pattern->length / rowsPerBeat;
-                stillUnder = ppqStart >= clip->startBeats - 1.0e-9 && ppqStart < end;
+
+                // A block straddling the clip start still "covers" the clip:
+                // a note may legitimately be started by this block's rows.
+                stillUnder = ppqStart < end && ppqEnd > clip->startBeats - 1.0e-9;
             }
         }
 

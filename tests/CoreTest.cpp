@@ -415,6 +415,52 @@ int main()
         check (song.addClip (p.id, 1.0) != nullptr, "a clip may start exactly at the end of another");
     }
 
+    //== Stuck-note guard (Reaper-style host) =================================
+    {
+        std::cout << "Stuck-note guard (Reaper-style host)\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (64);
+
+        for (auto& c : h.song.clips)
+            c.startBeats = 0.0;
+
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+
+        h.runBlocks (94, true, true); // transport stops mid-clip: row 0 note still held
+
+        int on1 = 0, off1 = 0;
+        for (auto& n : h.notes)
+            if (n.note == 60)
+                n.on ? ++on1 : ++off1;
+
+        check (on1 == 1, "playback 1 sends one note-on 60");
+        check (off1 == 0, "no note-off while the transport stops inside the clip");
+
+        // Stopped block whose output the host discards (Reaper never calls a
+        // MIDI effect while stopped at all; the engine clears its own state).
+        h.runBlocks (1, false, false);
+
+        // Edit while stopped: move the clip away from song start.
+        h.song.clips[0].startBeats = 8.0;
+        h.ppq = 0.0;
+        h.resetEvents();
+
+        h.runBlocks (1130, true, true); // play from ppq 0 past the moved clip's end
+
+        int on2 = 0, off2 = 0;
+        for (auto& n : h.notes)
+            if (n.note == 60)
+                n.on ? ++on2 : ++off2;
+
+        check (on2 == 1, "playback 2 re-triggers the moved clip first row once");
+        check (off2 == 2, "a matching note-off precedes the re-trigger (stuck-key guard), plus the clip-end close");
+        check (! h.notes.empty() && ! h.notes.front().on && h.notes.front().note == 60,
+               "the moved clip plays with a note-off before the re-triggered note-on");
+    }
+
     std::cout << (failures == 0 ? "PASS" : "FAILED") << " (" << failures << " failures)\n";
     return failures == 0 ? 0 : 1;
 }

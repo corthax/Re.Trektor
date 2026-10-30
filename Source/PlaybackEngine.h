@@ -4,6 +4,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <array>
 #include <atomic>
+#include <bitset>
 
 namespace rtr
 {
@@ -23,6 +24,12 @@ public:
     PlaybackEngine() { reset(); }
 
     void reset();
+
+    /** Drops transport tracking but keeps note state: the synth may still be
+        holding notes when the host restarts the transport (Reaper does not
+        call a MIDI effect while stopped, so stop-time note-offs may never
+        reach the synth). */
+    void forgetTransport ();
 
     /** Fills `midi` with generated events. `transport.ppq` is the position at the
         start of the block. */
@@ -73,6 +80,13 @@ private:
     bool wasPlaying = false;
     double previousPpq = -1.0;
     bool justStarted = false;
+
+    /** Notes this engine has ever sent a note-on for, per MIDI channel.
+        Survives transport resets: hosts like Reaper never call a MIDI effect
+        while stopped, so the synth may still be holding any of these notes
+        when playback restarts. A new note-on of such a pitch is always
+        preceded by a matching note-off so a stuck key can never stack. */
+    std::array<std::bitset<128>, kMidiChannelCount> everPlayed {};
 };
 
 } // namespace rtr

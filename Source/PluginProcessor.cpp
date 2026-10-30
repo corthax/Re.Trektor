@@ -18,7 +18,11 @@ ReTrektorAudioProcessor::~ReTrektorAudioProcessor() = default;
 void ReTrektorAudioProcessor::prepareToPlay (double, int)
 {
     const juce::ScopedLock sl (modelLock);
-    engine.reset();
+
+    // Keep note state: the synth can still be holding notes from a previous
+    // transport run (hosts like Reaper may not call a MIDI effect while
+    // stopped), so forget only the transport tracking.
+    engine.forgetTransport();
 }
 
 void ReTrektorAudioProcessor::releaseResources()
