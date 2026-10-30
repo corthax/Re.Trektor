@@ -6,7 +6,7 @@ namespace rtr
 
 static constexpr const char* kClipDragPrefix = "rtr-pattern:";
 
-TimelineComponent::TimelineComponent (ReTtrektorAudioProcessor& processor)
+TimelineComponent::TimelineComponent (ReTrektorAudioProcessor& processor)
     : proc (processor), song (processor.getSong())
 {
     setWantsKeyboardFocus (false);

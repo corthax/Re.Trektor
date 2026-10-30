@@ -2,7 +2,7 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-ReTtrektorAudioProcessor::ReTtrektorAudioProcessor()
+ReTrektorAudioProcessor::ReTrektorAudioProcessor()
 #if RETREKTOR_INSTRUMENT_FALLBACK
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 #else
@@ -12,27 +12,27 @@ ReTtrektorAudioProcessor::ReTtrektorAudioProcessor()
     syncPlaybackModel();
 }
 
-ReTtrektorAudioProcessor::~ReTtrektorAudioProcessor() = default;
+ReTrektorAudioProcessor::~ReTrektorAudioProcessor() = default;
 
 //==============================================================================
-void ReTtrektorAudioProcessor::prepareToPlay (double, int)
+void ReTrektorAudioProcessor::prepareToPlay (double, int)
 {
     const juce::ScopedLock sl (modelLock);
     engine.reset();
 }
 
-void ReTtrektorAudioProcessor::releaseResources()
+void ReTrektorAudioProcessor::releaseResources()
 {
     sendPanic();
 }
 
-bool ReTtrektorAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool ReTrektorAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     juce::ignoreUnused (layouts);
     return true;
 }
 
-void ReTtrektorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void ReTrektorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
 
@@ -104,7 +104,7 @@ void ReTtrektorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
 }
 
 //==============================================================================
-ReTtrektorAudioProcessor::TransportSnapshot ReTtrektorAudioProcessor::getTransport() const
+ReTrektorAudioProcessor::TransportSnapshot ReTrektorAudioProcessor::getTransport() const
 {
     TransportSnapshot s;
     s.playing = transportPlaying.load();
@@ -125,13 +125,13 @@ ReTtrektorAudioProcessor::TransportSnapshot ReTtrektorAudioProcessor::getTranspo
     return s;
 }
 
-void ReTtrektorAudioProcessor::sendPanic()
+void ReTrektorAudioProcessor::sendPanic()
 {
     const juce::ScopedLock sl (modelLock);
     engine.reset();
 }
 
-void ReTtrektorAudioProcessor::syncPlaybackModel()
+void ReTrektorAudioProcessor::syncPlaybackModel()
 {
     auto copy = std::make_shared<rtr::Song> (song);
 
@@ -139,20 +139,20 @@ void ReTtrektorAudioProcessor::syncPlaybackModel()
     playbackSong = std::move (copy);
 }
 
-void ReTtrektorAudioProcessor::notifySongChanged()
+void ReTrektorAudioProcessor::notifySongChanged()
 {
     if (onSongChanged)
         onSongChanged();
 }
 
 //==============================================================================
-juce::AudioProcessorEditor* ReTtrektorAudioProcessor::createEditor()
+juce::AudioProcessorEditor* ReTrektorAudioProcessor::createEditor()
 {
-    return new ReTtrektorAudioProcessorEditor (*this);
+    return new ReTrektorAudioProcessorEditor (*this);
 }
 
 //==============================================================================
-void ReTtrektorAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void ReTrektorAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     juce::ValueTree tree;
 
@@ -165,7 +165,7 @@ void ReTtrektorAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
         copyXmlToBinary (*xml, destData);
 }
 
-void ReTtrektorAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void ReTrektorAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     auto xml = getXmlFromBinary (data, sizeInBytes);
 
@@ -190,5 +190,5 @@ void ReTtrektorAudioProcessor::setStateInformation (const void* data, int sizeIn
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new ReTtrektorAudioProcessor();
+    return new ReTrektorAudioProcessor();
 }

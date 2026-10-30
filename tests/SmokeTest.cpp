@@ -5,7 +5,7 @@
       - the plugin is recognised as a MIDI effect with a GUI
       - it can be prepared and processed
       - state save/load round trips
-    Run:  ./ReTtrektorSmoke /path/to/Re.Trektor.vst3
+    Run:  ./ReTrektorSmoke /path/to/Re.Trektor.vst3
 */
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -36,7 +36,7 @@ int main (int argc, char** argv)
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     juce::String path = argc > 1 ? juce::String (argv[1])
-                                 : juce::String ("../build/ReTtrektor_artefacts/Release/VST3/Re.Trektor.vst3");
+                                 : juce::String ("../build/ReTrektor_artefacts/Release/VST3/Re.Trektor.vst3");
     juce::File file (juce::File::getCurrentWorkingDirectory().getChildFile (path));
 
     if (! file.exists())

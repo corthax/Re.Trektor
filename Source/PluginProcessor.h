@@ -6,11 +6,11 @@
 #include <memory>
 
 //==============================================================================
-class ReTtrektorAudioProcessor final : public juce::AudioProcessor
+class ReTrektorAudioProcessor final : public juce::AudioProcessor
 {
 public:
-    ReTtrektorAudioProcessor();
-    ~ReTtrektorAudioProcessor() override;
+    ReTrektorAudioProcessor();
+    ~ReTrektorAudioProcessor() override;
 
     //== AudioProcessor ========================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -91,5 +91,5 @@ private:
     double lastPpq = 0.0;
     bool hadPpq = false;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReTtrektorAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReTrektorAudioProcessor)
 };

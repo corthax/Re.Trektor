@@ -4,7 +4,7 @@
 namespace rtr
 {
 
-MacrosPanel::MacrosPanel (ReTtrektorAudioProcessor& processor)
+MacrosPanel::MacrosPanel (ReTrektorAudioProcessor& processor)
     : proc (processor), song (processor.getSong())
 {
     setOpaque (true);

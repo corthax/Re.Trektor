@@ -11,7 +11,7 @@ namespace rtr
 class MacrosPanel final : public juce::Component
 {
 public:
-    explicit MacrosPanel (ReTtrektorAudioProcessor& processor);
+    explicit MacrosPanel (ReTrektorAudioProcessor& processor);
     ~MacrosPanel() override = default;
 
     void paint (juce::Graphics&) override;
@@ -36,7 +36,7 @@ private:
     void syncValues();
     int rowStep() const;
 
-    ReTtrektorAudioProcessor& proc;
+    ReTrektorAudioProcessor& proc;
     rtr::Song& song;
 
     std::array<RowControls, kMaxRows> controls;

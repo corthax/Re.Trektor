@@ -9,7 +9,7 @@ namespace rtr
 class ToolsPanel final : public juce::Component
 {
 public:
-    explicit ToolsPanel (ReTtrektorAudioProcessor& processor);
+    explicit ToolsPanel (ReTrektorAudioProcessor& processor);
     ~ToolsPanel() override = default;
 
     void paint (juce::Graphics&) override;
@@ -25,7 +25,7 @@ private:
     std::vector<Pattern*> scopedPatterns();
     void applyToRows (Pattern& p, const std::function<void (Cell&, int row)>& fn);
 
-    ReTtrektorAudioProcessor& proc;
+    ReTrektorAudioProcessor& proc;
     rtr::Song& song;
 
     juce::ComboBox scopeBox;

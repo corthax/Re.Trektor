@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(ReTtrektor VERSION 0.1.0 LANGUAGES C CXX)
+project(ReTrektor VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,7 +22,7 @@ if (RETREKTOR_INSTRUMENT_FALLBACK)
     set(RTR_VST3_CATEGORIES "Instrument")
 endif()
 
-juce_add_plugin(ReTtrektor
+juce_add_plugin(ReTrektor
     COMPANY_NAME "Corthax"
     BUNDLE_ID "com.corthax.retrektor"
     PLUGIN_MANUFACTURER_CODE Cort
@@ -38,12 +38,12 @@ juce_add_plugin(ReTtrektor
 )
 
 if (RETREKTOR_INSTRUMENT_FALLBACK)
-    target_compile_definitions(ReTtrektor PUBLIC RETREKTOR_INSTRUMENT_FALLBACK=1)
+    target_compile_definitions(ReTrektor PUBLIC RETREKTOR_INSTRUMENT_FALLBACK=1)
 endif()
 
-juce_generate_juce_header(ReTtrektor)
+juce_generate_juce_header(ReTrektor)
 
-target_sources(ReTtrektor PRIVATE
+target_sources(ReTrektor PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
@@ -67,7 +67,7 @@ target_sources(ReTtrektor PRIVATE
     Source/ui/MacrosPanel.h
 )
 
-target_compile_definitions(ReTtrektor PUBLIC
+target_compile_definitions(ReTrektor PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
@@ -77,7 +77,7 @@ target_compile_definitions(ReTtrektor PUBLIC
     JUCE_MODAL_LOOPS_PERMITTED=0
 )
 
-target_link_libraries(ReTtrektor PRIVATE
+target_link_libraries(ReTrektor PRIVATE
     juce::juce_audio_processors
     juce::juce_audio_utils
     juce::juce_gui_extra

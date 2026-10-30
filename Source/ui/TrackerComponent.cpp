@@ -48,7 +48,7 @@ namespace
 }
 
 //==============================================================================
-TrackerComponent::TrackerComponent (ReTtrektorAudioProcessor& processor)
+TrackerComponent::TrackerComponent (ReTrektorAudioProcessor& processor)
     : proc (processor), song (processor.getSong())
 {
     setOpaque (true);

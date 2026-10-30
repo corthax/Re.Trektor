@@ -12,7 +12,7 @@ class TrackerComponent final : public juce::Component,
 public:
     enum class Field { note = 0, inst, vol, pan, cmdNum, cmdVal };
 
-    explicit TrackerComponent (ReTtrektorAudioProcessor& processor);
+    explicit TrackerComponent (ReTrektorAudioProcessor& processor);
     ~TrackerComponent() override = default;
 
     void paint (juce::Graphics&) override;
@@ -82,7 +82,7 @@ private:
 
     void showContextMenu (const juce::MouseEvent&);
 
-    ReTtrektorAudioProcessor& proc;
+    ReTrektorAudioProcessor& proc;
     rtr::Song& song;
 
     juce::TextEditor rowsEditor;

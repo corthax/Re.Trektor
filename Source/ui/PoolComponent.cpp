@@ -6,7 +6,7 @@ namespace rtr
 
 static constexpr const char* kClipDragPrefix = "rtr-pattern:";
 
-PoolComponent::PoolComponent (ReTtrektorAudioProcessor& processor)
+PoolComponent::PoolComponent (ReTrektorAudioProcessor& processor)
     : proc (processor), song (processor.getSong())
 {
     setOpaque (true);

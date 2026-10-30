@@ -127,7 +127,7 @@ int main()
             ++failures;
     };
 
-    ReTtrektorAudioProcessor proc;
+    ReTrektorAudioProcessor proc;
     proc.setPlayHead (new MockPlayHead());
     proc.prepareToPlay (48000.0, 64);
 

@@ -2,7 +2,7 @@
     Renders the Re.Trektor editor to a PNG without a host, and optionally dumps
     the component tree so the layout can be verified without looking at pixels.
 
-    Usage: ReTtrektorEditorShot /path/out.png [width height] [--dump]
+    Usage: ReTrektorEditorShot /path/out.png [width height] [--dump]
 */
 
 #include "PluginProcessor.h"
@@ -77,7 +77,7 @@ int main (int argc, char** argv)
     const int w = args.size() > 1 ? args[1].getIntValue() : 1240;
     const int h = args.size() > 2 ? args[2].getIntValue() : 760;
 
-    ReTtrektorAudioProcessor proc;
+    ReTrektorAudioProcessor proc;
     proc.prepareToPlay (48000.0, 512);
 
     // Give the demo song some content so the tracker and timeline are not empty.

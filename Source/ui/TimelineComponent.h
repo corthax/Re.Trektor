@@ -11,7 +11,7 @@ class TimelineComponent final : public juce::Component,
                                 private juce::Timer
 {
 public:
-    explicit TimelineComponent (ReTtrektorAudioProcessor& processor);
+    explicit TimelineComponent (ReTrektorAudioProcessor& processor);
     ~TimelineComponent() override = default;
 
     void paint (juce::Graphics&) override;
@@ -62,7 +62,7 @@ private:
     void drawPlayhead (juce::Graphics&, juce::Rectangle<int> area);
     void drawGrid (juce::Graphics&, juce::Rectangle<int> area);
 
-    ReTtrektorAudioProcessor& proc;
+    ReTrektorAudioProcessor& proc;
     rtr::Song& song;
 
     double pixelsPerBeat = 48.0;

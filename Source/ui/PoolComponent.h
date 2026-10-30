@@ -10,7 +10,7 @@ class PoolComponent final : public juce::Component,
                             private juce::Timer
 {
 public:
-    explicit PoolComponent (ReTtrektorAudioProcessor& processor);
+    explicit PoolComponent (ReTrektorAudioProcessor& processor);
     ~PoolComponent() override = default;
 
     void paint (juce::Graphics&) override;
@@ -38,7 +38,7 @@ private:
     int itemHeight = 42;
     int scrollY = 0;
 
-    ReTtrektorAudioProcessor& proc;
+    ReTrektorAudioProcessor& proc;
     rtr::Song& song;
 
     bool dragging = false;

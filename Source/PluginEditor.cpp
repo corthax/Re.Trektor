@@ -3,7 +3,7 @@
 using namespace rtr;
 
 //==============================================================================
-ReTtrektorAudioProcessorEditor::ReTtrektorAudioProcessorEditor (ReTtrektorAudioProcessor& p)
+ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProcessor& p)
     : AudioProcessorEditor (&p),
       proc (p),
       song (p.getSong()),
@@ -210,14 +210,14 @@ ReTtrektorAudioProcessorEditor::ReTtrektorAudioProcessorEditor (ReTtrektorAudioP
     startTimerHz (20);
 }
 
-ReTtrektorAudioProcessorEditor::~ReTtrektorAudioProcessorEditor()
+ReTrektorAudioProcessorEditor::~ReTrektorAudioProcessorEditor()
 {
     proc.onSongChanged = nullptr;
     setLookAndFeel (nullptr);
 }
 
 //==============================================================================
-void ReTtrektorAudioProcessorEditor::paint (juce::Graphics& g)
+void ReTrektorAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (theme::background);
 
@@ -245,7 +245,7 @@ void ReTtrektorAudioProcessorEditor::paint (juce::Graphics& g)
     }
 }
 
-void ReTtrektorAudioProcessorEditor::resized()
+void ReTrektorAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds();
 
@@ -319,7 +319,7 @@ void ReTtrektorAudioProcessorEditor::resized()
 }
 
 //==============================================================================
-void ReTtrektorAudioProcessorEditor::setTab (Tab tab)
+void ReTrektorAudioProcessorEditor::setTab (Tab tab)
 {
     currentTab = tab;
 
@@ -340,7 +340,7 @@ void ReTtrektorAudioProcessorEditor::setTab (Tab tab)
         tracker.grabKeyboardFocus();
 }
 
-void ReTtrektorAudioProcessorEditor::refreshAll()
+void ReTrektorAudioProcessorEditor::refreshAll()
 {
     proc.syncPlaybackModel();
     syncBottomBar();
@@ -351,7 +351,7 @@ void ReTtrektorAudioProcessorEditor::refreshAll()
     repaint();
 }
 
-void ReTtrektorAudioProcessorEditor::selectPattern (int patternId)
+void ReTrektorAudioProcessorEditor::selectPattern (int patternId)
 {
     song.activePatternId = patternId;
 
@@ -370,7 +370,7 @@ void ReTtrektorAudioProcessorEditor::selectPattern (int patternId)
         tracker.grabKeyboardFocus();
 }
 
-void ReTtrektorAudioProcessorEditor::syncBottomBar()
+void ReTrektorAudioProcessorEditor::syncBottomBar()
 {
     syncingUi = true;
 
@@ -393,7 +393,7 @@ void ReTtrektorAudioProcessorEditor::syncBottomBar()
     syncingUi = false;
 }
 
-void ReTtrektorAudioProcessorEditor::syncGridControls()
+void ReTrektorAudioProcessorEditor::syncGridControls()
 {
     syncingUi = true;
     snapButton.setToggleState (song.settings.snapEnabled, juce::dontSendNotification);
@@ -418,7 +418,7 @@ void ReTtrektorAudioProcessorEditor::syncGridControls()
     syncingUi = false;
 }
 
-void ReTtrektorAudioProcessorEditor::applySettingsToModel()
+void ReTrektorAudioProcessorEditor::applySettingsToModel()
 {
     for (auto& p : song.patterns)
         p.setChannels (juce::jmin (p.channels, song.settings.maxTrackerChannels));
@@ -427,7 +427,7 @@ void ReTtrektorAudioProcessorEditor::applySettingsToModel()
 }
 
 //==============================================================================
-void ReTtrektorAudioProcessorEditor::timerCallback()
+void ReTrektorAudioProcessorEditor::timerCallback()
 {
     updatePositionLabel();
 
@@ -442,7 +442,7 @@ void ReTtrektorAudioProcessorEditor::timerCallback()
     }
 }
 
-void ReTtrektorAudioProcessorEditor::updatePositionLabel()
+void ReTrektorAudioProcessorEditor::updatePositionLabel()
 {
     const auto t = proc.getTransport();
     juce::String s;
@@ -459,7 +459,7 @@ void ReTtrektorAudioProcessorEditor::updatePositionLabel()
 }
 
 //==============================================================================
-bool ReTtrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
+bool ReTrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
 {
     const bool ctrl = key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown();
 
@@ -490,7 +490,7 @@ bool ReTtrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
     return false;
 }
 
-void ReTtrektorAudioProcessorEditor::doCopy()
+void ReTrektorAudioProcessorEditor::doCopy()
 {
     if (auto* p = song.activePattern())
     {
@@ -499,7 +499,7 @@ void ReTtrektorAudioProcessorEditor::doCopy()
     }
 }
 
-void ReTtrektorAudioProcessorEditor::doPaste (bool forceUnique)
+void ReTrektorAudioProcessorEditor::doPaste (bool forceUnique)
 {
     if (proc.getTransport().playing)
         return;
@@ -517,7 +517,7 @@ void ReTtrektorAudioProcessorEditor::doPaste (bool forceUnique)
     }
 }
 
-void ReTtrektorAudioProcessorEditor::doSlice()
+void ReTrektorAudioProcessorEditor::doSlice()
 {
     if (proc.getTransport().playing)
         return;

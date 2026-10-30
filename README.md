@@ -26,7 +26,7 @@ cmake --build build -j"$(nproc)"
 The bundle is written to:
 
 ```
-build/ReTtrektor_artefacts/Release/VST3/Re.Trektor.vst3
+build/ReTrektor_artefacts/Release/VST3/Re.Trektor.vst3
 ```
 
 Install it by copying that bundle to `~/.vst3/` (or another VST3 path) and
@@ -39,21 +39,21 @@ cmake -S tests -B tests/build -DCMAKE_BUILD_TYPE=Release
 cmake --build tests/build -j"$(nproc)"
 ```
 
-* `ReTtrektorCoreTest` – model, sequencing, snapping, slicing, paste, state
-* `ReTtrektorSmoke` – loads the built VST3, checks MIDI behavior and state
-* `ReTtrektorUiTest` – drives the editor components (tracker keys, column
+* `ReTrektorCoreTest` – model, sequencing, snapping, slicing, paste, state
+* `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
+* `ReTrektorUiTest` – drives the editor components (tracker keys, column
   chips, tools, timeline drop, pool placement) and confirms MIDI output
-* `ReTtrektorEditorShot` – renders the editor headlessly and can dump the
+* `ReTrektorEditorShot` – renders the editor headlessly and can dump the
   component layout (`--dump`, optionally `--tab=settings|macros`)
 
 Example:
 
 ```sh
-tests/build/ReTtrektorCoreTest_artefacts/Release/ReTtrektorCoreTest
-tests/build/ReTtrektorUiTest_artefacts/Release/ReTtrektorUiTest
-tests/build/ReTtrektorSmoke_artefacts/Release/ReTtrektorSmoke \
-    build/ReTtrektor_artefacts/Release/VST3/Re.Trektor.vst3
-DISPLAY=:0 tests/build/ReTtrektorEditorShot_artefacts/Release/ReTtrektorEditorShot \
+tests/build/ReTrektorCoreTest_artefacts/Release/ReTrektorCoreTest
+tests/build/ReTrektorUiTest_artefacts/Release/ReTrektorUiTest
+tests/build/ReTrektorSmoke_artefacts/Release/ReTrektorSmoke \
+    build/ReTrektor_artefacts/Release/VST3/Re.Trektor.vst3
+DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot \
     /tmp/editor.png 1240 760 --dump
 ```
 
@@ -165,3 +165,84 @@ hex, `0`–`15` in decimal).
 
 JUCE is vendored in `JUCE/` and is licensed under its own terms (AGPLv3 /
 commercial). Review `JUCE/LICENSE.md` before distributing binaries.
+
+## Session
+
+Objective
+Build "Re.Trektor" by Corthax: a Linux VST3 MIDI-only vertical tracker sequencer plugin with horizontal free pattern timeline, multichannel MIDI output, and host-synced playback.
+Requirements
+MIDI only, no audio processing; automatic song tempo/position sync from DAW.
+Free (non-grid) horizontal pattern timeline: patterns move/resize/slice/copy/paste, snap to adaptive or fixed grid, no overlapping allowed.
+Timeline ops (move/resize/slice/paste) disabled while host is playing; pattern selection and cell editing still allowed.
+Slice splits pattern at playhead into two new unique patterns (requires snapping; not allowed on 1-row pattern).
+Paste as instance (shared pattern reference) or as unique new pattern; both in context menu, default set in Settings tab; paste target = plugin playhead (same as host time display).
+Per-pattern: visible channel count (bottom bar numeric), column visibility for inst/vol/pan/command (toggle buttons above each channel's note column), pattern length rows (field above line numbers), pattern name.
+Columns: Note, Instrument, Volume, Pan, Command (+ hidden-able); --/--- when empty (Renoise style), instrument shown -0..-F (or -0..-15 decimal).
+Instrument column = MIDI output channel (max 16); if unset, use last previously entered value per tracker channel; same carry applies to vol/pan/command; carried values drawn darker, vol/pan/inst only when note present, command carried shown even if note empty.
+Commands: only CC (0-127) for now, color-coded by type, extensible to pitchbend/macros.
+Max tracker channels 127 (default 1), independent of 16 MIDI output channels; same note on multiple channels in same row → duplicates ignored.
+Keyboard capture when plugin window focused for Renoise-style note entry; US layout assumed; octave + stepskip in bottom bar.
+Defaults: subticks/row 6, 64-row patterns, 4 rows/beat (configurable in Settings); max 1024 rows.
+Mid-row start behavior toggle in Settings, default ignored.
+Zoom: in to single row/symbol size, out to whole song up to host project time.
+Left pattern pool with expandable grid (id + name), drag-and-drop to timeline, unused patterns editable/placeable.
+Right tools panel: Transpose, Remapping, Selection Interpolation with scope: Selection only / Whole pattern / All patterns in song / All created patterns.
+Tabs on top: Tracker / Macros / Settings; Macros tab for arpeggiator/glide macro setup.
+Testing target: Reaper.
+Decisions
+Abandoned iPlug2 (upstream master has no Linux GUI/IGraphics support; linux-bindernews branch lacks Linux VST3 view support and uses older CMake API).
+Using JUCE 8.0.9 vendored in JUCE/ (.git removed, committed as "Add JUCE framework").
+Built as JUCE MIDI effect (IS_MIDI_EFFECT TRUE, NEEDS_MIDI_INPUT TRUE, NEEDS_MIDI_OUTPUT TRUE, VST3 only, COMPANY_NAME Corthax, PRODUCT_NAME "Re.Trektor", codes Cort/Rtrk).
+Model thread safety: juce::CriticalSection modelLock with tryEnter on audio thread (skips generation if UI holds lock); incoming MIDI passed through.
+Note numbering: MIDI 60 = C-4; tracker channel fallback MIDI output channel = tracker channel index clamped to 15.
+Volume column = note velocity when a note is present, CC7 when no note; pan = CC10.
+Resizing a clip changes the shared pattern's row count (affects all instances), validated for overlap.
+Plugin playhead is host-driven only: removed user playhead dragging; timer always mirrors host PPQ and paste/slice use the snapped host position.
+allNotesOff now emits explicit note-offs for active notes before CC123/CC120 panic messages.
+Work State
+Completed
+Repo init, JUCE 8.0.9 vendored/committed; CMakeLists.txt for VST3 MIDI effect.
+Core model (Source/Model.h/.cpp): Cell/Pattern/Clip/Macro/Settings/Clipboard/Song, no-overlap logic, snap (adaptive/fixed), slice-at-playhead into two new patterns (now pointer-safe; captures source rows before vector growth), copy/paste (instance vs unique), ValueTree serialization, formatting helpers.
+Source/PlaybackEngine.h/.cpp: host transport row scheduler, sample-accurate row events, carry state, duplicate-note suppression, note-off on clip end/jump/stop, panic, atomic UI row reporting.
+Source/PluginProcessor.h/.cpp: MIDI-only processor, transport snapshot atomics, state save/load, live MIDI passthrough, MidiKeyboardState, model lock.
+UI: Theme.h (colors/fonts/LookAndFeel), TimelineComponent (ruler, clips, playhead, drag move/resize, snapping, context menus, drag-and-drop target, zoom, playback lock, drop preview, dynamic zoom-out to whole song), TrackerComponent (5 fields/channel, hide toggles, carry-dim rendering, hex/dec, Renoise key mapping, selection, rows editor, play-row follow, separate cmdNum/cmdVal rects), PoolComponent (list/pool, add, drag source, context menu, rename dialog, dangling-pointer fix on duplicate), ToolsPanel, SettingsPanel, MacrosPanel, PluginEditor (tabs, snap/grid/zoom, position label, bottom bar, Ctrl+C/V/Shift+V/X, timer following).
+First successful Release build: build/ReTrektor_artefacts/Release/VST3/Re.Trektor.vst3/Contents/x86_64-linux/Re.Trektor.so (~5.9 MB).
+Smoke test tests/SmokeTest.cpp loads the built VST3 via VST3PluginFormat: PASS (no audio buses/MIDI effect, accepts+produces MIDI, generates MIDI while playing, flushes note-offs on stop, state round-trip, editor 1240x760).
+Core test tests/CoreTest.cpp (Model + PlaybackEngine): PASS 0 failures (defaults, sequencing/velocity/MIDI channel, note-off before next note, stop flush, instrument carry, duplicate suppression, snapping, slicing, paste instance/unique, serialization, overlap rules).
+tests/EditorShot.cpp renders the editor standalone to PNG (host snapshot was black because VST3 native view needs a window); screenshot generated with 2805 distinct colors.
+Active
+Visual/layout verification of the editor via ASCII downsample of /tmp/opencode/editor.png; layout structure visible but fine detail unchecked.
+Blocked
+No Reaper installed; VST3 host testing limited to JUCE smoke test + Carla availability.
+Next Move
+Inspect editor layout more closely (region pixel sampling or install OCR); fix any overlapping/misplaced controls (e.g. settings rows, header toggles, bottom bar).
+Wire macros (arpeggiator/glide) into playback or document as definition-only; decide command encoding if wiring.
+Verify pool drag-drop preview and context-menu paste/slice flows interactively in Carla; confirm Reaper compatibility of the MIDI effect (fallback IS_SYNTH TRUE).
+Add README.md with build instructions, keyboard map, known limitations.
+Run git status/commit all Re.Trektor sources (currently uncommitted working-tree changes).
+Optional: pattern-pool "expandable grid" refinement (currently id+name list).
+Relevant Files
+/media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
+/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization.
+/media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h / PlaybackEngine.cpp: host-synced MIDI generation, carry/duplicate logic, explicit note-off panic.
+/media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock.
+/media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, toggles.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source, rename.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose/remap/interpolate scopes.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: macro editor (storage/UI only).
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel.
+/media/data2/GameDev/Plugins/ReTrektor/tests/CMakeLists.txt: smoke/core/editor-shot test targets.
+/media/data2/GameDev/Plugins/ReTrektor/tests/CoreTest.cpp, SmokeTest.cpp, EditorShot.cpp: automated verification harnesses.
+/media/data2/GameDev/Plugins/ReTrektor/JUCE: vendored framework.
+Important Context
+Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) (build dir currently configured and passing).
+Tests: cmake -S tests -B tests/build -DCMAKE_BUILD_TYPE=Release then build targets ReTrektorSmoke, ReTrektorCoreTest, ReTrektorEditorShot.
+Smoke run: DISPLAY=:0 tests/build/ReTrektorSmoke_artefacts/Release/ReTrektorSmoke <bundle> [--screenshot=path].
+Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
+Git history: only "Add JUCE framework" committed; all Re.Trektor sources uncommitted.
+DISPLAY=:0 / wayland-0 available; no Reaper; /usr/bin/carla exists.
+Missing xcb-util-devel/xcb-util-wm-devel were installed via sudo dnf earlier (leftover from iPlug2 attempt, harmless).
+iPlug2 and its VST3 SDK clone deleted from workspace; .gitmodules removed.

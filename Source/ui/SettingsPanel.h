@@ -9,7 +9,7 @@ namespace rtr
 class SettingsPanel final : public juce::Component
 {
 public:
-    explicit SettingsPanel (ReTtrektorAudioProcessor& processor);
+    explicit SettingsPanel (ReTrektorAudioProcessor& processor);
     ~SettingsPanel() override = default;
 
     void paint (juce::Graphics&) override;
@@ -35,7 +35,7 @@ private:
 
     int rowH() const;
 
-    ReTtrektorAudioProcessor& proc;
+    ReTrektorAudioProcessor& proc;
     rtr::Song& song;
 
     std::vector<Row> rows;

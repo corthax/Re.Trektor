@@ -11,13 +11,13 @@
 #include "ui/MacrosPanel.h"
 
 //==============================================================================
-class ReTtrektorAudioProcessorEditor final : public juce::AudioProcessorEditor,
+class ReTrektorAudioProcessorEditor final : public juce::AudioProcessorEditor,
                                              public juce::DragAndDropContainer,
                                              private juce::Timer
 {
 public:
-    explicit ReTtrektorAudioProcessorEditor (ReTtrektorAudioProcessor&);
-    ~ReTtrektorAudioProcessorEditor() override;
+    explicit ReTrektorAudioProcessorEditor (ReTrektorAudioProcessor&);
+    ~ReTrektorAudioProcessorEditor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -39,7 +39,7 @@ private:
     void applySettingsToModel();
     void updatePositionLabel();
 
-    ReTtrektorAudioProcessor& proc;
+    ReTrektorAudioProcessor& proc;
     rtr::Song& song;
     rtr::theme::LookAndFeel lookAndFeel;
 
@@ -72,5 +72,5 @@ private:
     Tab currentTab = Tab::tracker;
     bool syncingUi = false;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReTtrektorAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReTrektorAudioProcessorEditor)
 };
