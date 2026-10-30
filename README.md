@@ -39,7 +39,8 @@ cmake -S tests -B tests/build -DCMAKE_BUILD_TYPE=Release
 cmake --build tests/build -j"$(nproc)"
 ```
 
-* `ReTrektorCoreTest` – model, sequencing, snapping, slicing, paste, state
+* `ReTrektorCoreTest` – model, sequencing, snapping, macro expansion, slicing,
+  paste, state
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column
   chips, tools, timeline drop, pool placement) and confirms MIDI output
@@ -72,6 +73,9 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   `P`, `C`) sit above each channel's note column and stay visible so hidden
   columns can always be restored. The rows field above the line numbers sets
   the pattern length (shared by every clip that references the pattern).
+* **Macros tab** – macro definitions (name, kind, two parameters). Definitions
+  live with the song and are called from the tracker's Command column with
+  command `128`–`143`.
 * **Right panel** – Transpose, instrument Remapping and Selection
   Interpolation. Each tool uses the selected scope: selection only, whole
   pattern, all patterns in the song, or all created patterns.
@@ -104,7 +108,8 @@ Q 2 W 3 E R 5 T 6 Y 7 U   ->  next octave
 
 Numeric fields accept hex when "Hexadecimal values" is enabled in Settings,
 decimal otherwise. Instrument values are the MIDI output channel (`0`–`F` in
-hex, `0`–`15` in decimal).
+hex, `0`–`15` in decimal). The Command field accepts `0`–`143`: `128`–`143`
+(hex `80`–`8F`) call macros `M0`–`M15`.
 
 ## MIDI model
 
@@ -116,8 +121,20 @@ hex, `0`–`15` in decimal).
   instrument only carry when a note exists, command carries even on empty
   rows.
 * Volume is note velocity when a note is present, otherwise CC7. Pan is CC10.
-* Commands are CC numbers 0–127 with a 0–127 value, shown color-coded by type.
-  The command system is designed to be extended with pitch bend and macros.
+* Command column: values `0`–`127` are CC numbers with a `0`–`127` value,
+  drawn teal. Values `128`–`143` (hex `80`–`8F`) call macros `M0`–`M15` from
+  the Macros tab, drawn orange; the value field is ignored for macro calls.
+  Macro kinds and their parameters:
+
+  | Kind | Name | Parameters | Behaviour |
+  | ---- | ---- | ---------- | --------- |
+  | 0 | Arpeggiator | `P1` = slots (1–16), `P2` = semitone step (1–24) | re-triggers the note once per slot at `(k*P2) % 12` semitones above the base note, spread across the row |
+  | 1 | Pitch glide | `P1` = bend semitones (1–24), `P2` = ramp steps (2–16) | sends CC105 = `P1`, then sweeps the 14-bit pitch wheel from centre to full bend in `P2` steps; needs an already-active note on the channel |
+  | 2 | Slide up/down | `P1` = semitone step (1–24), `P2` = oscillation pairs (1–16) | re-triggers the note oscillating ±`P1` semitones over `2*P2` sub-slots |
+
+  A macro call needs a note on the row or an active carried note to have an
+  effect. Pitch wheels are re-centred on note-offs, clip ends, transport stop
+  and all-notes-off.
 * A tracker pattern can use up to 127 tracker channels, independent of the 16
   MIDI output channels. Identical notes triggered on multiple tracker channels
   in the same row are sent only once.
@@ -138,9 +155,9 @@ hex, `0`–`15` in decimal).
 
 ## Known limitations
 
-* **Macros are stored, not executed.** The Macros tab keeps arpeggiator /
-  glide / slide definitions with the song and serialises them, but playback
-  integration is not enabled yet.
+* Macro playback is enabled, but the encoding is positional: `- Remove last`
+  can invalidate existing calls to that index (the call then does nothing),
+  and re-adding a macro at the same index changes what existing rows expand to.
 * No audio processing of any kind.
 * The Linux VST3 build exposes the plug-in as an effect (`Fx` category). Hosts
   that hide MIDI effects (Reaper in some routing setups) can use the
@@ -157,8 +174,8 @@ hex, `0`–`15` in decimal).
 * Interactive behaviour has been verified with JUCE's plug-in host, headless
   editor interaction tests and Carla; a full Reaper session has not been run
   in this environment.
-* Only the CC command type is implemented; pitch bend and macro commands are
-  future work.
+* Command kinds beyond plain CC and the three macro kinds (dedicated pitch
+  bend CC105/CC106 pair, tempo, song position) are future work.
 * Note entry assumes a US keyboard layout.
 
 ## Licensing
@@ -210,17 +227,16 @@ First successful Release build: build/ReTrektor_artefacts/Release/VST3/Re.Trekto
 Smoke test tests/SmokeTest.cpp loads the built VST3 via VST3PluginFormat: PASS (no audio buses/MIDI effect, accepts+produces MIDI, generates MIDI while playing, flushes note-offs on stop, state round-trip, editor 1240x760).
 Core test tests/CoreTest.cpp (Model + PlaybackEngine): PASS 0 failures (defaults, sequencing/velocity/MIDI channel, note-off before next note, stop flush, instrument carry, duplicate suppression, snapping, slicing, paste instance/unique, serialization, overlap rules).
 tests/EditorShot.cpp renders the editor standalone to PNG (host snapshot was black because VST3 native view needs a window); screenshot generated with 2805 distinct colors.
+Fixed ReTtrektor class-name typo across all sources/build files (commit c36c6c7, 22 files); restored working tree from HEAD; plugin + all 4 test targets rebuilt; CoreTest/UiTest/Smoke all PASS.
+Wired command macros into playback (commit 49ec706): Command 128-143 (hex 80-8F) = M0-M15 calls; arpeggiator kind 0 re-triggers P1 slots at (k*P2)%12 semitones over the row span; kind 1 pitch glide sends CC105=P1 then sweeps 14-bit pitch wheel 8192 to 16383 in P2 steps (needs active note); kind 2 slide oscillates +/-P1 over 2*P2 re-triggers; processRow now takes rowSpanSamples + song.macros; wheel re-centred in startNote/stopNote/allNotesOff; macro calls drawn theme::cmdMacro orange in tracker, cmdNum entry clamped 0..143; MacrosPanel caption documents 128-143; CoreTest +3 macro sections (bends collected); default song macro renamed "Arp 7x+4"; plugin + tests rebuilt, all suites PASS; two headless 1240x760 screenshots (tracker --dump, macros --tab=macros) visually verified in Review pane: no overlapping/misplaced controls (settings rows, header chips, bottom bar).
 Active
-Visual/layout verification of the editor via ASCII downsample of /tmp/opencode/editor.png; layout structure visible but fine detail unchecked.
+None.
 Blocked
 No Reaper installed; VST3 host testing limited to JUCE smoke test + Carla availability.
 Next Move
-Inspect editor layout more closely (region pixel sampling or install OCR); fix any overlapping/misplaced controls (e.g. settings rows, header toggles, bottom bar).
-Wire macros (arpeggiator/glide) into playback or document as definition-only; decide command encoding if wiring.
-Verify pool drag-drop preview and context-menu paste/slice flows interactively in Carla; confirm Reaper compatibility of the MIDI effect (fallback IS_SYNTH TRUE).
-Add README.md with build instructions, keyboard map, known limitations.
-Run git status/commit all Re.Trektor sources (currently uncommitted working-tree changes).
 Optional: pattern-pool "expandable grid" refinement (currently id+name list).
+Verify pool drag-drop preview and context-menu paste/slice flows interactively in Carla; confirm Reaper compatibility of the MIDI effect (instrument fallback IS_SYNTH build compiles locally but is untested in Reaper).
+Further command kinds: dedicated pitch bend CC105/CC106 pair command, tempo and song position commands.
 Relevant Files
 /media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
 /media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization.
@@ -232,7 +248,7 @@ Relevant Files
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source, rename.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose/remap/interpolate scopes.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: macro editor (storage/UI only).
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: macro editor (definitions; executed in playback via command 128-143).
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel.
 /media/data2/GameDev/Plugins/ReTrektor/tests/CMakeLists.txt: smoke/core/editor-shot test targets.
 /media/data2/GameDev/Plugins/ReTrektor/tests/CoreTest.cpp, SmokeTest.cpp, EditorShot.cpp: automated verification harnesses.
@@ -242,7 +258,7 @@ Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$
 Tests: cmake -S tests -B tests/build -DCMAKE_BUILD_TYPE=Release then build targets ReTrektorSmoke, ReTrektorCoreTest, ReTrektorEditorShot.
 Smoke run: DISPLAY=:0 tests/build/ReTrektorSmoke_artefacts/Release/ReTrektorSmoke <bundle> [--screenshot=path].
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git history: only "Add JUCE framework" committed; all Re.Trektor sources uncommitted.
+Git (newest first): 49ec706 macro playback wiring; c36c6c7 ReTtrektor typo fix; 4263853 instrument fallback option; f89454e headless UI interaction test; c168e8b panels fit minimum window; a2ec7c9 Re.Trektor sources; ccc50f2 vendored JUCE 8.0.9.
 DISPLAY=:0 / wayland-0 available; no Reaper; /usr/bin/carla exists.
 Missing xcb-util-devel/xcb-util-wm-devel were installed via sudo dnf earlier (leftover from iPlug2 attempt, harmless).
 iPlug2 and its VST3 SDK clone deleted from workspace; .gitmodules removed.
