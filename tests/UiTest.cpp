@@ -269,6 +269,39 @@ int main()
                "pool placement is snapped to the timeline grid");
     }
 
+    //== Bottom-bar channels slider =========================================
+    {
+        juce::Slider* chSlider = nullptr;
+
+        for (auto* child : editor->getChildren())
+            if (auto* s = dynamic_cast<juce::Slider*> (child))
+                chSlider = s; // last direct slider child = CHANNELS (added after OCT/STEP)
+
+        if (chSlider == nullptr)
+        {
+            check (false, "editor exposes a bottom-bar slider");
+        }
+        else
+        {
+            auto* p = song.activePattern();
+            check (p != nullptr, "an active pattern exists");
+
+            chSlider->setValue (3.0, juce::sendNotificationSync);
+
+            p = song.activePattern();
+            check (p != nullptr && p->channels == 3,
+                   "CHANNELS slider grows the active pattern to 3 channels");
+            check (song.settings.maxTrackerChannels >= 3,
+                   "raising past the global max bumps the settings max");
+
+            chSlider->setValue (2.0, juce::sendNotificationSync);
+            p = song.activePattern();
+            check (p != nullptr && p->channels == 2, "the slider can shrink the pattern again");
+            check (song.settings.maxTrackerChannels >= 3,
+                   "shrinking a pattern leaves the settings max unchanged");
+        }
+    }
+
     //== Settings ============================================================
     if (auto* hex = findToggle (*settings, "Hexadecimal values"))
     {

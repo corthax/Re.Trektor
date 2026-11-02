@@ -140,7 +140,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
 
     setupBottomSlider (octaveSlider, octaveLabel, "OCT", 0.0, 9.0, (double) song.settings.recordOctave);
     setupBottomSlider (stepSlider, stepLabel, "STEP", 0.0, 16.0, (double) song.settings.stepSkip);
-    setupBottomSlider (channelsSlider, channelsLabel, "CHANNELS", 1.0, (double) song.settings.maxTrackerChannels, 1.0);
+    setupBottomSlider (channelsSlider, channelsLabel, "CHANNELS", 1.0, (double) kMaxTrackerChannels, 1.0);
 
     octaveSlider.onValueChange = [this]
     {
@@ -167,10 +167,21 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
 
         if (auto* p = song.activePattern())
         {
-            p->setChannels ((int) channelsSlider.getValue());
+            const int ch = (int) channelsSlider.getValue();
+            p->setChannels (ch);
+
+            // The settings "Max tracker channels" is the cap: new patterns start with
+            // it, and it follows the biggest channel count actually in use, so raising
+            // a pattern here above the cap raises the cap too (the Settings tab can
+            // still lower it, which clamps every pattern down).
+            if (song.settings.maxTrackerChannels < ch)
+                song.settings.maxTrackerChannels = ch;
+
             proc.syncPlaybackModel();
             tracker.refresh();
             timeline.refresh();
+            pool.refresh();
+            settings.refresh();
         }
     };
 
@@ -375,7 +386,7 @@ void ReTrektorAudioProcessorEditor::syncBottomBar()
     syncingUi = true;
 
     auto* p = song.activePattern();
-    channelsSlider.setRange (1.0, (double) juce::jmax (1, song.settings.maxTrackerChannels), 1.0);
+    channelsSlider.setRange (1.0, (double) kMaxTrackerChannels, 1.0);
     channelsSlider.setValue (p != nullptr ? (double) p->channels : 1.0, juce::dontSendNotification);
     octaveSlider.setValue ((double) song.settings.recordOctave, juce::dontSendNotification);
     stepSlider.setValue ((double) song.settings.stepSkip, juce::dontSendNotification);
