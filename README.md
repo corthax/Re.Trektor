@@ -46,8 +46,9 @@ cmake --build tests/build -j"$(nproc)"
   chips, tools, timeline drop, pool placement, channels slider) and confirms
   MIDI output
 * `ReTrektorEditorShot` – renders the editor headlessly and can dump the
-  component layout (`--dump`, optionally `--tab=settings|macros` and
-  `--expand-pool` to show the pool grid preview)
+  component layout (`--dump`, optionally `--tab=settings|macros`,
+  `--expand-pool` to show the pool grid preview and `--channels=N` to
+  preview an N-channel active pattern)
 
 Example:
 

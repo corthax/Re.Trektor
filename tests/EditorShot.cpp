@@ -69,6 +69,14 @@ int main (int argc, char** argv)
     const bool expandPool = args.contains ("--expand-pool");
     args.removeString ("--expand-pool");
 
+    int shotChannels = 0;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--channels="))
+        {
+            shotChannels = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
     juce::String tab;
     for (int i = args.size(); --i >= 0;)
         if (args[i].startsWith ("--tab="))
@@ -155,6 +163,24 @@ int main (int argc, char** argv)
             {
                 pool->toggleGridPreview (proc.getSong().patterns.front().id);
                 pool->refresh();
+            }
+        }
+    }
+
+    if (shotChannels > 1)
+    {
+        const juce::ScopedLock sl (proc.getModelLock());
+
+        if (auto* p = proc.getSong().activePattern())
+        {
+            p->setChannels (shotChannels);
+
+            for (int ch = 1; ch < shotChannels; ++ch)
+            {
+                auto& cell = p->cell (ch * 3, ch);
+                cell.note = 57 + ch;
+                cell.inst = ch % 16;
+                cell.vol = (juce::uint8) juce::jlimit (1, 127, 90 + ch);
             }
         }
     }
