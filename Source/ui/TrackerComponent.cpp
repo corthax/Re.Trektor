@@ -946,7 +946,7 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
     menu.addItem (3, "Clear pattern");
     menu.addItem (4, "Clear selection", hasSelection());
 
-    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition (),
                         [this] (int result)
                         {
                             auto& p = pattern();

@@ -347,7 +347,7 @@ void PoolComponent::showContextMenu (int patternId)
     menu.addSeparator();
     menu.addItem (10, "Toggle grid preview");
 
-    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition (),
                         [this, patternId] (int result)
                         {
                             switch (result)

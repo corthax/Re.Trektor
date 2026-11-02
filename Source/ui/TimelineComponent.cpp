@@ -590,7 +590,7 @@ void TimelineComponent::showContextMenu (const juce::MouseEvent& e, Clip* clip)
         const bool inUse = song.patternInUse (patternId);
         menu.addItem (7, "Delete pattern (remove from pool)", ! inUse);
 
-        menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
+        menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition (),
                             [this, uid, patternId, pasteBeat] (int result)
                             {
                                 switch (result)
@@ -656,7 +656,7 @@ void TimelineComponent::showContextMenu (const juce::MouseEvent& e, Clip* clip)
         menu.addSeparator();
         menu.addItem (10, "Create new pattern here", ! locked);
 
-        menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
+        menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition (),
                             [this, beat] (int result)
                             {
                                 if (result == 3 || result == 4)
