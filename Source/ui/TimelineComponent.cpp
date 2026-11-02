@@ -560,18 +560,17 @@ void TimelineComponent::showContextMenu (const juce::MouseEvent& e, Clip* clip)
         const int patternId = clip->patternId;
 
         menu.addItem (1, "Copy pattern", ! locked);
-        menu.addItem (2, "Copy pattern data (unique)", ! locked);
         menu.addSeparator();
-        menu.addItem (3, "Paste as instance at playhead", canPaste);
-        menu.addItem (4, "Paste as unique pattern at playhead", canPaste);
+        menu.addItem (2, "Paste as instance at playhead", canPaste);
+        menu.addItem (3, "Paste as unique pattern at playhead", canPaste);
         menu.addSeparator();
-        menu.addItem (5, "Slice at playhead", ! locked && song.settings.snapEnabled);
-        menu.addItem (6, "Duplicate", ! locked);
+        menu.addItem (4, "Slice at playhead", ! locked && song.settings.snapEnabled);
+        menu.addItem (5, "Duplicate", ! locked);
         menu.addSeparator();
-        menu.addItem (7, "Delete instance", ! locked);
+        menu.addItem (6, "Delete instance", ! locked);
 
         const bool inUse = song.patternInUse (patternId);
-        menu.addItem (8, "Delete pattern (remove from pool)", ! inUse);
+        menu.addItem (7, "Delete pattern (remove from pool)", ! inUse);
 
         menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this),
                             [this, uid, patternId, pasteBeat] (int result)
@@ -583,26 +582,21 @@ void TimelineComponent::showContextMenu (const juce::MouseEvent& e, Clip* clip)
                                         break;
 
                                     case 2:
-                                        song.copyPattern (patternId);
-                                        song.clipboard.data.name = song.clipboard.data.name + " data";
-                                        break;
-
-                                    case 3:
                                         if (auto* c = song.pasteAt (pasteBeat, false))
                                             song.activePatternId = c->patternId;
                                         break;
 
-                                    case 4:
+                                    case 3:
                                         if (auto* c = song.pasteAt (pasteBeat, true))
                                             song.activePatternId = c->patternId;
                                         break;
 
-                                    case 5:
+                                    case 4:
                                         if (song.settings.snapEnabled)
                                             song.sliceClipAt (uid, pasteBeat);
                                         break;
 
-                                    case 6:
+                                    case 5:
                                     {
                                         if (auto* original = song.findClip (uid))
                                         {
@@ -617,11 +611,11 @@ void TimelineComponent::showContextMenu (const juce::MouseEvent& e, Clip* clip)
                                         break;
                                     }
 
-                                    case 7:
+                                    case 6:
                                         song.removeClip (uid);
                                         break;
 
-                                    case 8:
+                                    case 7:
                                         song.removePattern (patternId);
                                         break;
 
