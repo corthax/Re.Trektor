@@ -23,6 +23,9 @@ private:
     void applyRemap();
     void applyInterpolate();
     std::vector<Pattern*> scopedPatterns();
+    // rows the current scope selects inside a pattern: { start, end },
+    // or { -1, -1 } when the selection scope has no row selection
+    std::pair<int,int> rowRange (const Pattern& p) const;
     void applyToRows (Pattern& p, const std::function<void (Cell&, int row)>& fn);
 
     ReTrektorAudioProcessor& proc;
@@ -33,7 +36,8 @@ private:
     juce::TextButton transposeDown1 { "-1" };
     juce::TextButton transposeUp1 { "+1" };
     juce::TextButton transposeUp12 { "+12" };
-    juce::ComboBox remapBox;
+    juce::ComboBox remapFromBox;
+    juce::ComboBox remapToBox;
     juce::TextButton remapApply { "Remap" };
     juce::TextButton interpolateButton { "Interpolate" };
 

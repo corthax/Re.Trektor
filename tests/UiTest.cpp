@@ -100,6 +100,33 @@ juce::ToggleButton* findToggle (juce::Component& root, const juce::String& text)
     return nullptr;
 }
 
+// dropdowns in the order they were added to the component tree
+void collectCombos (juce::Component& root, std::vector<juce::ComboBox*>& out)
+{
+    for (auto* child : root.getChildren())
+    {
+        if (auto* combo = dynamic_cast<juce::ComboBox*> (child))
+            out.push_back (combo);
+
+        collectCombos (*child, out);
+    }
+}
+
+// the instrument a note is played on (JUCE numbers channels from 1, the tracker
+// names them from 0), or -1 when the note is not in the buffer
+int noteChannel (const juce::MidiBuffer& midi, int note)
+{
+    for (const auto metadata : midi)
+    {
+        const auto m = metadata.getMessage();
+
+        if (m.isNoteOn() && m.getNoteNumber() == note)
+            return m.getChannel() - 1;
+    }
+
+    return -1;
+}
+
 bool hasNoteOn (const juce::MidiBuffer& midi, int note)
 {
     for (const auto metadata : midi)
@@ -224,6 +251,135 @@ int main()
     else
     {
         check (false, "tools panel exposes the +12 button");
+    }
+
+    //== Tools instrument remap ==============================================
+    {
+        std::vector<juce::ComboBox*> combos;
+        collectCombos (*tools, combos);
+
+        check (combos.size() == 3, "the tools panel exposes the scope and the two remap dropdowns");
+
+        if (combos.size() != 3)
+        {
+            check (false, "the remap dropdowns could not be found");
+        }
+        else
+        {
+            auto* scope = combos[0];
+            auto* fromBox = combos[1];
+            auto* toBox = combos[2];
+
+            check (fromBox->getNumItems() == rtr::kMidiChannelCount + 1
+                       && fromBox->getItemText (0) == "All"
+                       && fromBox->getItemText (1) == "-0"
+                       && fromBox->getItemText (rtr::kMidiChannelCount) == "-F",
+                   "the source dropdown offers All plus every instrument");
+
+            check (toBox->getNumItems() == rtr::kMidiChannelCount
+                       && toBox->getItemText (0) == "-0"
+                       && toBox->getItemText (rtr::kMidiChannelCount - 1) == "-F",
+                   "the target dropdown offers only instruments, in the tracker's hex style");
+
+            check (scope->getSelectedId() == 2 && fromBox->getSelectedId() == 1
+                       && toBox->getSelectedId() == 1,
+                   "the defaults are the whole pattern, All sources and -0 as target");
+
+            p.setChannels (2);
+            p.cell (3, 0).note = 65;
+            p.cell (3, 0).inst = 3; // explicit source instrument
+            p.cell (4, 0).note = 66; // no instrument: carries the one above
+            p.cell (3, 1).note = 67;
+            p.cell (3, 1).inst = 7; // another instrument, must stay put
+
+            auto* remap = findButton (*tools, "Remap");
+            check (remap != nullptr, "the tools panel exposes the Remap button");
+
+            auto playRow = [&] (int row)
+            {
+                juce::AudioBuffer<float> audio (2, 64);
+                juce::MidiBuffer midi;
+                head->playing = true;
+                head->ppq = (double) row / (double) juce::jmax (1, song.settings.rowsPerBeat) - 0.001;
+                proc.processBlock (audio, midi);
+                return midi;
+            };
+
+            if (remap == nullptr)
+            {
+                check (false, "the Remap button was missing");
+            }
+            else
+            {
+                proc.syncPlaybackModel(); // the hand-written cells reach the engine
+
+                //== whole pattern: -3 -> -5 ==============================
+                fromBox->setSelectedId (5); // "-3"
+                toBox->setSelectedId (6); // "-5"
+                remap->onClick();
+
+                check (p.cell (3, 0).inst == 5, "the explicit source instrument becomes the target");
+                check (p.cell (3, 1).inst == 7, "an instrument that is not the source keeps its value");
+                check (p.cell (4, 0).inst == rtr::kEmpty, "the row that carried it stays implicit");
+
+                check (noteChannel (playRow (3), 65) == 5, "the remapped note plays on MIDI channel 5");
+                check (noteChannel (playRow (4), 66) == 5, "the implicit row follows the new instrument");
+                check (noteChannel (playRow (3), 67) == 7, "the other channel still plays its own instrument");
+
+                //== selection scope, source above the selection =========
+                p.cell (5, 1).inst = 6; // instrument only, above the selection
+                p.cell (6, 1).note = 68;
+                p.cell (7, 1).note = 69;
+                p.cell (9, 1).note = 71;
+                p.cell (9, 1).inst = 6; // below the selection: must stay -6
+
+                tracker->refresh();
+                tracker->mouseDown (makeEvent (*tracker, { 57.0f, 169.0f })); // row 6
+                tracker->mouseDrag (makeEvent (*tracker, { 57.0f, 188.0f })); // row 7
+                tracker->mouseUp (makeEvent (*tracker, { 57.0f, 188.0f }));
+
+                check (tracker->getSelectionStart() == 6 && tracker->getSelectionEnd() == 7,
+                       "dragging in the tracker selects rows 6 and 7");
+
+                scope->setSelectedId (1); // "Selection only"
+                fromBox->setSelectedId (8); // "-6"
+                toBox->setSelectedId (10); // "-9"
+                remap->onClick();
+
+                check (p.cell (5, 1).inst == 6, "the source above the selection stays put");
+                check (p.cell (6, 1).inst == 9, "the carried instrument is pinned inside the selection");
+                check (p.cell (7, 1).inst == rtr::kEmpty, "the next row is left implicit");
+                check (p.cell (9, 1).inst == 6, "the instrument below the selection keeps its value");
+
+                check (noteChannel (playRow (6), 68) == 9, "the pinned row plays on MIDI channel 9");
+                check (noteChannel (playRow (7), 69) == 9, "the implicit row carries the new instrument");
+                check (noteChannel (playRow (9), 71) == 6, "the untouched instrument still plays channel 6");
+
+                //== whole pattern, All -> -B ============================
+                tracker->clearSelection();
+                scope->setSelectedId (2);
+                fromBox->setSelectedId (1); // "All"
+                toBox->setSelectedId (12); // "-B"
+                remap->onClick();
+
+                check (p.cell (3, 0).inst == 11 && p.cell (3, 1).inst == 11
+                           && p.cell (6, 1).inst == 11 && p.cell (9, 1).inst == 11,
+                       "All in the source box moves every explicit instrument to the target");
+                check (p.cell (4, 0).inst == rtr::kEmpty && p.cell (7, 1).inst == rtr::kEmpty,
+                       "rows that already resolve to the target are left implicit");
+                check (p.cell (0, 0).inst == rtr::kEmpty && p.cell (0, 1).inst == rtr::kEmpty,
+                       "All does not invent an instrument where none is carried");
+
+                check (noteChannel (playRow (3), 65) == 11 && noteChannel (playRow (3), 67) == 11,
+                       "both notes at row 3 moved to MIDI channel 11");
+                check (noteChannel (playRow (4), 66) == 11, "the carried note follows to channel 11");
+                check (noteChannel (playRow (6), 68) == 11 && noteChannel (playRow (7), 69) == 11,
+                       "the channel that was pinned to -9 now plays on 11 as well");
+                check (noteChannel (playRow (9), 71) == 11, "the instrument below the scope moved too");
+
+                tracker->clearSelection();
+            }
+        }
     }
 
     //== Clicking the timeline parks the playhead ==

@@ -15,9 +15,14 @@ ReTrektorAudioProcessor::ReTrektorAudioProcessor()
 ReTrektorAudioProcessor::~ReTrektorAudioProcessor() = default;
 
 //==============================================================================
-void ReTrektorAudioProcessor::prepareToPlay (double, int)
+void ReTrektorAudioProcessor::prepareToPlay (double sampleRateIn, int samplesPerBlock)
 {
     const juce::ScopedLock sl (modelLock);
+
+    // The transport maths reads the rate back with getSampleRate(), so record
+    // what the host asked for here: hosts reach this through the JUCE wrapper,
+    // but a bare prepareToPlay call (tests, other hosts) has to set it too.
+    setRateAndBufferSizeDetails (sampleRateIn, samplesPerBlock);
 
     // Keep note state: the synth can still be holding notes from a previous
     // transport run (hosts like Reaper may not call a MIDI effect while

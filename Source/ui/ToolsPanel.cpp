@@ -16,15 +16,27 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
         b.setColour (juce::TextButton::textColourOffId, theme::text);
     };
 
+    auto styleCombo = [] (juce::ComboBox& box)
+    {
+        box.setColour (juce::ComboBox::backgroundColourId, theme::panelLight);
+        box.setColour (juce::ComboBox::textColourId, theme::text);
+        box.setColour (juce::ComboBox::outlineColourId, theme::outline);
+        box.setColour (juce::ComboBox::arrowColourId, theme::textDim);
+    };
+
+    // dropdown items are labelled like the tracker's instrument column: -0 .. -F
+    auto addInstruments = [] (juce::ComboBox& box, int idOffset)
+    {
+        for (int i = 0; i < kMidiChannelCount; ++i)
+            box.addItem ("-" + juce::String::toHexString (i).toUpperCase(), i + 1 + idOffset);
+    };
+
     scopeBox.addItem ("Selection only", 1);
     scopeBox.addItem ("Whole pattern", 2);
     scopeBox.addItem ("All patterns in song", 3);
     scopeBox.addItem ("All created patterns", 4);
     scopeBox.setSelectedId (2);
-    scopeBox.setColour (juce::ComboBox::backgroundColourId, theme::panelLight);
-    scopeBox.setColour (juce::ComboBox::textColourId, theme::text);
-    scopeBox.setColour (juce::ComboBox::outlineColourId, theme::outline);
-    scopeBox.setColour (juce::ComboBox::arrowColourId, theme::textDim);
+    styleCombo (scopeBox);
     addAndMakeVisible (scopeBox);
 
     for (auto* b : { &transposeDown12, &transposeDown1, &transposeUp1, &transposeUp12 })
@@ -38,17 +50,16 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
     transposeUp1.onClick = [this] { applyTranspose (1); };
     transposeUp12.onClick = [this] { applyTranspose (12); };
 
-    remapBox.addItem ("-0", 1);
+    remapFromBox.addItem ("All", 1); // a source that matches every instrument
+    addInstruments (remapFromBox, 1); // ids 2..17 are the -0 .. -F instruments
+    remapFromBox.setSelectedId (1); // All
+    styleCombo (remapFromBox);
+    addAndMakeVisible (remapFromBox);
 
-    for (int i = 1; i <= 15; ++i)
-        remapBox.addItem ("-" + juce::String::toHexString (i).toUpperCase(), i + 1);
-
-    remapBox.setSelectedId (1);
-    remapBox.setColour (juce::ComboBox::backgroundColourId, theme::panelLight);
-    remapBox.setColour (juce::ComboBox::textColourId, theme::text);
-    remapBox.setColour (juce::ComboBox::outlineColourId, theme::outline);
-    remapBox.setColour (juce::ComboBox::arrowColourId, theme::textDim);
-    addAndMakeVisible (remapBox);
+    addInstruments (remapToBox, 0); // ids 1..16 are the -0 .. -F instruments
+    remapToBox.setSelectedId (1); // -0
+    styleCombo (remapToBox);
+    addAndMakeVisible (remapToBox);
 
     styleButton (remapApply);
     styleButton (interpolateButton);
@@ -78,8 +89,30 @@ void ToolsPanel::paint (juce::Graphics& g)
 
     section ("SCOPE", scopeBox);
     section ("TRANSPOSE", transposeDown12);
-    section ("REMAP INST", remapBox);
+    section ("REMAP", remapFromBox);
     section ("INTERPOLATE", interpolateButton);
+
+    // an arrow between the two remap dropdowns names the direction of the edit
+    if (remapFromBox.getWidth() > 0 && remapToBox.getWidth() > 0)
+    {
+        const auto fromArea = remapFromBox.getBounds();
+        const auto toArea = remapToBox.getBounds();
+        const int x0 = fromArea.getRight() + 3;
+        const int x1 = toArea.getX() - 3;
+
+        if (x1 > x0 + 8)
+        {
+            const float y = (float) ((fromArea.getCentreY() + toArea.getCentreY()) / 2);
+            const float head = juce::jmin (5.0f, (float) (x1 - x0) * 0.4f);
+            const float tail = (float) x0;
+            const float tip = (float) x1;
+
+            g.setColour (theme::textDim);
+            g.drawLine (juce::Line<float> (tail, y, tip, y), 1.5f);
+            g.drawLine (juce::Line<float> (tip - head, y - head, tip, y), 1.5f);
+            g.drawLine (juce::Line<float> (tip - head, y + head, tip, y), 1.5f);
+        }
+    }
 }
 
 void ToolsPanel::resized()
@@ -103,8 +136,10 @@ void ToolsPanel::resized()
     area.removeFromTop (14);
     area.removeFromTop (12); // REMAP label
     auto remapRow = area.removeFromTop (22);
-    remapApply.setBounds (remapRow.removeFromRight (58).reduced (1));
-    remapBox.setBounds (remapRow.reduced (1));
+    remapFromBox.setBounds (remapRow.removeFromLeft (62).reduced (1));
+    remapToBox.setBounds (remapRow.removeFromRight (62).reduced (1));
+    area.removeFromTop (4);
+    remapApply.setBounds (area.removeFromTop (22).reduced (1));
 
     area.removeFromTop (14);
     area.removeFromTop (12); // INTERPOLATE label
@@ -146,24 +181,33 @@ std::vector<Pattern*> ToolsPanel::scopedPatterns()
     return patterns;
 }
 
+std::pair<int, int> ToolsPanel::rowRange (const Pattern& p) const
+{
+    if (scopeBox.getSelectedId() != 1)
+        return { 0, p.length - 1 };
+
+    if (! getSelection)
+        return { -1, -1 };
+
+    auto sel = getSelection();
+
+    if (sel.first < 0 || sel.second < 0)
+        return { -1, -1 };
+
+    const int start = juce::jmax (0, juce::jmin (sel.first, sel.second));
+    const int end = juce::jmin (p.length - 1, juce::jmax (sel.first, sel.second));
+
+    return { start, end };
+}
+
 void ToolsPanel::applyToRows (Pattern& p, const std::function<void (Cell&, int row)>& fn)
 {
-    int start = 0;
-    int end = p.length - 1;
+    const auto range = rowRange (p);
+    const int start = range.first;
+    const int end = range.second;
 
-    if (scopeBox.getSelectedId() == 1)
-    {
-        if (! getSelection)
-            return;
-
-        auto sel = getSelection();
-
-        if (sel.first < 0 || sel.second < 0)
-            return;
-
-        start = juce::jmax (0, juce::jmin (sel.first, sel.second));
-        end = juce::jmin (p.length - 1, juce::jmax (sel.first, sel.second));
-    }
+    if (start < 0 || start > end)
+        return;
 
     for (int row = start; row <= end; ++row)
         for (int ch = 0; ch < p.channels; ++ch)
@@ -187,15 +231,65 @@ void ToolsPanel::applyTranspose (int semitones)
 
 void ToolsPanel::applyRemap()
 {
-    const int inst = juce::jlimit (0, 15, remapBox.getSelectedId() - 1);
+    const int fromId = remapFromBox.getSelectedId();
+    const int toId = remapToBox.getSelectedId();
+
+    if (fromId <= 0 || toId <= 0)
+        return;
+
+    const bool all = fromId <= 1; // "All" is the first item in the source box
+    const int from = fromId - 2; // the source box lists All, then -0 .. -F
+    const int to = toId - 1; // the target box lists only -0 .. -F
 
     for (auto* p : scopedPatterns())
     {
-        applyToRows (*p, [inst] (Cell& c, int)
+        const auto range = rowRange (*p);
+
+        if (range.first < 0 || range.first > range.second)
+            continue;
+
+        for (int ch = 0; ch < p->channels; ++ch)
         {
-            if (c.note != kEmpty)
-                c.inst = inst;
-        });
+            // the instrument the column resolves to at this row, before and
+            // after the remap: an explicit cell sets it, an empty one carries
+            // the previous value (which the tracker draws darker)
+            int before = kEmpty;
+            int after = kEmpty;
+
+            for (int row = 0; row <= range.second; ++row)
+            {
+                auto& c = p->rows[(size_t) row][(size_t) ch];
+
+                if (c.inst != kEmpty)
+                {
+                    const int current = c.inst;
+
+                    if (row >= range.first && (all || current == from))
+                        c.inst = to;
+
+                    before = current;
+                    after = c.inst;
+                    continue;
+                }
+
+                if (row < range.first)
+                    continue;
+
+                const bool matches = all ? before != kEmpty : before == from;
+
+                if (! matches)
+                    continue;
+
+                // an implicit cell already resolves to the new instrument when
+                // the cell above it was remapped, so only the cells that would
+                // still carry the old instrument get an explicit value
+                if (after != to)
+                {
+                    c.inst = to;
+                    after = to;
+                }
+            }
+        }
     }
 
     if (onModelChanged)
@@ -206,24 +300,11 @@ void ToolsPanel::applyInterpolate()
 {
     for (auto* p : scopedPatterns())
     {
-        int start = 0;
-        int end = p->length - 1;
+        const auto range = rowRange (*p);
+        const int start = range.first;
+        const int end = range.second;
 
-        if (scopeBox.getSelectedId() == 1)
-        {
-            if (! getSelection)
-                continue;
-
-            auto sel = getSelection();
-
-            if (sel.first < 0 || sel.second < 0)
-                continue;
-
-            start = juce::jmax (0, juce::jmin (sel.first, sel.second));
-            end = juce::jmin (p->length - 1, juce::jmax (sel.first, sel.second));
-        }
-
-        if (end - start < 2)
+        if (start < 0 || end - start < 2)
             continue;
 
         for (int ch = 0; ch < p->channels; ++ch)
