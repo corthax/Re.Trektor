@@ -312,6 +312,73 @@ int main()
         }
     }
 
+    //== Tracker horizontal scrollbar ==========================================
+    {
+        auto* p = song.activePattern();
+
+        if (p != nullptr)
+            p->setChannels (30); // far wider than the window: the strip appears
+
+        tracker->refresh();
+
+        const int tw = tracker->getWidth();
+        const int th = tracker->getHeight();
+
+        if (tw < 300 || th < 200)
+        {
+            check (false, "tracker is big enough to need a horizontal scrollbar");
+        }
+        else
+        {
+            const int barY = th - 7; // inside the bottom scrollbar strip
+            const int rowY = th / 2; // a row in the middle of the view
+
+            auto probeChannel = [&] (int x)
+            {
+                tracker->mouseDown (makeEvent (*tracker, { (float) x, (float) rowY }));
+                tracker->mouseUp (makeEvent (*tracker, { (float) x, (float) rowY }));
+                return tracker->getCursorChannel();
+            };
+
+            // a click at the strip's right end jumps the thumb there, so the
+            // window shows the last columns
+            tracker->mouseDown (makeEvent (*tracker, { (float) (tw - 4), (float) barY }));
+            tracker->mouseUp (makeEvent (*tracker, { (float) (tw - 4), (float) barY }));
+
+            const int far = probeChannel (tw - 12);
+            const int leftAtMax = probeChannel (57); // just right of the 52px gutter
+            check (far == 29, "at full scroll the window ends at the last channel");
+            check (leftAtMax > 0, "at full scroll the first columns are scrolled out of view");
+
+            // dragging the thumb back to the left shifts the window
+            tracker->mouseDown (makeEvent (*tracker, { (float) (tw / 2), (float) barY }));
+            tracker->mouseDrag (makeEvent (*tracker, { (float) (tw / 4), (float) barY }));
+            tracker->mouseUp (makeEvent (*tracker, { (float) (tw / 4), (float) barY }));
+
+            const int mid = probeChannel (tw - 12);
+            check (mid >= 0 && mid < far, "dragging the thumb shifts the visible channel window");
+            std::cout << "  scrollbar probe: far=" << far << " leftAtMax=" << leftAtMax
+                      << " mid=" << mid << " (tracker " << tw << "x" << th << ")\n";
+
+            // the row-number gutter stays fixed while the columns scroll
+            const int beforeCh = tracker->getCursorChannel();
+            tracker->mouseDown (makeEvent (*tracker, { 30.0f, (float) rowY }));
+            check (tracker->getCursorChannel() == beforeCh,
+                   "clicking the gutter does not pick a scrolled column");
+
+            p->setChannels (1); // one channel always fits: no strip any more
+            tracker->refresh();
+
+            const int rowBefore = tracker->getCursorRow();
+            const int chBefore = tracker->getCursorChannel();
+            tracker->mouseDown (makeEvent (*tracker, { 70.0f, (float) barY }));
+            check (tracker->getCursorRow() != rowBefore,
+                   "when the columns fit, the bottom edge selects a row instead of scrolling");
+            check (tracker->getCursorChannel() == chBefore && chBefore == 0,
+                   "the narrow pattern has no strip to drag, so the channel is unchanged");
+        }
+    }
+
     //== Settings ============================================================
     if (auto* hex = findToggle (*settings, "Hexadecimal values"))
     {

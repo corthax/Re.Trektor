@@ -153,6 +153,7 @@ void TrackerComponent::refresh()
         selEndRow = juce::jlimit (0, p.length - 1, selEndRow);
     rowsEditor.setText (juce::String (p.length), false);
     layoutFields();
+    clampScroll();
     repaint();
 }
 
@@ -234,9 +235,12 @@ juce::Rectangle<int> TrackerComponent::toggleBounds (int channel, int index) con
 
 int TrackerComponent::fieldIndexAtX (int x) const
 {
+    if (x < gutterWidth)
+        return -1; // the gutter belongs to the row numbers, not to a column
+
     for (int i = 0; i < (int) fieldRects.size(); ++i)
     {
-        auto b = fieldRects[(size_t) i].bounds;
+        auto b = visibleColumn (fieldRects[(size_t) i].bounds);
 
         if (x >= b.getX() - 2 && x < b.getRight() + 2)
             return i;
@@ -255,7 +259,97 @@ int TrackerComponent::rowAtY (int y) const noexcept
 
 int TrackerComponent::visibleRowCount() const noexcept
 {
-    return juce::jmax (1, (getHeight() - headerHeight) / rowHeight + 1);
+    // the bottom strip holds the horizontal scrollbar when the pattern's
+    // columns are wider than the window, and then takes rows away
+    return juce::jmax (1, (getHeight() - headerHeight - scrollbarStrip()) / rowHeight + 1);
+}
+
+int TrackerComponent::scrollbarStrip() const noexcept
+{
+    return totalWidth > getWidth() ? scrollbarHeight : 0;
+}
+
+int TrackerComponent::maxScrollX() const noexcept
+{
+    return juce::jmax (0, totalWidth - getWidth());
+}
+
+juce::Rectangle<int> TrackerComponent::scrollbarArea() const
+{
+    if (scrollbarStrip() == 0)
+        return {};
+
+    return { 0, getHeight() - scrollbarHeight, getWidth(), scrollbarHeight };
+}
+
+int TrackerComponent::thumbWidthFor (int trackWidth) const noexcept
+{
+    const int colsTotal = juce::jmax (1, totalWidth - gutterWidth);
+    const int colsVisible = juce::jmax (1, getWidth() - gutterWidth);
+    const int minWidth = juce::jmin (16, trackWidth);
+
+    return juce::jlimit (minWidth, juce::jmax (1, trackWidth),
+                         (int) ((double) trackWidth * colsVisible / colsTotal));
+}
+
+juce::Rectangle<int> TrackerComponent::thumbBounds() const
+{
+    const auto bar = scrollbarArea();
+
+    if (bar.isEmpty())
+        return {};
+
+    const int trackX = gutterWidth + 2;
+    const int trackWidth = juce::jmax (1, getWidth() - trackX - 2);
+    const int thumbW = thumbWidthFor (trackWidth);
+    const int travel = juce::jmax (1, trackWidth - thumbW);
+    const int maxScroll = juce::jmax (1, maxScrollX());
+    const int scroll = juce::jlimit (0, maxScroll, scrollX);
+
+    return { trackX + (int) std::lround ((double) travel * scroll / maxScroll),
+             bar.getY() + 3, thumbW, bar.getHeight() - 6 };
+}
+
+int TrackerComponent::scrollXFromThumbX (int thumbX) const noexcept
+{
+    const int trackX = gutterWidth + 2;
+    const int trackWidth = juce::jmax (1, getWidth() - trackX - 2);
+    const int travel = juce::jmax (1, trackWidth - thumbWidthFor (trackWidth));
+
+    const double frac = (double) (thumbX - trackX) / (double) travel;
+    return juce::jlimit (0, maxScrollX(), (int) std::lround (frac * maxScrollX()));
+}
+
+void TrackerComponent::setScrollX (int x)
+{
+    scrollX = juce::jlimit (0, maxScrollX(), x);
+    layoutFields();
+}
+
+void TrackerComponent::clampScroll()
+{
+    scrollRow = juce::jlimit (0, juce::jmax (0, pattern().length - visibleRowCount()), scrollRow);
+    scrollX = juce::jlimit (0, maxScrollX(), scrollX);
+    layoutFields();
+}
+
+juce::Rectangle<int> TrackerComponent::visibleColumn (juce::Rectangle<int> r) const
+{
+    // a scrolled column may reach into the row-number gutter: keep it clipped
+    // to the columns area so the row numbers stay readable
+    if (r.isEmpty() || r.getRight() <= gutterWidth)
+        return {};
+
+    if (r.getX() < gutterWidth)
+        r.setBounds (gutterWidth, r.getY(), r.getRight() - gutterWidth, r.getHeight());
+
+    if (r.getRight() > getWidth())
+        r.setBounds (r.getX(), r.getY(), getWidth() - r.getX(), r.getHeight());
+
+    if (r.isEmpty())
+        return {};
+
+    return r;
 }
 
 juce::Rectangle<int> TrackerComponent::cursorBounds() const
@@ -279,12 +373,22 @@ void TrackerComponent::paint (juce::Graphics& g)
 
     drawHeader (g, header);
 
+    const auto bar = scrollbarArea();
+
+    if (! bar.isEmpty())
+        area.removeFromBottom (scrollbarHeight);
+
     g.saveState();
     g.reduceClipRegion (area);
     drawRows (g, area);
     g.restoreState();
 
-    // scrollbar hint
+    // horizontal scrollbar: the channel columns can be far wider than the
+    // window, so a draggable thumb at the bottom edge reaches the rest
+    if (! bar.isEmpty())
+        drawScrollbar (g, bar);
+
+    // vertical scrollbar hint
     if (p.length > visibleRowCount())
     {
         const int trackH = area.getHeight();
@@ -315,7 +419,7 @@ void TrackerComponent::drawHeader (juce::Graphics& g, juce::Rectangle<int> heade
 
     for (int ch = 0; ch < p.channels; ++ch)
     {
-        auto noteRect = fieldBounds (ch, Field::note);
+        auto noteRect = visibleColumn (fieldBounds (ch, Field::note));
 
         if (noteRect.isEmpty())
             continue;
@@ -333,7 +437,7 @@ void TrackerComponent::drawHeader (juce::Graphics& g, juce::Rectangle<int> heade
 
         for (int i = 0; i < 4; ++i)
         {
-            auto btn = toggleBounds (ch, i);
+            auto btn = visibleColumn (toggleBounds (ch, i));
 
             if (btn.isEmpty())
                 continue;
@@ -346,6 +450,37 @@ void TrackerComponent::drawHeader (juce::Graphics& g, juce::Rectangle<int> heade
             g.setFont (theme::monoFont (8.5f));
             g.drawText (labels[i], btn, juce::Justification::centred, false);
         }
+    }
+}
+
+void TrackerComponent::drawScrollbar (juce::Graphics& g, juce::Rectangle<int> bar)
+{
+    const int trackX = gutterWidth + 2;
+    const int trackWidth = juce::jmax (1, getWidth() - trackX - 2);
+
+    // the gutter side is kept free: row numbers stay put while scrolling
+    g.setColour (theme::background.darker (0.35f));
+    g.fillRect (trackX, bar.getY() + 2, trackWidth, bar.getHeight() - 4);
+
+    g.setColour (theme::outline.withAlpha (0.6f));
+    g.drawRoundedRectangle (juce::Rectangle<float> ((float) trackX, (float) bar.getY() + 2.0f,
+                                                   (float) trackWidth, (float) bar.getHeight() - 4.0f),
+                            2.0f, 1.0f);
+
+    const auto thumb = thumbBounds();
+
+    g.setColour (theme::panelLight);
+    g.fillRoundedRectangle (thumb.toFloat(), 3.0f);
+    g.setColour (draggingBar ? theme::accent : theme::outline);
+    g.drawRoundedRectangle (thumb.toFloat(), 3.0f, 1.0f);
+
+    g.setColour (theme::textDim);
+
+    for (int i = -1; i <= 1; ++i)
+    {
+        const int lineY = bar.getCentreY() + i * 3;
+        g.drawHorizontalLine (lineY, (float) thumb.getX() + 4.0f,
+                              (float) juce::jmax (thumb.getX() + 4, thumb.getRight() - 4));
     }
 }
 
@@ -444,7 +579,11 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                 if (fr.channel != ch)
                     continue;
 
-                juce::Rectangle<int> r (fr.bounds.getX(), y, fr.bounds.getWidth(), rowHeight);
+                auto r = visibleColumn ({ fr.bounds.getX(), y, fr.bounds.getWidth(), rowHeight });
+
+                if (r.isEmpty())
+                    continue;
+
                 const bool cursorHere = isCursorCh && fr.field == cursorField;
 
                 if (cursorHere)
@@ -652,6 +791,20 @@ void TrackerComponent::mouseDown (const juce::MouseEvent& e)
 {
     grabKeyboardFocus();
 
+    // bottom strip: grab the horizontal scrollbar
+    if (scrollbarArea().contains (e.getPosition()))
+    {
+        draggingBar = true;
+
+        const auto thumb = thumbBounds();
+        dragOffsetX = thumb.contains (e.getPosition()) ? e.x - thumb.getX()
+                                                       : thumb.getWidth() / 2;
+
+        setScrollX (scrollXFromThumbX (e.x - dragOffsetX));
+        repaint();
+        return;
+    }
+
     const int row = rowAtY (e.y);
 
     // header: toggle column visibility
@@ -730,6 +883,13 @@ void TrackerComponent::mouseDown (const juce::MouseEvent& e)
 
 void TrackerComponent::mouseDrag (const juce::MouseEvent& e)
 {
+    if (draggingBar)
+    {
+        setScrollX (scrollXFromThumbX (e.x - dragOffsetX));
+        repaint();
+        return;
+    }
+
     if (! selecting)
         return;
 
@@ -745,14 +905,14 @@ void TrackerComponent::mouseDrag (const juce::MouseEvent& e)
 void TrackerComponent::mouseUp (const juce::MouseEvent&)
 {
     selecting = false;
+    draggingBar = false;
 }
 
 void TrackerComponent::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
 {
     if (e.mods.isShiftDown())
     {
-        scrollX = juce::jmax (0, scrollX - (int) (wheel.deltaY * 120.0f));
-        layoutFields();
+        setScrollX (scrollX - (int) (wheel.deltaY * 120.0f));
         repaint();
         return;
     }
@@ -1033,6 +1193,18 @@ void TrackerComponent::ensureCursorVisible()
         scrollRow = cursorRow;
     else if (cursorRow >= scrollRow + visible - 1)
         scrollRow = juce::jmax (0, cursorRow - visible + 2);
+
+    // the least horizontal scroll that keeps the cursor's field on screen, so
+    // keyboard entry into a far channel is not blind
+    const auto b = fieldBounds (cursorChannel, cursorField);
+
+    if (b.isEmpty())
+        return;
+
+    if (b.getRight() > getWidth())
+        setScrollX (scrollX + (b.getRight() - getWidth()));
+    else if (b.getX() < gutterWidth)
+        setScrollX (scrollX - (gutterWidth - b.getX()));
 }
 
 //==============================================================================

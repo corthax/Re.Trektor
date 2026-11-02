@@ -63,6 +63,17 @@ private:
     juce::Rectangle<int> cursorBounds() const;
     int visibleRowCount() const noexcept;
 
+    int maxScrollX() const noexcept;
+    int scrollbarStrip() const noexcept;
+    juce::Rectangle<int> scrollbarArea() const;
+    juce::Rectangle<int> thumbBounds() const;
+    int thumbWidthFor (int trackWidth) const noexcept;
+    int scrollXFromThumbX (int thumbX) const noexcept;
+    void setScrollX (int x);
+    void clampScroll();
+    void drawScrollbar (juce::Graphics&, juce::Rectangle<int>);
+    juce::Rectangle<int> visibleColumn (juce::Rectangle<int>) const;
+
     int currentPlayRow() const;
     void ensureCursorVisible();
 
@@ -93,6 +104,9 @@ private:
     int scrollRow = 0;
     int scrollX = 0;
     int totalWidth = 0;
+    int scrollbarHeight = 14;
+    bool draggingBar = false;
+    int dragOffsetX = 0;
 
     int cursorRow = 0;
     int cursorChannel = 0;

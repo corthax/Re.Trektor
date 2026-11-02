@@ -8,7 +8,9 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "ui/PoolComponent.h"
+#include "ui/TrackerComponent.h"
 
+#include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_graphics/juce_graphics.h>
 #include <iostream>
 
@@ -33,6 +35,30 @@ juce::String describe (juce::Component& c)
         s << "  (hidden)";
 
     return s;
+}
+
+template <typename T>
+T* findChild (juce::Component& root)
+{
+    for (auto* child : root.getChildren())
+    {
+        if (auto* match = dynamic_cast<T*> (child))
+            return match;
+
+        if (auto* nested = findChild<T> (*child))
+            return nested;
+    }
+
+    return nullptr;
+}
+
+juce::MouseEvent makeEvent (juce::Component& c, juce::Point<float> pos)
+{
+    auto source = juce::Desktop::getInstance().getMainMouseSource();
+    const auto now = juce::Time::getCurrentTime();
+
+    return juce::MouseEvent (source, pos, juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                             &c, &c, now, pos, now, 1, false);
 }
 
 void dump (juce::Component& c, int depth, int parentW, int parentH)
@@ -82,6 +108,16 @@ int main (int argc, char** argv)
         if (args[i].startsWith ("--rows="))
         {
             shotRows = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    // how far along the horizontal scrollbar to jump (percent), so a wide
+    // pattern's far channels can be shown in a screenshot
+    int shotScroll = -1;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--scroll="))
+        {
+            shotScroll = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
             args.remove (i);
         }
 
@@ -185,7 +221,9 @@ int main (int argc, char** argv)
 
             for (int ch = 1; ch < shotChannels; ++ch)
             {
-                auto& cell = p->cell (ch * 3, ch);
+                // keep the notes inside the rows a plain shot can see, so
+                // scrolling right reveals whole columns of them
+                auto& cell = p->cell (juce::jmin (ch * 3, 23), ch);
                 cell.note = 57 + ch;
                 cell.inst = ch % 16;
                 cell.vol = (juce::uint8) juce::jlimit (1, 127, 90 + ch);
@@ -204,6 +242,27 @@ int main (int argc, char** argv)
         {
             p->setLength (shotRows / 2); // shortened first ...
             p->setLength (shotRows);     // then grown back: hidden rows come back
+        }
+    }
+
+    if (shotScroll >= 0)
+    {
+        // simulate a click on the tracker's bottom scrollbar strip: the thumb
+        // jumps to the click, so the shot shows the far channel columns
+        if (auto* tr = findChild<rtr::TrackerComponent> (*editor))
+        {
+            tr->refresh(); // lay the columns out first, like a painted frame would
+
+            const int tw = tr->getWidth();
+            const int usable = juce::jmax (1, tw - 70);
+            const float x = (float) (tw - 8 - (int) ((double) usable * (100 - shotScroll) / 100.0));
+
+            tr->mouseDown (makeEvent (*tr, { x, (float) (tr->getHeight() - 7) }));
+            tr->mouseUp (makeEvent (*tr, { x, (float) (tr->getHeight() - 7) }));
+        }
+        else
+        {
+            std::cerr << "no tracker child for --scroll\n";
         }
     }
 
