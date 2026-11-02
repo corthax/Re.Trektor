@@ -57,6 +57,7 @@ void Song::reset()
     nextPatternId = 1;
     activePatternId = 0;
     editPlayheadBeats = 0.0;
+    transportMirrorBeats = -1.0;
 
     auto& p = addPattern ("Pattern 01", 64, 1);
     activePatternId = p.id;

@@ -305,6 +305,12 @@ public:
     int activePatternId = 0;
     double editPlayheadBeats = 0.0;
 
+    /** The host transport position the edit playhead last mirrored, in PPQ
+        beats (negative before the first mirror). The editor follows the host
+        only while its position changes, so a playhead parked by a timeline
+        click stays put while the host is stopped. */
+    double transportMirrorBeats = -1.0;
+
     int nextPatternId = 1;
     double songEndBeats() const noexcept;
 

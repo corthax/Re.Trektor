@@ -39,6 +39,9 @@ public:
         snap toggle and adaptive/fixed grid settings). */
     double snapBeat (double beat) const noexcept { return song.snapBeats (beat, pixelsPerBeat); }
 
+    double beatAtX (float x) const noexcept { return scrollBeats + (double) x / pixelsPerBeat; }
+    float xAtBeat (double beat) const noexcept { return (float) ((beat - scrollBeats) * pixelsPerBeat); }
+
     void refresh();
 
     std::function<void()> onModelChanged;
@@ -53,9 +56,8 @@ private:
     void showContextMenu (const juce::MouseEvent&, Clip* clip);
 
     juce::Rectangle<float> clipBounds (const Clip&) const;
-    double beatAtX (float x) const noexcept { return scrollBeats + (double) x / pixelsPerBeat; }
-    float xAtBeat (double beat) const noexcept { return (float) ((beat - scrollBeats) * pixelsPerBeat); }
     void clampScroll();
+    void jumpPlayheadToClickedX (int x);
     double minPixelsPerBeat() const;
     void drawRuler (juce::Graphics&, juce::Rectangle<int> area);
     void drawClips (juce::Graphics&, juce::Rectangle<int> area);

@@ -436,14 +436,24 @@ void ReTrektorAudioProcessorEditor::applySettingsToModel()
 void ReTrektorAudioProcessorEditor::timerCallback()
 {
     updatePositionLabel();
+    followHostTransport();
+}
 
-    // follow the host playhead while stopped (edit playhead tracks the host position)
+//==============================================================================
+void ReTrektorAudioProcessorEditor::followHostTransport()
+{
+    // The plugin playhead follows the host transport, but only while the host
+    // position is actually moving. A click on the timeline parks it at the
+    // clicked beat (see TimelineComponent::jumpPlayheadToClickedX) so pasting
+    // happens where the mouse was, and a host that sits stopped must not drag
+    // the parked playhead back to the transport position.
     const auto transport = proc.getTransport();
 
-    // The plugin playhead always mirrors the host transport, while playing or stopped.
-    if (transport.ppq >= 0.0 && std::abs (transport.ppq - song.editPlayheadBeats) > 1.0e-6)
+    if (transport.ppq >= 0.0
+        && (transport.playing || std::abs (transport.ppq - song.transportMirrorBeats) > 1.0e-6))
     {
         song.editPlayheadBeats = transport.ppq;
+        song.transportMirrorBeats = transport.ppq;
         timeline.repaint();
     }
 }

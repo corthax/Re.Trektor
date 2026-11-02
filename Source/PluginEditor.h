@@ -25,6 +25,7 @@ public:
 
     void refreshAll();
     void selectPattern (int patternId);
+    void followHostTransport();
 
 private:
     enum class Tab { tracker = 0, macros, settings };

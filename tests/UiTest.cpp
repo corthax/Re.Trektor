@@ -226,6 +226,59 @@ int main()
         check (false, "tools panel exposes the +12 button");
     }
 
+    //== Clicking the timeline parks the playhead ==
+    {
+        head->playing = false;
+
+        auto* ed = dynamic_cast<ReTrektorAudioProcessorEditor*> (editor.get());
+        check (ed != nullptr, "editor exposes the playhead follow");
+
+        if (ed != nullptr)
+        {
+            auto tickHost = [&] (double ppq)
+            {
+                head->ppq = ppq;
+                head->playing = false;
+
+                juce::AudioBuffer<float> audio (2, 64);
+                juce::MidiBuffer midi;
+                proc.processBlock (audio, midi); // the host position reaches the plugin here
+
+                ed->followHostTransport(); // one editor timer tick
+            };
+
+            tickHost (0.0); // the playhead mirrors the host at a stopped position
+            check (song.transportMirrorBeats == 0.0, "a host tick records the position it mirrored");
+
+            timeline->mouseDown (makeEvent (*timeline, { 300.0f, 100.0f }));
+            timeline->mouseUp (makeEvent (*timeline, { 300.0f, 100.0f }));
+
+            const double clicked = timeline->snapBeat (timeline->beatAtX (300.0f));
+            check (song.editPlayheadBeats == clicked,
+                   "a click on the timeline parks the playhead at the clicked, snapped beat");
+
+            tickHost (0.0);
+            check (song.editPlayheadBeats == clicked,
+                   "a stopped host leaves the parked playhead alone");
+
+            timeline->mouseDown (makeEvent (*timeline, { 120.0f, 100.0f }));
+            timeline->mouseUp (makeEvent (*timeline, { 120.0f, 100.0f }));
+            const double nearer = timeline->snapBeat (timeline->beatAtX (120.0f));
+            check (std::abs (clicked - nearer) > 1.0e-6 && song.editPlayheadBeats == nearer,
+                   "another click moves the playhead to the new spot");
+
+            tickHost (7.25);
+            check (song.editPlayheadBeats == 7.25,
+                   "the playhead follows the host once its position moves");
+            check (song.transportMirrorBeats == 7.25,
+                   "the follow records the new host position");
+
+            tickHost (0.0);
+            check (song.editPlayheadBeats == 0.0,
+                   "the playhead keeps following the host back");
+        }
+    }
+
     //== Timeline drop =======================================================
     {
         const int beforeClips = (int) song.clips.size();

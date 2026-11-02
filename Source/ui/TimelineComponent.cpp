@@ -19,6 +19,18 @@ bool TimelineComponent::playbackLocked() const
     return proc.getTransport().playing;
 }
 
+//==============================================================================
+// A click parks the edit playhead at the clicked position so pasting a clip or
+// opening a clip menu lands where the mouse was. The host transport owns the
+// playhead while it is playing, so the click is ignored then.
+void TimelineComponent::jumpPlayheadToClickedX (int x)
+{
+    if (playbackLocked())
+        return;
+
+    song.editPlayheadBeats = song.snapBeats (beatAtX ((float) x), pixelsPerBeat);
+}
+
 void TimelineComponent::refresh()
 {
     clampScroll();
@@ -306,6 +318,11 @@ void TimelineComponent::mouseDown (const juce::MouseEvent& e)
         return;
     }
 
+    // A click on the timeline parks the edit playhead at the clicked spot
+    // (snapped to the grid when the snap is on) so that a later paste shows up
+    // where the mouse was, instead of at whatever the playhead happened to be.
+    jumpPlayheadToClickedX (e.x);
+
     const double beat = beatAtX ((float) e.x);
 
     // Which clip is under the mouse?
@@ -367,6 +384,7 @@ void TimelineComponent::mouseDown (const juce::MouseEvent& e)
     {
         dragMode = DragMode::none;
         showContextMenu (e, nullptr);
+        repaint();
         return;
     }
 

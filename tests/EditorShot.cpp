@@ -9,6 +9,7 @@
 #include "PluginEditor.h"
 #include "ui/PoolComponent.h"
 #include "ui/TrackerComponent.h"
+#include "ui/TimelineComponent.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_graphics/juce_graphics.h>
@@ -118,6 +119,16 @@ int main (int argc, char** argv)
         if (args[i].startsWith ("--scroll="))
         {
             shotScroll = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    // percent along the timeline to click: a click parks the playhead at the
+    // clicked beat, so the shot shows where a paste would land
+    int shotPlayheadPct = -1;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--click-timeline="))
+        {
+            shotPlayheadPct = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
             args.remove (i);
         }
 
@@ -263,6 +274,31 @@ int main (int argc, char** argv)
         else
         {
             std::cerr << "no tracker child for --scroll\n";
+        }
+    }
+
+    if (shotPlayheadPct >= 0)
+    {
+        // a click on the timeline parks the playhead at the clicked beat, so the
+        // shot shows where a paste would land
+        if (auto* tl = findChild<rtr::TimelineComponent> (*editor))
+        {
+            tl->refresh();
+
+            const int tlw = juce::jmax (40, tl->getWidth());
+            const int x = juce::jlimit (2, tlw - 3, (int) ((double) (tlw - 12) * shotPlayheadPct / 100.0) + 6);
+            const int y = tl->getHeight() / 3;
+
+            tl->mouseDown (makeEvent (*tl, { (float) x, (float) y }));
+            tl->mouseUp (makeEvent (*tl, { (float) x, (float) y }));
+
+            std::cout << "timeline click at x=" << x << "/" << (double) tlw
+                      << " parked the playhead at beat " << proc.getSong().editPlayheadBeats
+                      << " (ppb " << tl->getPixelsPerBeat() << ")\n";
+        }
+        else
+        {
+            std::cerr << "no timeline child for --click-timeline\n";
         }
     }
 
