@@ -139,6 +139,11 @@ void ReTrektorAudioProcessor::syncPlaybackModel()
 {
     auto copy = std::make_shared<rtr::Song> (song);
 
+    // playback only reads rows inside each pattern's length, so the snapshot can
+    // drop the hidden capacity rows kept by pattern resizing
+    for (auto& p : copy->patterns)
+        p.rows.resize ((size_t) p.length);
+
     const juce::SpinLock::ScopedLockType sl (playbackLock);
     playbackSong = std::move (copy);
 }

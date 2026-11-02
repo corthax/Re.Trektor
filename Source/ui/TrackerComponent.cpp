@@ -145,6 +145,12 @@ void TrackerComponent::refresh()
     auto& p = pattern();
     cursorRow = juce::jlimit (0, p.length - 1, cursorRow);
     cursorChannel = juce::jlimit (0, p.channels - 1, cursorChannel);
+
+    if (selStartRow >= 0)
+        selStartRow = juce::jlimit (0, p.length - 1, selStartRow);
+
+    if (selEndRow >= 0)
+        selEndRow = juce::jlimit (0, p.length - 1, selEndRow);
     rowsEditor.setText (juce::String (p.length), false);
     layoutFields();
     repaint();

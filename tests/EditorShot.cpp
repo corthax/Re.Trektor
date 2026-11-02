@@ -77,6 +77,14 @@ int main (int argc, char** argv)
             args.remove (i);
         }
 
+    int shotRows = 0;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--rows="))
+        {
+            shotRows = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
     juce::String tab;
     for (int i = args.size(); --i >= 0;)
         if (args[i].startsWith ("--tab="))
@@ -182,6 +190,17 @@ int main (int argc, char** argv)
                 cell.inst = ch % 16;
                 cell.vol = (juce::uint8) juce::jlimit (1, 127, 90 + ch);
             }
+        }
+    }
+
+    if (shotRows > 1)
+    {
+        const juce::ScopedLock sl (proc.getModelLock());
+
+        if (auto* p = proc.getSong().activePattern())
+        {
+            p->setLength (shotRows / 2); // shortened first ...
+            p->setLength (shotRows);     // then grown back: hidden rows come back
         }
     }
 

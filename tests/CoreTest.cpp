@@ -415,6 +415,77 @@ int main()
         check (song.addClip (p.id, 1.0) != nullptr, "a clip may start exactly at the end of another");
     }
 
+    //== Pattern resize keeps hidden rows =====================================
+    {
+        std::cout << "Pattern resize keeps hidden rows\n";
+
+        Song s;
+        auto& p = s.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (4, 0).note = 62;
+        p.cell (12, 0).note = 64;
+        p.cell (12, 0).inst = 3;
+
+        p.setLength (8);
+        check (p.length == 8, "pattern shortened to 8 rows");
+        check (p.capacity() == 13, "capacity keeps the last row holding data");
+        check (p.rows[12][0].note == 64 && p.rows[12][0].inst == 3,
+               "the note past the new end is kept, not discarded");
+
+        p.setLength (16);
+        check (p.cell (12, 0).note == 64 && p.cell (12, 0).inst == 3,
+               "enlarging again restores the hidden note");
+        check (p.cell (11, 0).empty(), "rows in between stay blank");
+
+        const auto tree = s.toValueTree();
+        Song r;
+        r.fromValueTree (tree);
+        check (r.patterns[0].length == 16, "grown length restored from state");
+        check (r.patterns[0].capacity() >= 13, "hidden capacity restored from state");
+        check (r.patterns[0].cell (12, 0).note == 64, "hidden data survives a state round trip");
+
+        Song s2;
+        s2.patterns[0].setLength (16);
+        s2.patterns[0].setLength (4);
+        check (s2.patterns[0].capacity() == 4, "hidden rows that hold nothing are trimmed");
+
+        Harness h;
+        auto& q = h.song.patterns[0];
+        q.setLength (16);
+        q.cell (0, 0).note = 65;
+        q.cell (12, 0).note = 77;
+        q.setLength (8); // clip now spans 2 beats, the row 77 note is hidden
+
+        h.runBlocks (120); // about 2.56 beats, past the shortened clip end
+
+        int hiddenBefore = 0, visibleBefore = 0;
+
+        for (auto& n : h.notes)
+        {
+            if (n.on && n.note == 77)
+                ++hiddenBefore;
+
+            if (n.on && n.note == 65)
+                ++visibleBefore;
+        }
+
+        check (hiddenBefore == 0, "hidden rows do not play while the pattern is shortened");
+        check (visibleBefore >= 1, "visible rows still play after the shrink");
+
+        q.setLength (16); // the clip now reaches 4 beats, row 12 sits at 3 beats
+        h.resetEvents();
+        h.runBlocks (60); // to about 3.84 beats: reaches row 12 at 3 beats
+
+        int hiddenAfter = 0;
+
+        for (auto& n : h.notes)
+            if (n.on && n.note == 77)
+                ++hiddenAfter;
+
+        check (hiddenAfter >= 1, "enlarging the pattern plays the restored row again");
+    }
+
     //== Stuck-note guard (Reaper-style host) =================================
     {
         std::cout << "Stuck-note guard (Reaper-style host)\n";

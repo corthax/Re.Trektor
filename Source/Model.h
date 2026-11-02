@@ -73,13 +73,44 @@ struct Pattern
         return rows[(size_t) juce::jlimit (0, length - 1, row)][(size_t) juce::jlimit (0, channels - 1, ch)];
     }
 
+    /** Row capacity (rows.size()) may exceed the visible length: shortening a
+        pattern keeps the rows beyond the new end, and enlarging it again
+        restores them, so resizing never discards data. Trailing hidden rows
+        that hold nothing are dropped to keep memory and state compact. */
+    int capacity() const noexcept { return juce::jmax (length, (int) rows.size()); }
+
+    void trimHiddenRows()
+    {
+        while ((int) rows.size() > length)
+        {
+            bool any = false;
+
+            for (auto& c : rows.back())
+                if (! c.empty())
+                {
+                    any = true;
+                    break;
+                }
+
+            if (! any)
+                rows.pop_back();
+            else
+                break;
+        }
+    }
+
     void setLength (int newLength)
     {
         newLength = juce::jlimit (1, kMaxRows, newLength);
-        rows.resize ((size_t) newLength);
+
+        if (newLength > (int) rows.size())
+            rows.resize ((size_t) newLength); // grows with fresh empty cells
+
         for (auto& r : rows)
             r.resize ((size_t) channels);
+
         length = newLength;
+        trimHiddenRows();
     }
 
     void setChannels (int newChannels)

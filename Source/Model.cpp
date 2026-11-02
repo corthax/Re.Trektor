@@ -318,6 +318,7 @@ bool Song::sliceClipAt (const juce::Uuid& uid, double atBeats)
     b.name = baseName + " B";
     b.rows.assign (sourceRows.begin() + splitRow, sourceRows.end());
     b.length = oldLength - splitRow;
+    b.trimHiddenRows(); // keeps rows hidden past the old end, drops the empty ones
 
     const int idA = a.id;
     const int idB = b.id;
@@ -492,17 +493,22 @@ juce::ValueTree Song::toValueTree() const
         pv.setProperty ("showCmd", p.showCmd, nullptr);
 
         // Packed row data: 6 ints per cell, stored as a binary block for compactness.
+        // The capacity is saved too, so rows hidden beyond the pattern's length
+        // (kept by resizing without deleting) survive a state round-trip.
+        const int cap = p.capacity();
         juce::MemoryBlock data;
-        data.setSize ((size_t) p.length * (size_t) p.channels * 6 * sizeof (juce::int16));
+        data.setSize ((size_t) cap * (size_t) p.channels * 6 * sizeof (juce::int16));
 
         auto* dst = static_cast<juce::int16*> (data.getData());
         size_t i = 0;
 
-        for (int r = 0; r < p.length; ++r)
+        for (int r = 0; r < cap; ++r)
         {
+            const auto& rowCells = p.rows[(size_t) juce::jmin (r, (int) p.rows.size() - 1)];
+
             for (int c = 0; c < p.channels; ++c)
             {
-                auto& cell = p.rows[(size_t) r][(size_t) c];
+                const Cell& cell = rowCells[(size_t) juce::jmin (c, (int) rowCells.size() - 1)];
                 dst[i++] = (juce::int16) cell.note;
                 dst[i++] = (juce::int16) cell.inst;
                 dst[i++] = (juce::int16) cell.vol;
@@ -512,6 +518,7 @@ juce::ValueTree Song::toValueTree() const
             }
         }
 
+        pv.setProperty ("capacity", cap, nullptr);
         pv.setProperty ("data", data.toBase64Encoding(), nullptr);
         pt.appendChild (pv, nullptr);
     }
@@ -596,6 +603,19 @@ void Song::fromValueTree (const juce::ValueTree& root)
             p.showCmd = pv.getProperty ("showCmd", true);
             p.allocate();
 
+            // hidden rows past the pattern length are part of the state, so the
+            // block can cover more rows than length (older saves: capacity == length)
+            const int cap = juce::jlimit (1, kMaxRows,
+                                          juce::jmax (p.length, (int) pv.getProperty ("capacity", p.length)));
+
+            if (cap > (int) p.rows.size())
+            {
+                p.rows.resize ((size_t) cap);
+
+                for (auto& r : p.rows)
+                    r.resize ((size_t) p.channels);
+            }
+
             juce::MemoryBlock data;
 
             if (data.fromBase64Encoding (pv.getProperty ("data").toString()))
@@ -604,7 +624,7 @@ void Song::fromValueTree (const juce::ValueTree& root)
                 const size_t count = data.getSize() / sizeof (juce::int16);
                 size_t i2 = 0;
 
-                for (int r = 0; r < p.length; ++r)
+                for (int r = 0; r < cap; ++r)
                 {
                     for (int c = 0; c < p.channels; ++c)
                     {
@@ -622,6 +642,7 @@ void Song::fromValueTree (const juce::ValueTree& root)
                 }
             }
 
+            p.trimHiddenRows();
             patterns.push_back (std::move (p));
         }
     }
