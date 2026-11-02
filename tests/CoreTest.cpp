@@ -96,7 +96,7 @@ int main()
         check (song.patterns[0].channels == 1, "default channel count is 1");
         check (song.settings.rowsPerBeat == 4, "default 4 rows per beat");
         check (song.settings.subticksPerRow == 6, "default 6 subticks per row");
-        check (song.settings.maxTrackerChannels == 1, "default 1 tracker channel");
+        check (kMaxTrackerChannels == 127, "channel limit is the constant 127, not a setting");
         check (song.settings.snapEnabled && song.settings.adaptiveGrid, "snap + adaptive grid on by default");
 
         song.settings.defaultPatternRows = 32;
@@ -376,7 +376,6 @@ int main()
         a.settings.rowsPerBeat = 8;
         a.settings.defaultPatternRows = 32;
         a.settings.hexDisplay = true;
-        a.settings.maxTrackerChannels = 2;
         auto& p = a.patterns[0];
         p.setChannels (2);
         p.setLength (12);
@@ -484,6 +483,75 @@ int main()
                 ++hiddenAfter;
 
         check (hiddenAfter >= 1, "enlarging the pattern plays the restored row again");
+    }
+
+    //== Pattern channel count keeps hidden columns ==========================
+    {
+        std::cout << "Pattern channel count keeps hidden columns\n";
+
+        Song s;
+        auto& p = s.patterns[0];
+        p.setChannels (4);
+        p.cell (0, 3).note = 64;
+        p.cell (0, 3).inst = 3;
+
+        p.setChannels (2);
+        check (p.channels == 2, "pattern narrowed to 2 channels");
+        check (p.channelCapacity() == 4, "hidden columns kept down to the last one holding data");
+        check (p.rows[0].size() == 4, "the widest row still spans 4 columns");
+        check (p.rows[0][3].note == 64 && p.rows[0][3].inst == 3, "hidden column data is kept");
+
+        p.setChannels (4);
+        check (p.cell (0, 3).note == 64 && p.cell (0, 3).inst == 3, "widening restores the hidden column");
+        p.setChannels (2); // narrow again so the state has to carry a hidden column
+
+        Song s2;
+        s2.patterns[0].setChannels (4);
+        s2.patterns[0].setChannels (1);
+        check (s2.patterns[0].channelCapacity() == 1, "hidden columns holding nothing are trimmed");
+
+        const auto tree = s.toValueTree();
+        Song r;
+        r.fromValueTree (tree);
+        check (r.patterns[0].channels == 2, "narrow channel count restored from state");
+        check (r.patterns[0].channelCapacity() == 4, "hidden channel capacity restored from state");
+        r.patterns[0].setChannels (4);
+        check (r.patterns[0].cell (0, 3).note == 64, "hidden column data survives a state round trip");
+
+        Harness h;
+        auto& q = h.song.patterns[0];
+        q.setLength (16);
+        q.setChannels (4);
+        q.cell (0, 0).note = 65;
+        q.cell (8, 3).note = 77; // row 8 sits at 2 beats, in the hidden 4th channel
+        q.setChannels (2);
+
+        h.runBlocks (60); // about 1.28 beats
+
+        int hiddenBefore = 0, visibleBefore = 0;
+
+        for (auto& n : h.notes)
+        {
+            if (n.on && n.note == 77)
+                ++hiddenBefore;
+
+            if (n.on && n.note == 65)
+                ++visibleBefore;
+        }
+
+        check (hiddenBefore == 0, "hidden channel columns do not play");
+        check (visibleBefore >= 1, "visible channel columns still play");
+
+        q.setChannels (4);
+        h.runBlocks (60); // to about 2.56 beats: reaches row 8 at 2 beats
+
+        int hiddenAfter = 0;
+
+        for (auto& n : h.notes)
+            if (n.on && n.note == 77)
+                ++hiddenAfter;
+
+        check (hiddenAfter >= 1, "widening the pattern plays the restored column again");
     }
 
     //== Stuck-note guard (Reaper-style host) =================================

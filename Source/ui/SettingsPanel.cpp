@@ -54,14 +54,6 @@ SettingsPanel::SettingsPanel (ReTrektorAudioProcessor& processor)
                                        refresh();
                                    });
 
-    maxChannelsSlider = addSlider ("Max tracker channels", "Maximum polyphony channels a pattern may use (1-127)",
-                                   1.0, 127.0, 1.0, (double) song.settings.maxTrackerChannels,
-                                   [this, refresh] (double v)
-                                   {
-                                       song.settings.maxTrackerChannels = (int) std::lround (v);
-                                       refresh();
-                                   });
-
     pasteUniqueToggle = addToggle ("Paste as unique pattern by default", "Ctrl+V creates a copy of the pattern data",
                                    song.settings.pasteAsUnique,
                                    [this, refresh] (bool v)
@@ -161,7 +153,6 @@ void SettingsPanel::refresh()
         subticksSlider->setValue ((double) song.settings.subticksPerRow, juce::dontSendNotification);
         rowsPerBeatSlider->setValue ((double) song.settings.rowsPerBeat, juce::dontSendNotification);
         defaultRowsSlider->setValue ((double) song.settings.defaultPatternRows, juce::dontSendNotification);
-        maxChannelsSlider->setValue ((double) song.settings.maxTrackerChannels, juce::dontSendNotification);
         pasteUniqueToggle->setToggleState (song.settings.pasteAsUnique, juce::dontSendNotification);
         snapToggle->setToggleState (song.settings.snapEnabled, juce::dontSendNotification);
         adaptiveToggle->setToggleState (song.settings.adaptiveGrid, juce::dontSendNotification);

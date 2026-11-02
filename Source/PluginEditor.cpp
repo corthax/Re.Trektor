@@ -170,13 +170,9 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
             const int ch = (int) channelsSlider.getValue();
             p->setChannels (ch);
 
-            // The settings "Max tracker channels" is the cap: new patterns start with
-            // it, and it follows the biggest channel count actually in use, so raising
-            // a pattern here above the cap raises the cap too (the Settings tab can
-            // still lower it, which clamps every pattern down).
-            if (song.settings.maxTrackerChannels < ch)
-                song.settings.maxTrackerChannels = ch;
-
+            // The channel limit is the constant kMaxTrackerChannels, and shrinking
+            // keeps the cells of the removed columns in the pattern's capacity, so
+            // widening it again restores them.
             proc.syncPlaybackModel();
             tracker.refresh();
             timeline.refresh();
@@ -431,9 +427,8 @@ void ReTrektorAudioProcessorEditor::syncGridControls()
 
 void ReTrektorAudioProcessorEditor::applySettingsToModel()
 {
-    for (auto& p : song.patterns)
-        p.setChannels (juce::jmin (p.channels, song.settings.maxTrackerChannels));
-
+    // settings no longer clamp the channel count (the limit is the constant
+    // kMaxTrackerChannels), the bottom bar just re-reads the current model
     syncBottomBar();
 }
 

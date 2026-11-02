@@ -190,6 +190,9 @@ int main (int argc, char** argv)
                 cell.inst = ch % 16;
                 cell.vol = (juce::uint8) juce::jlimit (1, 127, 90 + ch);
             }
+
+            p->setChannels (juce::jmax (1, shotChannels / 2)); // narrow ...
+            p->setChannels (shotChannels);                     // ... widen back: columns restored
         }
     }
 

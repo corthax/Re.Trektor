@@ -291,14 +291,24 @@ int main()
             p = song.activePattern();
             check (p != nullptr && p->channels == 3,
                    "CHANNELS slider grows the active pattern to 3 channels");
-            check (song.settings.maxTrackerChannels >= 3,
-                   "raising past the global max bumps the settings max");
+
+            if (p != nullptr)
+                p->cell (0, 2).note = 60; // a note in the widest column
 
             chSlider->setValue (2.0, juce::sendNotificationSync);
             p = song.activePattern();
             check (p != nullptr && p->channels == 2, "the slider can shrink the pattern again");
-            check (song.settings.maxTrackerChannels >= 3,
-                   "shrinking a pattern leaves the settings max unchanged");
+            check (p != nullptr && p->channelCapacity() == 3,
+                   "shrinking keeps the column that holds data in the capacity");
+            check (p != nullptr && p->rows[0].size() == 3 && p->rows[0][2].note == 60,
+                   "the hidden column's note survives the shrink");
+
+            chSlider->setValue (3.0, juce::sendNotificationSync);
+            p = song.activePattern();
+            check (p != nullptr && p->channels == 3,
+                   "widening again restores the channel count");
+            check (p != nullptr && p->cell (0, 2).note == 60,
+                   "the hidden column's note is back after widening");
         }
     }
 

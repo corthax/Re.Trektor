@@ -72,7 +72,7 @@ Pattern& Song::addPattern (const juce::String& name, int length, int channels)
     p.id = nextPatternId++;
     p.name = name.isEmpty() ? ("Pattern " + juce::String (p.id).paddedLeft ('0', 2)) : name;
     p.length = length > 0 ? length : juce::jlimit (1, kMaxRows, settings.defaultPatternRows);
-    p.channels = channels > 0 ? channels : juce::jmax (1, settings.maxTrackerChannels);
+    p.channels = channels > 0 ? channels : 1;
     p.allocate();
 
     patterns.push_back (std::move (p));
@@ -469,7 +469,6 @@ juce::ValueTree Song::toValueTree() const
     st.setProperty ("subticksPerRow", settings.subticksPerRow, nullptr);
     st.setProperty ("rowsPerBeat", settings.rowsPerBeat, nullptr);
     st.setProperty ("defaultPatternRows", settings.defaultPatternRows, nullptr);
-    st.setProperty ("maxTrackerChannels", settings.maxTrackerChannels, nullptr);
     st.setProperty ("pasteAsUnique", settings.pasteAsUnique, nullptr);
     st.setProperty ("snapEnabled", settings.snapEnabled, nullptr);
     st.setProperty ("adaptiveGrid", settings.adaptiveGrid, nullptr);
@@ -492,23 +491,25 @@ juce::ValueTree Song::toValueTree() const
         pv.setProperty ("showPan", p.showPan, nullptr);
         pv.setProperty ("showCmd", p.showCmd, nullptr);
 
-        // Packed row data: 6 ints per cell, stored as a binary block for compactness.
-        // The capacity is saved too, so rows hidden beyond the pattern's length
-        // (kept by resizing without deleting) survive a state round-trip.
-        const int cap = p.capacity();
+        // Packed row data: 6 ints per cell over the capacity rectangle, so rows
+        // and channel columns hidden past the pattern's visible size (kept by
+        // resizing without deleting) survive a state round-trip.
+        const int capRows = p.capacity();
+        const int capCols = p.channelCapacity();
+        static const Cell emptyCell;
         juce::MemoryBlock data;
-        data.setSize ((size_t) cap * (size_t) p.channels * 6 * sizeof (juce::int16));
+        data.setSize ((size_t) capRows * (size_t) capCols * 6 * sizeof (juce::int16));
 
         auto* dst = static_cast<juce::int16*> (data.getData());
         size_t i = 0;
 
-        for (int r = 0; r < cap; ++r)
+        for (int r = 0; r < capRows; ++r)
         {
             const auto& rowCells = p.rows[(size_t) juce::jmin (r, (int) p.rows.size() - 1)];
 
-            for (int c = 0; c < p.channels; ++c)
+            for (int c = 0; c < capCols; ++c)
             {
-                const Cell& cell = rowCells[(size_t) juce::jmin (c, (int) rowCells.size() - 1)];
+                const Cell& cell = c < (int) rowCells.size() ? rowCells[(size_t) c] : emptyCell;
                 dst[i++] = (juce::int16) cell.note;
                 dst[i++] = (juce::int16) cell.inst;
                 dst[i++] = (juce::int16) cell.vol;
@@ -518,7 +519,8 @@ juce::ValueTree Song::toValueTree() const
             }
         }
 
-        pv.setProperty ("capacity", cap, nullptr);
+        pv.setProperty ("capacity", capRows, nullptr);
+        pv.setProperty ("capacityChannels", capCols, nullptr);
         pv.setProperty ("data", data.toBase64Encoding(), nullptr);
         pt.appendChild (pv, nullptr);
     }
@@ -574,7 +576,6 @@ void Song::fromValueTree (const juce::ValueTree& root)
         settings.subticksPerRow = st.getProperty ("subticksPerRow", 6);
         settings.rowsPerBeat = juce::jmax (1, (int) st.getProperty ("rowsPerBeat", 4));
         settings.defaultPatternRows = juce::jlimit (1, kMaxRows, (int) st.getProperty ("defaultPatternRows", 64));
-        settings.maxTrackerChannels = juce::jlimit (1, kMaxTrackerChannels, (int) st.getProperty ("maxTrackerChannels", 1));
         settings.pasteAsUnique = st.getProperty ("pasteAsUnique", false);
         settings.snapEnabled = st.getProperty ("snapEnabled", true);
         settings.adaptiveGrid = st.getProperty ("adaptiveGrid", true);
@@ -603,18 +604,20 @@ void Song::fromValueTree (const juce::ValueTree& root)
             p.showCmd = pv.getProperty ("showCmd", true);
             p.allocate();
 
-            // hidden rows past the pattern length are part of the state, so the
-            // block can cover more rows than length (older saves: capacity == length)
-            const int cap = juce::jlimit (1, kMaxRows,
-                                          juce::jmax (p.length, (int) pv.getProperty ("capacity", p.length)));
+            // rows and channel columns hidden past the visible size are part of the
+            // state, so the block can cover a larger rectangle than length x
+            // channels (older saves: capacities equal the visible size)
+            const int capRows = juce::jlimit (1, kMaxRows,
+                                              juce::jmax (p.length, (int) pv.getProperty ("capacity", p.length)));
+            const int capCols = juce::jlimit (1, kMaxTrackerChannels,
+                                              juce::jmax (p.channels, (int) pv.getProperty ("capacityChannels", p.channels)));
 
-            if (cap > (int) p.rows.size())
-            {
-                p.rows.resize ((size_t) cap);
+            if (capRows > (int) p.rows.size())
+                p.rows.resize ((size_t) capRows);
 
-                for (auto& r : p.rows)
-                    r.resize ((size_t) p.channels);
-            }
+            for (auto& r : p.rows)
+                if (capCols > (int) r.size())
+                    r.resize ((size_t) capCols);
 
             juce::MemoryBlock data;
 
@@ -624,9 +627,9 @@ void Song::fromValueTree (const juce::ValueTree& root)
                 const size_t count = data.getSize() / sizeof (juce::int16);
                 size_t i2 = 0;
 
-                for (int r = 0; r < cap; ++r)
+                for (int r = 0; r < capRows; ++r)
                 {
-                    for (int c = 0; c < p.channels; ++c)
+                    for (int c = 0; c < capCols; ++c)
                     {
                         if (i2 + 6 > count)
                             break;
@@ -643,6 +646,7 @@ void Song::fromValueTree (const juce::ValueTree& root)
             }
 
             p.trimHiddenRows();
+            p.trimHiddenChannels();
             patterns.push_back (std::move (p));
         }
     }

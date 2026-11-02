@@ -107,18 +107,66 @@ struct Pattern
             rows.resize ((size_t) newLength); // grows with fresh empty cells
 
         for (auto& r : rows)
-            r.resize ((size_t) channels);
+            if ((int) r.size() < channels)
+                r.resize ((size_t) channels); // grows only: keeps channel capacity
 
         length = newLength;
         trimHiddenRows();
     }
 
+    /** Channel capacity works like row capacity: lowering the visible channel
+        count keeps the cells of the removed columns, so raising it again restores
+        them. Columns past the visible count that hold nothing are dropped. */
+    int channelCapacity() const noexcept
+    {
+        int cap = channels;
+
+        for (auto& r : rows)
+            cap = juce::jmax (cap, (int) r.size());
+
+        return cap;
+    }
+
+    void trimHiddenChannels()
+    {
+        for (;;)
+        {
+            int widest = channels;
+
+            for (auto& r : rows)
+                widest = juce::jmax (widest, (int) r.size());
+
+            if (widest <= channels)
+                break;
+
+            bool any = false;
+
+            for (auto& r : rows)
+                if ((int) r.size() == widest && ! r[(size_t) widest - 1].empty())
+                {
+                    any = true;
+                    break;
+                }
+
+            if (any)
+                break;
+
+            for (auto& r : rows)
+                if ((int) r.size() > widest - 1)
+                    r.resize ((size_t) widest - 1);
+        }
+    }
+
     void setChannels (int newChannels)
     {
         newChannels = juce::jlimit (1, kMaxTrackerChannels, newChannels);
+
         for (auto& r : rows)
-            r.resize ((size_t) newChannels);
+            if (newChannels > (int) r.size())
+                r.resize ((size_t) newChannels); // grows only: keeps hidden columns
+
         channels = newChannels;
+        trimHiddenChannels();
     }
 
     void clearAll()
@@ -162,7 +210,6 @@ struct Settings
     int subticksPerRow = 6;
     int rowsPerBeat = 4;
     int defaultPatternRows = 64;
-    int maxTrackerChannels = 1;
     bool pasteAsUnique = false;
     bool snapEnabled = true;
     bool adaptiveGrid = true;
