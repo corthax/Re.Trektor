@@ -40,13 +40,16 @@ cmake --build tests/build -j"$(nproc)"
 ```
 
 * `ReTrektorCoreTest` – model, sequencing, snapping, macro expansion, slicing,
-  paste, state
+  paste, state, the volume/pan columns' controller numbers, per-channel column
+  visibility (and that hidden columns still play)
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
-* `ReTrektorUiTest` – drives the editor components (tracker keys, column
-  chips, tools transpose, instrument remap with its source and target
-  dropdowns across scopes and carries, timeline click parking the playhead,
-  timeline drop, pool placement, channels slider, tracker horizontal
-  scrollbar) and confirms which MIDI channel the notes end up on
+* `ReTrektorUiTest` – drives the editor components (tracker keys, column chips
+  clicked per channel, volume column entering three decimal digits and emitting
+  CC7, the settings volume/pan CC sliders driving those columns, tools
+  transpose, instrument remap with its source and target dropdowns across
+  scopes and carries, timeline click parking the playhead, timeline drop, pool
+  placement, channels slider, tracker horizontal scrollbar) and confirms which
+  MIDI channel and which controller value the notes and columns end up on
 * `ReTrektorEditorShot` – renders the editor headlessly and can dump the
   component layout (`--dump`, optionally `--tab=settings|macros`,
   `--expand-pool` to show the pool grid preview, `--channels=N` to
@@ -55,7 +58,10 @@ cmake --build tests/build -j"$(nproc)"
   pattern's far channels are shown), `--click-timeline=P` to click P% across the
   timeline and park the playhead at that snapped beat, and `--rows=N` to shrink the
   active pattern to N/2 rows and grow it back to N — both exercise the
-  resize-preserves-data behaviour)
+  resize-preserves-data behaviour, `--hide=0v1c` to hide the volume column of
+  channel 0 and the command column of channel 1 (channel digit plus
+  `i`/`v`/`p`/`c` pairs, so a shot can show that chips hide per channel), and
+  `--hex` to render the narrower hex field widths)
 
 Example:
 
@@ -92,7 +98,13 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   the playhead instead.
 * **Tracker** – the active pattern's rows. Column visibility chips (`I`, `V`,
   `P`, `C`) sit above each channel's note column and stay visible so hidden
-  columns can always be restored. The rows field above the line numbers sets
+  columns can always be restored: one chip hides one field of that one channel,
+  so hiding the volume of channel 2 leaves the volume of every other channel
+  alone. The flags belong to the pattern and the channel, and they follow the
+  grow-only channel capacity — a channel dropped by the CHANNELS slider keeps
+  its flags, so widening the pattern again restores them. Field widths follow
+  the widest text a field can show, so a decimal volume of `0`–`127` needs three
+  digits like the pan column. The rows field above the line numbers sets
   the pattern length (shared by every clip that references the pattern).
   Shortening a pattern keeps its rows past the new end, so enlarging it again
   restores the data instead of leaving blanks.
@@ -148,8 +160,9 @@ Q 2 W 3 E R 5 T 6 Y 7 U   ->  next octave
 
 Numeric fields accept hex when "Hexadecimal values" is enabled in Settings,
 decimal otherwise. Instrument values are the MIDI output channel (`0`–`F` in
-hex, `0`–`15` in decimal). The Command field accepts `0`–`143`: `128`–`143`
-(hex `80`–`8F`) call macros `M0`–`M15`.
+hex, `0`–`15` in decimal). Volume and Pan take `0`–`127`: three decimal digits
+(two in hex), displayed right-aligned like the pan column. The Command field
+accepts `0`–`143`: `128`–`143` (hex `80`–`8F`) call macros `M0`–`M15`.
 
 ## MIDI model
 
@@ -160,7 +173,13 @@ hex, `0`–`15` in decimal). The Command field accepts `0`–`143`: `128`–`143
   volume, pan and command. Carried values are drawn dimmer; volume, pan and
   instrument only carry when a note exists, command carries even on empty
   rows.
-* Volume is note velocity when a note is present, otherwise CC7. Pan is CC10.
+* An explicit volume or pan cell always sends its controller value: CC7 (channel
+  volume) and CC10 (channel pan) by default, and the Settings tab can point
+  either column at any controller `0`–`127`. The controllers are sent before the
+  note handling, so even a row that only holds a note-off (`===`) applies them.
+  A volume on a row that also has a note is additionally used as the note-on
+  velocity, so both arrive; a volume on a row without a note only drives the
+  controller. Carried (implicit) values do not re-send.
 * Command column: values `0`–`127` are CC numbers with a `0`–`127` value,
   drawn teal. Values `128`–`143` (hex `80`–`8F`) call macros `M0`–`M15` from
   the Macros tab, drawn orange; the value field is ignored for macro calls.
@@ -199,6 +218,8 @@ hex, `0`–`15` in decimal). The Command field accepts `0`–`143`: `128`–`143
 * Paste as unique pattern by default
 * Snap to grid, adaptive grid, fixed grid size
 * Record octave and step skip
+* Volume column CC and Pan column CC (default 7 and 10): the controllers those
+  columns drive, each `0`–`127`
 
 ## Known limitations
 
@@ -270,6 +291,7 @@ Resizing a clip changes the shared pattern's row count (affects all instances), 
 Plugin playhead is host-driven only: removed user playhead dragging; timer always mirrors host PPQ and paste/slice use the snapped host position.
 Playhead follow is position-change driven (commit 02c0ca3): the editor only copies host PPQ into the edit playhead when that position actually changed (or the host is playing), so a playhead parked by a timeline click stays put while the host is stopped.
 allNotesOff now emits explicit note-offs for active notes before CC123/CC120 panic messages.
+Volume column always drives its controller (commit cd3fc2c): an explicit volume/pan cell sends CC7/CC10 by default, the Settings tab names either column's CC (0-127, serialized with the state), and a volume on a row that also has a note additionally sets the note-on velocity, so the column is not velocity-only any more. Field widths derive from a new TrackerComponent::fieldGlyphs (widest text a field can show: note 4, inst 1 + maxDigits, vol/pan maxDigits, cmd cmdNum + cmdVal) instead of fixed character counts, so a decimal volume of 0-127 keeps three digits and the drawn values use the same digit count (right-aligned, space-padded like pan). Column visibility became one byte per channel column (Pattern::vis, bits 1 inst / 2 vol / 4 pan / 8 cmd, default kVisAll) read by showColumn and written by setColumn/toggleColumn, kept grow-only up to channelCapacity() like the cell columns, serialized as base64 bytes in a new "vis" property, and older saves' whole-pattern showInst/showVol/showPan/showCmd are applied to every column as a fallback so previous states keep their display. The chips above a channel toggle that channel only, the pool's duplicate action copies the flags, and hiding the field the cursor sits in parks the cursor on that channel's note column.
 Work State
 Completed
 Repo init, JUCE 8.0.9 vendored/committed; CMakeLists.txt for VST3 MIDI effect.
@@ -293,6 +315,7 @@ Copy pattern data (unique) removed (commit ce6422d): the timeline clip context m
 Timeline click parks the playhead (commit 02c0ca3): clicking the timeline gave no visual target, so paste/slice/clip-menu placement was guesswork. TimelineComponent::jumpPlayheadToClickedX (int x) sets song.editPlayheadBeats = song.snapBeats (beatAtX ((float) x), pixelsPerBeat) and returns while playbackLocked() (the host owns the playhead while it plays); mouseDown calls it right after the middle-button pan return and before the clip hit test, so the click works for left and right buttons alike and both the clip menu and the empty-area menu (which also gained a repaint()) build their pasteBeat = snapBeats (editPlayheadBeats, ppb) at the clicked spot. beatAtX / xAtBeat moved from private to public so tests can name the clicked beat. The mirror in PluginEditor::timerCallback had run on every tick with |ppq - editPlayheadBeats| > 1e-6, which pulled a parked playhead back on the next 20 Hz tick; it now compares against a new Song::transportMirrorBeats stamp (PPQ beats, negative before the first mirror, reset by Song::reset) and copies only when the host is playing or its position actually changed, so a stopped host leaves the parked playhead alone while any host move resumes the follow; the mirror body became the public ReTrektorAudioProcessorEditor::followHostTransport(). UiTest + 8 checks use a tickHost lambda (move the mock playhead, one processBlock so the transport snapshot atomics refresh, then followHostTransport() for one tick - the JUCE editor timer never fires in a console app, which is why the earlier wall-clock waits left the stamp at -1): a stopped tick records the mirrored position, a click at x=300 (grid 0.5 beats, ppb 48) parks the playhead exactly on the snapped beat, a stopped tick leaves it there, a click at x=120 moves it, a host move to 7.25 resumes the follow and records that stamp, and moving back to 0 keeps following. EditorShot gained --click-timeline=P (percent across the timeline, needs the new ui/TimelineComponent.h include) printing "timeline click at x=704/908 parked the playhead at beat 14.5 (ppb 48)"; the 1240x760 shot visually shows the red playhead line at 696px = 14.5 * 48, inside the 16-beat Main clip. Plugin + tests rebuilt; CoreTest PASS, UiTest 40 checks, Smoke all PASS, EditorShot exit 0.
 Menus open at the cursor (commit 08af633): every popup appeared beside the bottom-left corner of the panel instead of under the mouse. All four showMenuAsync call sites (timeline clip menu, timeline empty-area menu, pool item menu, tracker cell menu) passed juce::PopupMenu::Options().withTargetComponent (this) only, and withTargetComponent also sets the target screen area to the whole component's bounds, which is what PopupPanel anchors the menu to. Each chain now ends with .withMousePosition () after withTargetComponent (), which re-anchors the target area to Desktop::getMousePosition() (the menus are built synchronously inside mouseDown, so that is the click point) while the target component is kept for hi-DPI scaling; this is the same chain JUCE's own widgets use (TableHeaderComponent, TextEditor, Slider). Plugin + tests rebuilt; CoreTest 93 checks, UiTest 40 checks, Smoke 13 checks, all PASS - popups stay interactive-only, so the anchoring itself needs a click in a host to confirm.
 Instrument remap takes a source and a target (commit f9acf12): the right panel had one instrument dropdown whose choice meant "write this instrument over every note in the scope", which clobbered rows that had no instrument of their own and ignored the dim cells carrying one down, so moving one instrument onto another was not expressible. ToolsPanel now has remapFromBox (items All id 1, then -0 .. -F ids 2..17) and remapToBox (only -0 .. -F ids 1..16), both styled by a shared styleCombo lambda and filled by an addInstruments lambda that reuses the tracker's hex labels, with addInstruments taking the id offset; the defaults All -> -0 keep the old meaning. applyRemap walks each tracker channel from row 0 keeping the instrument the column resolves to before (before) and after (after) the edit: an explicit cell inside the row range matching the source (or any instrument when the source is All) is rewritten, and an implicit cell is pinned to the target only when its carried source value would otherwise still resolve to the old instrument, which is why a row stays implicit once the explicit cell above it already moved (only the first rows inside a narrower selection need an explicit value). rowRange (new private helper returning { start, end } or { -1, -1 }) names the rows a scope selects and is now shared by applyToRows, applyRemap and applyInterpolate, which had the selection maths duplicated inline. Layout: the two dropdowns sit in one row 62 px wide each with an 18 px gap, paint() draws an arrow there (three juce::Line<float> strokes in theme::textDim from getBounds(); GraphicsContext::drawLine takes a Line<float> plus thickness, not two points), the Remap button has its own row below and the section label is just REMAP; the panel still fits the minimum window (dump: scope combo 8,38 140x22, from 9,159 60x20, to 87,159 60x20, Remap 9,185 138x20, Interpolate 8,232 140x22 inside 156x448). prepareToPlay now calls setRateAndBufferSizeDetails (sampleRateIn, samplesPerBlock): the transport maths reads the rate back with getSampleRate(), which a bare prepareToPlay call (tests, and hosts that do not go through the JUCE wrapper) left at 0, and engine.process guards the divide with jmax (1.0, sampleRate), so one 64-sample block covered 128 beats at 120 BPM and the UI test's MIDI checks passed only by accident. UiTest + 26 checks (66 total, PASS) with a collectCombos helper (dropdowns in child order: scope, from, to) and a noteChannel helper (JUCE's getChannel() is 1-based, the tracker numbers channels from 0, so the helper subtracts 1): item counts and labels (from = 17 items with "All" first, to = 16 items "-0" .. "-F"), defaults, -3 -> -5 whole pattern (explicit cell moves to inst 5, another channel's inst 7 stays, the row below stays implicit kEmpty, and playback puts notes 65, 66 and 67 on channels 5, 5 and 7), a selection scope of rows 6-7 with the source row 5 outside it (the carried row 6 is pinned to inst 9, row 7 stays implicit, the explicit inst 6 at rows 5 and 9 outside the selection stays put, playback puts 68, 69 and 71 on channels 9, 9 and 6) and All -> -B (every explicit instrument moves to 11, the rows already resolving to 11 stay implicit, rows with no carried instrument get none, and playback puts all of them on 11). Plugin + tests rebuilt; CoreTest 93 checks, UiTest 66 checks, Smoke 13 checks, all PASS; two --dump screenshots (1240x760 and the 620x520 minimum) cropped to the tools panel and blown up 4x visually verified: "All" and "-0" in one row with the arrow between the boxes, the Remap button on its own row, no overlap.
+Per-channel column visibility, three-digit volume and configurable column CCs (commit cd3fc2c): the volume field had a fixed two-character width in TrackerComponent::layoutFields while maxDigitsFor (vol) already allowed three decimal digits, so volumes above 99 were squeezed into a two-glyph field and the column read like a two-digit one. Field widths now come from a new TrackerComponent::fieldGlyphs (widest text a field can show: note 4, instrument 1 + digits, volume/pan digits, command cmdNum + cmdVal digits) that layoutFields multiplies by the mono glyph width, and drawRows prints vol, pan, cmdNum and cmdVal with that same digit count, so decimal numbers are right-aligned and space-padded like pan always was while hex keeps its two digits (the instrument field also learned the dash: 2 hex, 3 decimal characters). Song::Settings gained volumeCc = 7 and panCc = 10, written and read back clamped to 0-127 in the SETTINGS tree, exposed as the last two rows of the Settings tab ("Volume column CC" and "Pan column CC", 0-127, refresh() pushes the model values back into the sliders), whose onChange writes song.settings and fires onSettingsChanged, which re-syncs the playback snapshot. PlaybackEngine caches the two numbers in new members at the start of process() so processRow can use them; the volume emission no longer requires cell.note == kEmpty, so an explicit volume cell always emits controllerEvent (midiCh + 1, volumeCc, vol) next to the note-on velocity path, and pan emits panCc. The two emissions were then hoisted above the note-off branch of processRow (commit 3f14d6f), so a row whose note is only "===" still applies an explicit volume/pan instead of being skipped; the pending-event sort keeps the controller (order 2) just after that row's note-off (order 0) at the same offset, so the channel changes once the note has stopped. Pattern visibility became Pattern::vis (one byte per channel column, bits 1 instrument / 2 volume / 4 pan / 8 command, kVisAll default) with showColumn, setColumn and toggleColumn accessors kept grow-only alongside channelCapacity(); the state stores them base64-encoded in a new "vis" property (visCount() entries) and reads an older save's whole-pattern showInst/showVol/showPan/showCmd by applying them to every column, so previous sessions keep their display. TrackerComponent::layoutFields gates each field by p.showColumn (ch, i), drawHeader reads the per-channel states, mouseDown toggles only the channel whose chip was clicked - and parks the cursor on that channel's note column when it just hid the field the cursor was in - moveCursor rebuilds the field list for the channel it lands on (a fieldsFor lambda, so wrapping backwards lands on the last visible field of the previous channel), and the pool's duplicate action copies the vis vector. TrackerComponent gained public inline getCursorField, fieldBoundsFor and chipBoundsFor so the tests can name a field or a chip; EditorShot gained --hex and --hide= pairs of channel digit plus i/v/p/c. CoreTest + "Volume + pan controllers" (9 checks: three-digit decimal volume kept, CC7 emitted with and without a note, CC10 from pan, velocity still set, a note-off row still applies its explicit volume and pan controllers, configured CC5/CC11 drive the columns, no stray CC7/CC10 after reconfiguring, both numbers restored from a state), + a defaults check that the columns start on CC7 and CC10, and + "Column visibility" (11 checks: hidden on one channel, visible on the others, command hidden only there, the hidden channel survives in the capacity, a state round trip restores the per-field flags and the hidden channel's cells, widening restores that channel's flags, new patterns start all visible, hidden columns still play their controllers). UiTest + 19 checks: the volume field is as wide as the pan field, three digits enter 100, a lone volume emits CC7, a volume next to a note emits CC7 and sets the note-on velocity, the two settings sliders change the CC numbers and the columns follow them with no CC7/CC10 left, chip clicks on channels 1 and 2 hide only there, hidden columns still play, and both chips restore. Plugin + tests rebuilt; CoreTest 114 checks, UiTest 85 checks, Smoke 13 checks all PASS; screenshots verified: 1240x760 --hide=0v1c --channels=4 (channel 0 volume chip dim, channel 1 command chip dim, the remaining columns pack left, decimal volumes right-aligned such as 100), --hex --hide=1v --channels=3 (two-character hex volume, narrower command pair), and --tab=settings at 1240x760 and at the 620x520 minimum (12 settings rows fit, last slider box at 408 plus 21 inside the 448-high panel, showing the default 7 and 10).
 Active
 None.
 Blocked
@@ -304,18 +327,19 @@ Confirm interactively that the right-click menus now open beside the cursor in t
 Verify pool drag-drop preview and context-menu paste/slice flows interactively in Carla; confirm Reaper compatibility of the MIDI effect (instrument fallback IS_SYNTH build compiles locally but is untested in Reaper).
 Further command kinds: dedicated pitch bend CC105/CC106 pair command, tempo and song position commands.
 Grid preview currently always starts at row 0 (no preview scrolling yet).
+Confirm in the DAW that the volume column now emits CC7 (CC10 for pan), that a note-off row (`===`) with an explicit volume/pan still applies both controllers, that the Settings tab's Volume column CC / Pan column CC sliders repoint them, and that a channel's column chips hide only that channel's field.
 Confirm in the DAW that Remap moves only the instrument named in the source dropdown, that the dim carried rows follow it, and that All in the source box covers every instrument in the scope.
 Relevant Files
 /media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
-/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization.
-/media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h / PlaybackEngine.cpp: host-synced MIDI generation, carry/duplicate logic, explicit note-off panic.
+/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis) and the volume/pan CC settings.
+/media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h / PlaybackEngine.cpp: host-synced MIDI generation, carry/duplicate logic, explicit note-off panic, volume/pan driven by the Settings CC numbers.
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock.
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, toggles.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source, rename.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose, remap (source dropdown All/-0..-F -> target dropdown -0..-F, rowRange shared with applyToRows and applyInterpolate), interpolate scopes.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls, including the Volume column CC and Pan column CC sliders.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: macro editor (definitions; executed in playback via command 128-143).
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel.
 /media/data2/GameDev/Plugins/ReTrektor/tests/CMakeLists.txt: smoke/core/editor-shot test targets.
@@ -326,7 +350,7 @@ Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$
 Tests: cmake -S tests -B tests/build -DCMAKE_BUILD_TYPE=Release then build targets ReTrektorSmoke, ReTrektorCoreTest, ReTrektorEditorShot.
 Smoke run: DISPLAY=:0 tests/build/ReTrektorSmoke_artefacts/Release/ReTrektorSmoke <bundle> [--screenshot=path].
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git (newest first): f9acf12 instrument remap reads a source and a target dropdown; 08af633 anchor right-click menus at the cursor; 32499ef document that a timeline click parks the playhead; 02c0ca3 jump the playhead to a timeline click; 117744f document pool copy actions and the removed redundant clip menu item; ce6422d drop the redundant "Copy pattern data (unique)" clip menu action; ae95cac scrollbar + --scroll docs; 97f50ea tracker horizontal scrollbar; 93dd668 channel/limit docs; 0716702 hidden channel columns + constant 127 channel cap; 121ecd0 pattern resize preserves hidden rows; 9ffaaa4 EditorShot
+Git (newest first): 3f14d6f volume/pan controllers precede the note-off branch; cd3fc2c volume column drives CC7, Settings name the volume/pan CC numbers, chips hide one field of one channel; f9acf12 instrument remap reads a source and a target dropdown; 08af633 anchor right-click menus at the cursor; 32499ef document that a timeline click parks the playhead; 02c0ca3 jump the playhead to a timeline click; 117744f document pool copy actions and the removed redundant clip menu item; ce6422d drop the redundant "Copy pattern data (unique)" clip menu action; ae95cac scrollbar + --scroll docs; 97f50ea tracker horizontal scrollbar; 93dd668 channel/limit docs; 0716702 hidden channel columns + constant 127 channel cap; 121ecd0 pattern resize preserves hidden rows; 9ffaaa4 EditorShot
 --channels=N flag; a5e6e2d bottom-bar/settings channel docs; b02e52a CHANNELS slider direct edit; 1173682 stuck-note docs; b1725b1 stuck-note fix for hosts that skip MIDI-effect calls while stopped; de11909 pool grid preview; c4a8422 README macro-playback update; 49ec706 macro playback wiring; c36c6c7 ReTtrektor typo fix; 4263853 instrument fallback option; f89454e headless UI interaction test; c168e8b panels fit minimum window; a2ec7c9 Re.Trektor sources; ccc50f2 vendored JUCE 8.0.9.
 DISPLAY=:0 / wayland-0 available; no Reaper; /usr/bin/carla exists.
 Missing xcb-util-devel/xcb-util-wm-devel were installed via sudo dnf earlier (leftover from iPlug2 attempt, harmless).
