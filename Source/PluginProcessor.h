@@ -58,6 +58,19 @@ public:
     /** Guards the song model against concurrent access from the audio thread. */
     juce::CriticalSection& getModelLock() noexcept { return modelLock; }
 
+    /** The size the last GUI this plug-in drew had. Hosts such as Reaper close a
+        floating plug-in window by destroying it and ask for a brand new editor
+        when the user opens it again, so the new editor starts from this size
+        instead of always the built-in default. Empty until a GUI has been shown,
+        and kept for the plug-in instance rather than saved with the song. */
+    juce::Rectangle<int> getRememberedEditorBounds() const noexcept
+    { return rememberedEditorBounds; }
+
+    /** Called by the editor each time it is laid out, so the size the host last
+        gave this GUI is the size a later editor starts from. */
+    void rememberEditorBounds (juce::Rectangle<int> bounds) noexcept
+    { rememberedEditorBounds = bounds; }
+
     /** Grabs all notes off (used when the transport stops from the editor). */
     void sendPanic();
 
@@ -76,6 +89,9 @@ private:
     rtr::Song song;
     rtr::PlaybackEngine engine;
     juce::CriticalSection modelLock;
+    // Size of the last GUI shown, so a host that destroys the floating window
+    // and later asks for another editor gets the same size back.
+    juce::Rectangle<int> rememberedEditorBounds;
 
     // Immutable snapshot handed to the audio thread, so the engine never reads
     // the song while the editor is modifying it.

@@ -15,9 +15,22 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
       macros (p)
 {
     setLookAndFeel (&lookAndFeel);
+
+    // read the remembered size before setResizeLimits, which resizes the fresh
+    // (still zero-sized) editor to its own minimum and thereby records that
+    // minimum as the size of this editor
+    const auto remembered = proc.getRememberedEditorBounds();
+
     setResizable (true, true);
     setResizeLimits (900, 560, 2600, 1600);
-    setSize (1240, 760);
+
+    // hosts such as Reaper close a floating plug-in window by throwing it away
+    // and ask the plug-in for a brand new editor when it is opened again, so
+    // start from the size the closed editor had rather than the built-in one
+    if (remembered.getWidth() > 0 && remembered.getHeight() > 0)
+        setBoundsConstrained (remembered.withZeroOrigin());
+    else
+        setSize (1240, 760);
 
     //== tabs =================================================================
     for (auto* b : { &trackerTab, &macrosTab, &settingsTab })
@@ -254,6 +267,10 @@ void ReTrektorAudioProcessorEditor::paint (juce::Graphics& g)
 
 void ReTrektorAudioProcessorEditor::resized()
 {
+    // the size the host gave this GUI is the size to come back to when the host
+    // destroys it and asks for another editor, so record it on every layout
+    proc.rememberEditorBounds (getLocalBounds());
+
     auto area = getLocalBounds();
 
     //== top bar ==============================================================

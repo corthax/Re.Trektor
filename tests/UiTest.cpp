@@ -788,6 +788,44 @@ int main()
     auto& created = song.addPattern();
     check (created.length == 32, "new patterns use the configured length");
 
+    //== Floating window size ==========================================
+    {
+        // Reaper closes a floating plug-in window by destroying the editor and
+        // later asks the plug-in for a brand new one, which has to come back at
+        // the size the closed one had
+        editor->setSize (1000, 640);
+
+        check (proc.getRememberedEditorBounds().getWidth() == 1000
+                   && proc.getRememberedEditorBounds().getHeight() == 640,
+               "the size the GUI was laid out at is remembered");
+
+        proc.editorBeingDeleted (editor.get()); // the wrapper does this before deleting
+        editor.reset();
+
+        std::unique_ptr<juce::AudioProcessorEditor> reopened (proc.createEditor());
+        check (reopened != nullptr, "the host gets a new editor after the old one was closed");
+
+        if (reopened == nullptr)
+            return 1;
+
+        check (reopened->getWidth() == 1000 && reopened->getHeight() == 640,
+               "a new editor comes back at the remembered size");
+
+        // a size outside the resize limits must come back inside them
+        reopened->setSize (4000, 3000);
+        proc.editorBeingDeleted (reopened.get());
+        reopened.reset();
+
+        std::unique_ptr<juce::AudioProcessorEditor> clamped (proc.createEditor());
+        check (clamped != nullptr, "a further editor is created");
+
+        if (clamped == nullptr)
+            return 1;
+
+        check (clamped->getWidth() == 2600 && clamped->getHeight() == 1600,
+               "a remembered size outside the resize limits comes back clamped");
+    }
+
     std::cout << (failures == 0 ? "PASS" : "FAIL")
               << " (" << failures << " failures)\n";
     return failures == 0 ? 0 : 1;
