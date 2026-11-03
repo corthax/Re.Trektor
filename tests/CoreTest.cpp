@@ -649,6 +649,31 @@ int main()
         check (cc10 >= 1, "the pan cell drives CC10");
         check (velocity127 >= 1, "the volume also sets the note-on velocity");
 
+        // the controllers also apply on a row that only says "stop the note"
+        Harness hOff;
+        auto& pOff = hOff.song.patterns[0];
+        pOff.setLength (8);
+        pOff.cell (0, 0).note = 60;
+        pOff.cell (0, 0).inst = 0;
+        pOff.cell (1, 0).note = kNoteOff;
+        pOff.cell (1, 0).vol = 33;
+        pOff.cell (1, 0).pan = 110;
+
+        hOff.runBlocks (40);
+
+        int cc7Off = 0, cc10Off = 0;
+
+        for (auto& cc : hOff.controllers)
+        {
+            if (cc.number == 7 && cc.value == 33)
+                ++cc7Off;
+            if (cc.number == 10 && cc.value == 110)
+                ++cc10Off;
+        }
+
+        check (cc7Off >= 1 && cc10Off >= 1,
+               "a note-off row still applies its explicit volume and pan controllers");
+
         // the columns drive whatever CC the settings name
         Harness h2;
         auto& p2 = h2.song.patterns[0];

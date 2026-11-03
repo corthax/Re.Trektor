@@ -146,6 +146,19 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
 
         const int midiCh = juce::jlimit (0, kMidiChannelCount - 1, state.lastInst);
 
+        // An explicit volume or pan cell always drives its configured controller
+        // (CC7 and CC10 by default, named in the Settings tab). This happens
+        // before the note handling, so a note-off row still applies them.
+        if (cell.vol != kEmpty)
+            events.push_back ({ offset, 2,
+                                juce::MidiMessage::controllerEvent (midiCh + 1, volumeCc,
+                                                                    juce::jlimit (0, 127, cell.vol)) });
+
+        if (cell.pan != kEmpty)
+            events.push_back ({ offset, 2,
+                                juce::MidiMessage::controllerEvent (midiCh + 1, panCc,
+                                                                    juce::jlimit (0, 127, cell.pan)) });
+
         if (cell.note == kNoteOff)
         {
             if (state.activeNote >= 0)
@@ -165,19 +178,6 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             startNote (events, offset, ch, midiCh, cell.note, velocity);
             state.activeClip = clip.uid;
         }
-
-        // An explicit volume or pan cell always drives its configured controller
-        // (CC7 and CC10 by default, set in the Settings tab). A volume on a row
-        // that also has a note doubles as the note-on velocity, so both arrive.
-        if (cell.vol != kEmpty)
-            events.push_back ({ offset, 2,
-                                juce::MidiMessage::controllerEvent (midiCh + 1, volumeCc,
-                                                                    juce::jlimit (0, 127, cell.vol)) });
-
-        if (cell.pan != kEmpty)
-            events.push_back ({ offset, 2,
-                                juce::MidiMessage::controllerEvent (midiCh + 1, panCc,
-                                                                    juce::jlimit (0, 127, cell.pan)) });
 
         if (cell.cmd != kEmpty)
         {
