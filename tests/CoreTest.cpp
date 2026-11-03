@@ -839,6 +839,152 @@ int main()
         check (cc7 >= 1 && cc10 >= 1, "hidden columns still play: visibility is display only");
     }
 
+    //== Interpolation ========================================================
+    {
+        std::cout << "Interpolation\n";
+        Song a;
+        const int noteId = a.addPattern ("Notes", 32, 3).id;
+        const int instId = a.addPattern ("Insts", 32, 2).id;
+        const int cmdId = a.addPattern ("Cmds", 32, 1).id;
+        const int offId = a.addPattern ("Offs", 32, 1).id;
+        const int rampId = a.addPattern ("Ramp", 32, 1).id;
+        const int macroId = a.addPattern ("Macros", 32, 1).id;
+
+        auto* pn = a.findPattern (noteId);
+        auto* pi = a.findPattern (instId);
+        auto* pc = a.findPattern (cmdId);
+        auto* po = a.findPattern (offId);
+        auto* pr = a.findPattern (rampId);
+        auto* pm = a.findPattern (macroId);
+
+        // --- only the gaps between anchors inside the range are ramped ---
+        pn->cell (4, 0).note = 40; // above the range: ignored
+        pn->cell (8, 0).note = 60;
+        pn->cell (20, 0).note = 72;
+        pn->cell (22, 0).note = 82;
+        pn->cell (24, 1).note = 30;
+        pn->cell (28, 1).note = 40;
+        pn->cell (31, 2).note = 20; // an anchor outside the range stays as it is
+
+        const int noteWritten = pn->interpolate (InterpField::note, 8, 29, 0, pn->channels - 1);
+        check (noteWritten == 15, "every gap between neighbouring anchors is ramped on its own");
+
+        check (pn->cell (7, 0).note == kEmpty && pn->cell (6, 0).note == kEmpty,
+               "the ramp never reaches outside the selected rows");
+        check (pn->cell (5, 0).note == kEmpty && pn->cell (4, 0).note == 40,
+               "an anchor above the range is ignored and left alone");
+        check (pn->cell (31, 2).note == 20 && pn->cell (30, 2).note == kEmpty,
+               "an anchor below the range is ignored too");
+        check (pn->cell (8, 0).note == 60 && pn->cell (20, 0).note == 72
+               && pn->cell (22, 0).note == 82,
+               "the anchors themselves are never rewritten");
+        check (pn->cell (9, 0).note == 61 && pn->cell (14, 0).note == 66
+               && pn->cell (19, 0).note == 71,
+               "the blanks between two anchors take the linear position between them");
+        check (pn->cell (21, 0).note == 77, "the next segment starts at the row after the anchor");
+        check (pn->cell (23, 0).note == kEmpty && pn->cell (29, 0).note == kEmpty,
+               "nothing is extrapolated after the last anchor");
+        check (pn->cell (14, 2).note == kEmpty, "a channel without anchors in the range stays blank");
+        check (pn->cell (23, 1).note == kEmpty, "a channel is not extrapolated before its own first anchor");
+        check (pn->cell (25, 1).note == 33 && pn->cell (26, 1).note == 35
+               && pn->cell (27, 1).note == 38,
+               "each channel ramps between its own anchors, half steps round up");
+
+        // --- a channel range: only the requested channels are touched ---
+        pi->cell (10, 0).inst = 0;
+        pi->cell (20, 0).inst = 31; // past the last instrument
+        pi->cell (10, 1).inst = 0;
+        pi->cell (20, 1).inst = 15;
+
+        const int oneChannel = pi->interpolate (InterpField::inst, 10, 20, 0, 0);
+        check (oneChannel == 9, "narrowing the channels fills one column only");
+        check (pi->cell (15, 1).inst == kEmpty && pi->cell (19, 1).inst == kEmpty,
+               "the channel outside the range is untouched");
+        check (pi->cell (15, 0).inst == 8, "the anchor is clamped into the instrument range before ramping");
+        check (pi->cell (20, 0).inst == 31, "the out-of-range anchor itself is left as it was");
+
+        bool instrumentsInRange = true;
+        for (int row = 11; row <= 19; ++row)
+            if (pi->cell (row, 0).inst < 0 || pi->cell (row, 0).inst > rtr::kMidiChannelCount - 1)
+                instrumentsInRange = false;
+
+        check (instrumentsInRange, "filled instruments stay in the instrument range");
+        check (pi->cell (11, 0).inst == 2 && pi->cell (19, 0).inst == 14,
+               "the ramp climbs one instrument per row when the anchors are ten rows apart");
+
+        const int allChannels = pi->interpolate (InterpField::inst, 10, 20, 0, 1);
+        check (allChannels == 9, "widening the channel range fills the other column as well");
+        check (pi->cell (15, 1).inst == 8, "the second column ramps the same way");
+
+        // --- a ramp restarts after a note-off ---
+        po->cell (10, 0).note = 60;
+        po->cell (14, 0).note = kNoteOff;
+        po->cell (20, 0).note = 72;
+
+        check (po->interpolate (InterpField::note, 8, 24, 0, 0) == 0,
+               "a note-off in the way means nothing can be ramped across it");
+        check (po->cell (12, 0).note == kEmpty && po->cell (17, 0).note == kEmpty,
+               "the blanks on either side of a note-off stay blank");
+        check (po->cell (14, 0).note == kNoteOff, "the note-off is never used as a value to write");
+
+        po->cell (24, 0).note = 90;
+        check (po->interpolate (InterpField::note, 8, 24, 0, 0) == 3,
+               "a segment after a note-off ramps between its own anchors");
+        check (po->cell (21, 0).note == 77 && po->cell (22, 0).note == 81
+               && po->cell (23, 0).note == 86,
+               "the ramp restarts below the note-off");
+
+        // --- commands and their arguments ramp apart ---
+        pc->cell (10, 0).cmd = 74;
+        pc->cell (20, 0).cmd = 90;
+        check (pc->interpolate (InterpField::cmdNum, 10, 20, 0, 0) == 9,
+               "the CC number column ramps on its own");
+        check (pc->cell (11, 0).cmd == 76 && pc->cell (15, 0).cmd == 82,
+               "the CC number between two commands is linear too");
+        check (pc->cell (15, 0).cmdVal == kEmpty,
+               "ramping a CC number leaves the argument blank so it still carries");
+
+        pc->cell (24, 0).cmd = 74;
+        pc->cell (24, 0).cmdVal = 100;
+        pc->cell (30, 0).cmdVal = 40;
+        check (pc->interpolate (InterpField::cmdVal, 24, 30, 0, 0) == 5,
+               "the command argument column ramps on its own");
+        check (pc->cell (25, 0).cmdVal == 90 && pc->cell (27, 0).cmdVal == 70
+               && pc->cell (29, 0).cmdVal == 50,
+               "the argument between two commands is linear");
+        check (pc->cell (27, 0).cmd == kEmpty,
+               "ramping an argument leaves the CC number unset so it carries from above");
+
+        // --- rounding and clamping in a plain value column ---
+        pr->cell (0, 0).vol = 0;
+        pr->cell (2, 0).vol = 7;
+        pr->cell (4, 0).vol = 127;
+        pr->cell (10, 0).vol = 0;
+        check (pr->interpolate (InterpField::vol, 0, 10, 0, 0) == 7,
+               "every one of the three segments is filled");
+        check (pr->cell (1, 0).vol == 4 && pr->cell (3, 0).vol == 67,
+               "a half step rounds up");
+        check (pr->cell (5, 0).vol == 106 && pr->cell (6, 0).vol == 85
+               && pr->cell (7, 0).vol == 64 && pr->cell (8, 0).vol == 42
+               && pr->cell (9, 0).vol == 21,
+               "a descending ramp rounds the same way");
+        check (pr->cell (11, 0).vol == kEmpty, "nothing is written past the selected rows");
+
+        pm->cell (0, 0).cmd = 138;
+        pm->cell (10, 0).cmd = kMacroCmdBase + kMaxMacros; // past the last macro
+        check (pm->interpolate (InterpField::cmdNum, 0, 10, 0, 0) == 9,
+               "the macro range ramps like any other number");
+        check (pm->cell (1, 0).cmd == 139 && pm->cell (5, 0).cmd == 141
+               && pm->cell (9, 0).cmd == 143,
+               "the ramp is clamped to the last macro");
+        bool macrosIntact = true;
+        for (int row = 1; row <= 9; ++row)
+            if (pm->cell (row, 0).cmd < kMacroCmdBase || pm->cell (row, 0).cmd > kMacroCmdBase + kMaxMacros - 1)
+                macrosIntact = false;
+
+        check (macrosIntact, "a filled command number always names a macro");
+    }
+
     std::cout << (failures == 0 ? "PASS" : "FAILED") << " (" << failures << " failures)\n";
     return failures == 0 ? 0 : 1;
 }

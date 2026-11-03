@@ -121,6 +121,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
 
         return { tracker.getSelectionStart(), tracker.getSelectionEnd() };
     };
+    tools.getCursorChannel = [this] { return tracker.getCursorChannel(); };
     tools.onModelChanged = [this] { refreshAll(); };
 
     settings.onSettingsChanged = [this]

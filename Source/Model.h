@@ -47,6 +47,22 @@ struct Cell
 };
 
 //==============================================================================
+/** A tracker column the interpolation tool can ramp between the values that
+    already exist inside a row range. Only linear ramps are supported: the blank
+    cells between two neighbouring anchors take the linear position between them.
+    In the note column a note-off (`===`) has no number to ramp to or from, so it
+    closes a segment instead of anchoring one. */
+enum class InterpField
+{
+    note = 0, // 0..127, a note-off ends the segment
+    inst,     // 0..15
+    vol,      // 0..127
+    pan,      // 0..127
+    cmdNum,   // 0..143, the CC number the column carries
+    cmdVal    // 0..127, the command argument
+};
+
+//==============================================================================
 struct Pattern
 {
     int id = 0;
@@ -233,6 +249,19 @@ struct Pattern
             for (auto& c : r)
                 c.clear();
     }
+
+    /** Linear interpolation of one column, confined to a rectangle of the pattern.
+        Anchors are the cells inside the rectangle that already name a value for
+        that field; every blank cell between two neighbouring anchors in the same
+        channel gets the value linearly between them, rounded and clamped to the
+        field's range. Only blanks are ever written, so the anchors and any value
+        outside the rectangle stay as they were. Nothing is extrapolated before or
+        after the outermost anchors, and in the note column a note-off (`===`)
+        closes a segment: the blanks between an anchor and a note-off stay blank.
+        `rowStart`/`rowEnd` and `chStart`/`chEnd` are clamped to the pattern.
+        Returns the number of cells written. */
+    int interpolate (InterpField field, int rowStart, int rowEnd,
+                     int chStart, int chEnd) noexcept;
 };
 
 //==============================================================================

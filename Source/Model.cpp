@@ -42,6 +42,149 @@ juce::String instString (int inst, bool hex, bool decimalInstruments)
 }
 
 //==============================================================================
+namespace
+{
+
+/** Field accessors so the interpolation tool can treat every column the same
+    way. A field that is not set is kEmpty, which also means the cell only carries
+    a value from an earlier row. */
+int fieldValue (const Cell& c, InterpField field) noexcept
+{
+    switch (field)
+    {
+        case InterpField::note:   return c.note;
+        case InterpField::inst:   return c.inst;
+        case InterpField::vol:    return c.vol;
+        case InterpField::pan:    return c.pan;
+        case InterpField::cmdNum: return c.cmd;
+        case InterpField::cmdVal: return c.cmdVal;
+    }
+
+    return kEmpty;
+}
+
+void setFieldValue (Cell& c, InterpField field, int value) noexcept
+{
+    switch (field)
+    {
+        case InterpField::note:   c.note = value; break;
+        case InterpField::inst:   c.inst = value; break;
+        case InterpField::vol:    c.vol = value; break;
+        case InterpField::pan:    c.pan = value; break;
+        case InterpField::cmdNum: c.cmd = value; break;
+        case InterpField::cmdVal: c.cmdVal = value; break;
+    }
+}
+
+/** Highest value the field can hold. */
+int fieldTop (InterpField field) noexcept
+{
+    switch (field)
+    {
+        case InterpField::inst:   return kMidiChannelCount - 1;
+        case InterpField::cmdNum: return kMacroCmdBase + kMaxMacros - 1;
+
+        case InterpField::note:
+        case InterpField::vol:
+        case InterpField::pan:
+        case InterpField::cmdVal: return 127;
+    }
+
+    return 127;
+}
+
+/** True when the cell already names a value the ramp can anchor on. A note-off
+    has no number, so it anchors nothing. */
+bool isRampAnchor (const Cell& c, InterpField field) noexcept
+{
+    const int raw = fieldValue (c, field);
+    if (raw == kEmpty)
+        return false;
+
+    return ! (field == InterpField::note && raw == kNoteOff);
+}
+
+} // anonymous namespace
+
+//==============================================================================
+int Pattern::interpolate (InterpField field, int rowStart, int rowEnd,
+                          int chStart, int chEnd) noexcept
+{
+    if (rows.empty())
+        return 0;
+
+    // a channel column exists only as far as the ragged rows go
+    int widest = 1;
+    for (const auto& r : rows)
+        widest = juce::jmax (widest, (int) r.size());
+
+    const int firstRow = juce::jlimit (0, (int) rows.size() - 1, rowStart);
+    const int lastRow = juce::jlimit (0, (int) rows.size() - 1, rowEnd);
+    const int firstCh = juce::jlimit (0, widest - 1, chStart);
+    const int lastCh = juce::jlimit (0, widest - 1, chEnd);
+
+    auto at = [this] (int row, int ch) noexcept -> Cell*
+    {
+        if (row < 0 || row >= (int) rows.size()
+            || ch < 0 || ch >= (int) rows[(size_t) row].size())
+            return nullptr;
+
+        return &rows[(size_t) row][(size_t) ch];
+    };
+
+    const int top = fieldTop (field);
+    int written = 0;
+
+    for (int ch = firstCh; ch <= lastCh; ++ch)
+    {
+        int anchorRow = -1;
+        int anchorValue = kEmpty;
+
+        for (int row = firstRow; row <= lastRow; ++row)
+        {
+            Cell* c = at (row, ch);
+            if (c == nullptr)
+                continue; // this row has no such channel: nothing to fill here
+
+            if (fieldValue (*c, field) == kNoteOff && field == InterpField::note)
+            {
+                anchorRow = -1; // === closes the segment: blanks before it stay blank
+                continue;
+            }
+
+            if (! isRampAnchor (*c, field))
+                continue;
+
+            const int value = juce::jlimit (0, top, fieldValue (*c, field));
+
+            if (anchorRow >= 0 && row - anchorRow > 1)
+            {
+                const double span = (double) (row - anchorRow);
+
+                for (int fill = anchorRow + 1; fill < row; ++fill)
+                {
+                    Cell* blank = at (fill, ch);
+                    if (blank == nullptr || fieldValue (*blank, field) != kEmpty)
+                        continue;
+
+                    const double t = (double) (fill - anchorRow) / span;
+                    const long ramp = std::llround ((double) anchorValue
+                                                    + (double) (value - anchorValue) * t);
+
+                    setFieldValue (*blank, field, juce::jlimit (0, top, (int) ramp));
+                    ++written;
+                }
+            }
+
+            anchorRow = row;
+            anchorValue = value;
+        }
+    }
+
+    return written;
+}
+
+//==============================================================================
 Song::Song()
 {
     reset();

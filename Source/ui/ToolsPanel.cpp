@@ -35,7 +35,10 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
     scopeBox.addItem ("Whole pattern", 2);
     scopeBox.addItem ("All patterns in song", 3);
     scopeBox.addItem ("All created patterns", 4);
-    scopeBox.setSelectedId (2);
+    // interpolation only works on a hand-picked row range, so the panel opens on
+    // the one scope that acts on what the user last selected: transpose and remap
+    // then need the dropdown moved to a wider scope when nothing is selected
+    scopeBox.setSelectedId (1); // "Selection only"
     styleCombo (scopeBox);
     addAndMakeVisible (scopeBox);
 
@@ -60,6 +63,23 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
     remapToBox.setSelectedId (1); // -0
     styleCombo (remapToBox);
     addAndMakeVisible (remapToBox);
+
+    // ids follow the InterpField enumerators so the tool can map them directly
+    interpolateFieldBox.addItem ("Note", 1);
+    interpolateFieldBox.addItem ("Instrument", 2);
+    interpolateFieldBox.addItem ("Volume", 3);
+    interpolateFieldBox.addItem ("Pan", 4);
+    interpolateFieldBox.addItem ("CC number", 5);
+    interpolateFieldBox.addItem ("CC value", 6);
+    interpolateFieldBox.setSelectedId (1); // Note
+    styleCombo (interpolateFieldBox);
+    addAndMakeVisible (interpolateFieldBox);
+
+    interpolateWhereBox.addItem ("All channels", 1); // the whole pattern width
+    interpolateWhereBox.addItem ("Active channel", 2); // only the cursor's channel
+    interpolateWhereBox.setSelectedId (1);
+    styleCombo (interpolateWhereBox);
+    addAndMakeVisible (interpolateWhereBox);
 
     styleButton (remapApply);
     styleButton (interpolateButton);
@@ -90,7 +110,8 @@ void ToolsPanel::paint (juce::Graphics& g)
     section ("SCOPE", scopeBox);
     section ("TRANSPOSE", transposeDown12);
     section ("REMAP", remapFromBox);
-    section ("INTERPOLATE", interpolateButton);
+    section ("INTERPOLATE", interpolateFieldBox);
+    section ("CHANNELS", interpolateWhereBox);
 
     // an arrow between the two remap dropdowns names the direction of the edit
     if (remapFromBox.getWidth() > 0 && remapToBox.getWidth() > 0)
@@ -143,6 +164,13 @@ void ToolsPanel::resized()
 
     area.removeFromTop (14);
     area.removeFromTop (12); // INTERPOLATE label
+    interpolateFieldBox.setBounds (area.removeFromTop (22));
+
+    area.removeFromTop (2);
+    area.removeFromTop (12); // CHANNELS label
+    interpolateWhereBox.setBounds (area.removeFromTop (22));
+
+    area.removeFromTop (4);
     interpolateButton.setBounds (area.removeFromTop (22));
 }
 
@@ -298,44 +326,41 @@ void ToolsPanel::applyRemap()
 
 void ToolsPanel::applyInterpolate()
 {
+    // interpolation only works on a hand-picked row range: the row range of the
+    // other scopes is the whole pattern, where ramping blanks is rarely useful
+    if (scopeBox.getSelectedId() != 1)
+        return;
+
+    const int fieldId = interpolateFieldBox.getSelectedId();
+    const int whereId = interpolateWhereBox.getSelectedId();
+
+    if (fieldId <= 0 || whereId <= 0)
+        return;
+
+    const auto field = (InterpField) (fieldId - 1);
+
     for (auto* p : scopedPatterns())
     {
         const auto range = rowRange (*p);
         const int start = range.first;
         const int end = range.second;
 
-        if (start < 0 || end - start < 2)
+        if (start < 0 || start > end)
             continue;
 
-        for (int ch = 0; ch < p->channels; ++ch)
+        int chStart = 0;
+        int chEnd = p->channels - 1;
+
+        if (whereId == 2)
         {
-            const int firstRow = start;
-            const int lastRow = end;
-
-            const int v0 = p->rows[(size_t) firstRow][(size_t) ch].vol;
-            const int v1 = p->rows[(size_t) lastRow][(size_t) ch].vol;
-
-            if (v0 != kEmpty && v1 != kEmpty)
-            {
-                for (int r = firstRow + 1; r < lastRow; ++r)
-                {
-                    const double t = (double) (r - firstRow) / (double) (lastRow - firstRow);
-                    p->rows[(size_t) r][(size_t) ch].vol = (int) std::lround (v0 + (v1 - v0) * t);
-                }
-            }
-
-            const int p0 = p->rows[(size_t) firstRow][(size_t) ch].pan;
-            const int p1 = p->rows[(size_t) lastRow][(size_t) ch].pan;
-
-            if (p0 != kEmpty && p1 != kEmpty)
-            {
-                for (int r = firstRow + 1; r < lastRow; ++r)
-                {
-                    const double t = (double) (r - firstRow) / (double) (lastRow - firstRow);
-                    p->rows[(size_t) r][(size_t) ch].pan = (int) std::lround (p0 + (p1 - p0) * t);
-                }
-            }
+            // the tracker's cursor channel is the track last clicked at any
+            // column, and 0 while a pattern has only been selected
+            const int cursor = getCursorChannel ? juce::jmax (0, getCursorChannel()) : 0;
+            chStart = juce::jlimit (0, chEnd, cursor);
+            chEnd = chStart; // the ramp is confined to that one column
         }
+
+        p->interpolate (field, start, end, chStart, chEnd);
     }
 
     if (onModelChanged)

@@ -7,6 +7,7 @@
       - note entry through the tracker keyboard handler
       - column visibility chip clicks
       - transpose buttons in the tools panel
+      - selection interpolation in the tools panel
       - timeline drag-and-drop from the pool
       - pool double-click placement with snapping
       - settings toggles
@@ -427,6 +428,29 @@ int main()
     }
 
     //== Tools transpose =====================================================
+    {
+        std::vector<juce::ComboBox*> toolCombos;
+        collectCombos (*tools, toolCombos);
+
+        if (toolCombos.empty())
+        {
+            check (false, "the tools panel has no scope dropdown");
+        }
+        else
+        {
+            auto* scope = toolCombos[0];
+            check (scope->getSelectedId() == 1, "a fresh tools panel opens on the selection-only scope");
+
+            tracker->clearSelection();
+
+            if (auto* down12 = findButton (*tools, "-12"))
+                down12->onClick();
+
+            check (p.cell (0, 0).note == 60, "with nothing selected the default scope transposes nothing");
+
+            scope->setSelectedId (2); // "Whole pattern"
+        }
+    }
     if (auto* down12 = findButton (*tools, "-12"))
     {
         down12->onClick();
@@ -463,9 +487,9 @@ int main()
         std::vector<juce::ComboBox*> combos;
         collectCombos (*tools, combos);
 
-        check (combos.size() == 3, "the tools panel exposes the scope and the two remap dropdowns");
+        check (combos.size() == 5, "the tools panel exposes the scope, the remap pair and the two interpolation dropdowns");
 
-        if (combos.size() != 3)
+        if (combos.size() != 5)
         {
             check (false, "the remap dropdowns could not be found");
         }
@@ -486,9 +510,10 @@ int main()
                        && toBox->getItemText (rtr::kMidiChannelCount - 1) == "-F",
                    "the target dropdown offers only instruments, in the tracker's hex style");
 
-            check (scope->getSelectedId() == 2 && fromBox->getSelectedId() == 1
-                       && toBox->getSelectedId() == 1,
-                   "the defaults are the whole pattern, All sources and -0 as target");
+            check (fromBox->getSelectedId() == 1 && toBox->getSelectedId() == 1,
+                   "the remap dropdowns default to All sources and -0 as target");
+
+            scope->setSelectedId (2); // "Whole pattern", so every row is in reach
 
             p.setChannels (2);
             p.cell (3, 0).note = 65;
@@ -583,6 +608,131 @@ int main()
                 check (noteChannel (playRow (9), 71) == 11, "the instrument below the scope moved too");
 
                 tracker->clearSelection();
+            }
+        }
+    }
+
+    //== Tools selection interpolation =======================================
+    {
+        std::vector<juce::ComboBox*> combos;
+        collectCombos (*tools, combos);
+
+        if (combos.size() != 5)
+        {
+            check (false, "the interpolation dropdowns could not be found");
+        }
+        else
+        {
+            auto* scope = combos[0];
+            auto* fieldBox = combos[3];
+            auto* whereBox = combos[4];
+
+            check (fieldBox->getNumItems() == 6
+                       && fieldBox->getItemText (0) == "Note"
+                       && fieldBox->getItemText (1) == "Instrument"
+                       && fieldBox->getItemText (2) == "Volume"
+                       && fieldBox->getItemText (3) == "Pan"
+                       && fieldBox->getItemText (4) == "CC number"
+                       && fieldBox->getItemText (5) == "CC value",
+                   "the field dropdown offers every column the tool can ramp");
+
+            check (whereBox->getNumItems() == 2
+                       && whereBox->getItemText (0) == "All channels"
+                       && whereBox->getItemText (1) == "Active channel",
+                   "the channel dropdown offers the whole pattern width and the cursor's channel");
+
+            check (fieldBox->getSelectedId() == 1 && whereBox->getSelectedId() == 1,
+                   "the defaults are the note field over every channel");
+
+            // the volume column is free of edits here, so its blanks are clean
+            p.setChannels (2);
+            p.cell (8, 0).vol = 10; // above the range: ignored
+            p.cell (17, 0).vol = 5; // below the range: ignored
+            p.cell (10, 0).vol = 100;
+            p.cell (12, 0).vol = 70;
+            p.cell (15, 0).vol = 40;
+            p.cell (10, 1).vol = 0;
+            p.cell (15, 1).vol = 100;
+            proc.syncPlaybackModel();
+
+            check (p.cell (11, 0).vol == rtr::kEmpty && p.cell (13, 0).vol == rtr::kEmpty
+                       && p.cell (11, 1).vol == rtr::kEmpty && p.cell (14, 1).vol == rtr::kEmpty,
+                   "the rows between the anchors start blank");
+
+            auto* interpolate = findButton (*tools, "Interpolate");
+            check (interpolate != nullptr, "the tools panel exposes the Interpolate button");
+
+            if (interpolate == nullptr)
+            {
+                check (false, "the Interpolate button was missing");
+            }
+            else
+            {
+                // dragging inside channel 1's columns selects the rows and parks
+                // the cursor in that channel
+                tracker->refresh();
+                const float chOne = (float) tracker->chipBoundsFor (1, 1).getCentreX();
+
+                tracker->mouseDown (makeEvent (*tracker, { chOne, 245.0f }));
+                tracker->mouseDrag (makeEvent (*tracker, { chOne, 340.0f }));
+                tracker->mouseUp (makeEvent (*tracker, { chOne, 340.0f }));
+
+                check (tracker->getSelectionStart() == 10 && tracker->getSelectionEnd() == 15,
+                       "dragging in channel 1 selects rows 10 to 15");
+                check (tracker->getCursorChannel() == 1,
+                       "the cursor sits in the second tracker channel");
+
+                fieldBox->setSelectedId (3); // "Volume"
+                whereBox->setSelectedId (2); // "Active channel"
+
+                // the whole-pattern scope is still selected, and interpolation
+                // only works on a hand-picked range
+                scope->setSelectedId (2); // "Whole pattern"
+                interpolate->onClick();
+                check (p.cell (11, 0).vol == rtr::kEmpty && p.cell (11, 1).vol == rtr::kEmpty,
+                       "the tool does nothing while the scope is not the selection");
+
+                scope->setSelectedId (1); // "Selection only"
+                interpolate->onClick();
+
+                check (p.cell (11, 1).vol == 20 && p.cell (12, 1).vol == 40
+                       && p.cell (13, 1).vol == 60 && p.cell (14, 1).vol == 80,
+                       "the active channel ramps between its own anchors");
+                check (p.cell (10, 1).vol == 0 && p.cell (15, 1).vol == 100,
+                       "the anchors of that channel stay put");
+                check (p.cell (9, 1).vol == rtr::kEmpty && p.cell (16, 1).vol == rtr::kEmpty,
+                       "the ramp never leaves the selected rows");
+                check (p.cell (11, 0).vol == rtr::kEmpty && p.cell (13, 0).vol == rtr::kEmpty
+                       && p.cell (14, 0).vol == rtr::kEmpty,
+                       "the other channel is untouched by the active channel");
+                check (p.cell (12, 0).vol == 70, "an anchor in the other channel keeps its value");
+                check (p.cell (8, 0).vol == 10 && p.cell (17, 0).vol == 5,
+                       "the anchors outside the selection keep their values too");
+
+                whereBox->setSelectedId (1); // "All channels"
+                interpolate->onClick();
+
+                check (p.cell (11, 0).vol == 85 && p.cell (13, 0).vol == 60
+                       && p.cell (14, 0).vol == 50,
+                       "widening to every channel ramps channel 0 as well");
+                check (p.cell (12, 0).vol == 70, "the middle anchor is not moved");
+                check (p.cell (9, 0).vol == rtr::kEmpty,
+                       "the anchor above the range is not carried into the selection");
+                check (p.cell (16, 0).vol == rtr::kEmpty && p.cell (17, 0).vol == 5,
+                       "nothing is written below the selection either");
+                check (p.cell (11, 1).vol == 20 && p.cell (14, 1).vol == 80,
+                       "the channel that was already ramped is left alone");
+
+                // both channels now hold 60 at row 13, so the CC7 the row plays
+                // proves the filled cells reached the playback snapshot
+                proc.syncPlaybackModel();
+                check (controllerValue (playRowAt (13), 7) == 60,
+                       "the filled volumes play CC7 60 instead of the carried 10");
+
+                tracker->clearSelection();
+                scope->setSelectedId (1); // back to the scope a fresh panel opens on
+                fieldBox->setSelectedId (1);
+                whereBox->setSelectedId (1);
             }
         }
     }

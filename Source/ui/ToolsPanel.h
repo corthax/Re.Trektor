@@ -16,6 +16,7 @@ public:
     void resized() override;
 
     std::function<std::pair<int, int>()> getSelection; // returns {start, end} or {-1,-1}
+    std::function<int()> getCursorChannel; // channel the cursor sits in, or -1
     std::function<void()> onModelChanged;
 
 private:
@@ -39,6 +40,9 @@ private:
     juce::ComboBox remapFromBox;
     juce::ComboBox remapToBox;
     juce::TextButton remapApply { "Remap" };
+    // what the interpolation ramps and how wide it reaches
+    juce::ComboBox interpolateFieldBox;
+    juce::ComboBox interpolateWhereBox;
     juce::TextButton interpolateButton { "Interpolate" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToolsPanel)
