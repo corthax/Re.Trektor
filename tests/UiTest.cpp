@@ -634,6 +634,34 @@ int main()
                "pool placement is snapped to the timeline grid");
     }
 
+    //== Pool drag preview ===================================================
+    {
+        const auto flat = pool->dragCellBounds (0);
+        const auto flatPreview = pool->dragPreviewImage (0);
+
+        check (flat.getWidth() > 0 && flat.getHeight() > 0, "the first pool item has a cell");
+        check (flatPreview.getImage().getWidth() == flat.getWidth() * 2
+                   && flatPreview.getImage().getHeight() == flat.getHeight() * 2,
+                   "the drag image is one pool item, captured twice as large to stay sharp");
+        check (flat.getHeight() < pool->getHeight(),
+               "the drag image is one pool row, not the whole pool panel");
+
+        pool->toggleGridPreview (p.id);
+        pool->refresh();
+
+        const auto expanded = pool->dragCellBounds (0);
+        const auto expandedPreview = pool->dragPreviewImage (0);
+
+        check (expanded.getHeight() > flat.getHeight(),
+               "an expanded item drags its taller grid preview");
+        check (expandedPreview.getImage().getWidth() == expanded.getWidth() * 2
+                   && expandedPreview.getImage().getHeight() == expanded.getHeight() * 2,
+                   "the expanded preview covers that item's whole cell");
+
+        pool->toggleGridPreview (p.id);
+        pool->refresh();
+    }
+
     //== Bottom-bar channels slider =========================================
     {
         juce::Slider* chSlider = nullptr;

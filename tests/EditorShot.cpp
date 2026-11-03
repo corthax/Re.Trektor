@@ -5,10 +5,15 @@
     Usage: ReTrektorEditorShot /path/out.png [width height] [--dump]
            [tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
            [--click-timeline=PCT] [--hide=0v1c] [--expand-pool] [--hex]
+           [--drag-preview=IDX]
 
     --hide= takes channel/letter pairs (i instrument, v volume, p pan, c
     command), so --hide=0v1c hides the volume of channel 0 and the command of
     channel 1: the chips above a channel hide one field of that channel only.
+
+    --drag-preview= composites the image JUCE floats at the cursor while pool
+    item IDX is dragged out of the pool, so the shot can show that only that
+    item's cell follows the pointer instead of the whole pool panel.
 */
 
 #include "PluginProcessor.h"
@@ -141,6 +146,17 @@ int main (int argc, char** argv)
     // show values in hex, so the narrower hex field widths can be checked
     const bool shotHex = args.contains ("--hex");
     args.removeString ("--hex");
+
+    // pool item index whose drag preview is composited into the shot: this is
+    // the image JUCE floats at the cursor while a pattern is dragged out of the
+    // pool, so the shot shows that only the item's cell follows the pointer
+    int shotDragPreview = -1;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--drag-preview="))
+        {
+            shotDragPreview = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
 
     juce::String tab;
     for (int i = args.size(); --i >= 0;)
@@ -362,6 +378,48 @@ int main (int argc, char** argv)
     {
         std::cerr << "snapshot failed\n";
         return 1;
+    }
+
+    if (shotDragPreview >= 0)
+    {
+        // the image JUCE floats at the cursor while a pattern is dragged out of
+        // the pool: only the item's cell, so the shot can be checked for its
+        // size (one row of the pool, never the whole panel)
+        if (auto* pl = findChild<rtr::PoolComponent> (*editor))
+        {
+            const auto cell = pl->dragCellBounds (shotDragPreview);
+            const auto preview = pl->dragPreviewImage (shotDragPreview);
+
+            if (cell.getWidth() > 0 && preview.getImage().getWidth() > 0)
+            {
+                const auto editorPos = editor->getBounds().getPosition();
+                const auto poolPos = pl->getBounds().getPosition() - editorPos;
+
+                // hover it just right of the pool, mid height, as a drag would
+                const int cx = juce::jlimit (0, juce::jmax (0, w - cell.getWidth()),
+                                             poolPos.x + pl->getWidth() + 12);
+                const int cy = juce::jlimit (0, juce::jmax (0, h - cell.getHeight()),
+                                             poolPos.y + pl->getHeight() / 2 - cell.getHeight() / 2);
+
+                juce::Graphics g (image);
+                g.drawImage (preview.getImage(), cx, cy, cell.getWidth(), cell.getHeight(),
+                             0, 0, preview.getImage().getWidth(), preview.getImage().getHeight());
+
+                std::cout << "drag preview of item " << shotDragPreview << ": cell "
+                          << cell.getWidth() << "x" << cell.getHeight()
+                          << ", image " << preview.getImage().getWidth() << "x"
+                          << preview.getImage().getHeight() << " (scale " << preview.getScale()
+                          << "), composited at " << cx << "," << cy << "\n";
+            }
+            else
+            {
+                std::cerr << "no drag preview for item " << shotDragPreview << "\n";
+            }
+        }
+        else
+        {
+            std::cerr << "no pool child for --drag-preview\n";
+        }
     }
 
     out.getParentDirectory().createDirectory();

@@ -158,6 +158,30 @@ void PoolComponent::resized()
     scrollY = juce::jlimit (0, maxScroll, scrollY);
 }
 
+juce::Rectangle<int> PoolComponent::dragCellBounds (int index) const
+{
+    return cellBounds (index).getIntersection (getLocalBounds());
+}
+
+juce::ScaledImage PoolComponent::dragPreviewImage (int index)
+{
+    const auto r = dragCellBounds (index);
+
+    if (r.isEmpty())
+        return {};
+
+    // twice the size, so the chip stays sharp when it is drawn back down
+    static constexpr double kDragScale = 2.0;
+
+    auto snapshot = createComponentSnapshot (r, true, (float) kDragScale)
+                        .convertedToFormat (juce::Image::ARGB);
+
+    // a translucent chip reads as a copy lifted out of the pool
+    snapshot.multiplyAllAlphas (0.75f);
+
+    return { snapshot, kDragScale };
+}
+
 //==============================================================================
 void PoolComponent::mouseDown (const juce::MouseEvent& e)
 {
@@ -211,12 +235,30 @@ void PoolComponent::mouseDrag (const juce::MouseEvent& e)
 
     if (e.getDistanceFromDragStart() > 6)
     {
-        if (auto* container = juce::DragAndDropContainer::findParentDragContainerFor (this))
-        {
-            dragging = true;
-            const int pid = song.patterns[(size_t) dragIndex].id;
-            container->startDragging (juce::String (kClipDragPrefix) + juce::String (pid), this, juce::ScaledImage(), true);
-        }
+        auto* container = juce::DragAndDropContainer::findParentDragContainerFor (this);
+
+        if (container == nullptr)
+            return;
+
+        const int pid = song.patterns[(size_t) dragIndex].id;
+
+        // only the item being dragged should float under the cursor: a null
+        // image would make JUCE snapshot the whole pool panel
+        const auto grabRect = dragCellBounds (dragIndex);
+
+        if (grabRect.isEmpty())
+            return;
+
+        const auto preview = dragPreviewImage (dragIndex);
+
+        // JUCE negates this value and clamps it into the image, so the spot of
+        // the cell that was grabbed is the spot kept under the pointer
+        auto imageOffset = grabRect.getPosition() - e.getPosition();
+
+        dragging = true;
+
+        container->startDragging (juce::String (kClipDragPrefix) + juce::String (pid), this,
+                                  preview, true, &imageOffset, &e.source);
     }
 }
 

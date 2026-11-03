@@ -36,6 +36,15 @@ public:
     int poolContentHeight() const;
     void toggleGridPreview (int patternId);
 
+    /** A pool drag floats only the item's cell at the cursor (its grid preview
+        included when the item is expanded). Handing JUCE a null image would
+        snapshot the whole panel instead, so the drag preview is built here:
+        dragCellBounds is the part of the cell that is on screen, and dragPreviewImage
+        renders exactly that, semi-transparent, at twice the size so it stays
+        crisp when it is drawn back down. */
+    juce::Rectangle<int> dragCellBounds (int index) const;
+    juce::ScaledImage dragPreviewImage (int index);
+
 private:
     void timerCallback() override;
     void showContextMenu (int patternId);
