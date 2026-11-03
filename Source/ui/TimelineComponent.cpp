@@ -193,6 +193,9 @@ void TimelineComponent::drawRuler (juce::Graphics& g, juce::Rectangle<int> area)
     g.setFont (theme::monoFont (11.0f));
     g.setColour (theme::textDim);
 
+    // only the bar numbers live here: the transport readout (playback state,
+    // song position, bpm) is already on the top bar, and drawing it here too put
+    // it on top of the bar numbers at the right end of the ruler
     const auto transport = proc.getTransport();
     const double ppqPerBar = transport.ppqPerBar > 0.0 ? transport.ppqPerBar : 4.0;
     const double visibleBeats = (double) area.getWidth() / pixelsPerBeat;
@@ -212,22 +215,6 @@ void TimelineComponent::drawRuler (juce::Graphics& g, juce::Rectangle<int> area)
         g.drawText (juce::String ((int) bar + 1), (int) x + 3, area.getY(), 42, area.getHeight(),
                     juce::Justification::centredLeft, false);
     }
-
-    // transport readout
-    const double ppq = transport.ppq;
-    const int bar = (int) std::floor (ppq / ppqPerBar) + 1;
-    const int beat = (int) std::floor (std::fmod (ppq, ppqPerBar)) + 1;
-    const int row = (int) std::floor (std::fmod (ppq, song.beatsPerRow() * 4.0) / song.beatsPerRow()) + 1;
-
-    juce::String pos;
-    pos << (transport.playing ? "PLAY " : "STOP ")
-        << juce::String (bar).paddedLeft ('0', 2) << ":"
-        << juce::String (beat) << ":" << juce::String (row).paddedLeft ('0', 2)
-        << "   " << juce::String (transport.bpm, 1) << " BPM";
-
-    g.setColour (transport.playing ? theme::note : theme::textDim);
-    g.setFont (theme::monoFont (11.0f));
-    g.drawText (pos, area.withTrimmedRight (6), juce::Justification::centredRight, false);
 }
 
 void TimelineComponent::drawClips (juce::Graphics& g, juce::Rectangle<int> area)

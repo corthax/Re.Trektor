@@ -85,9 +85,6 @@ private:
     juce::Point<int> panAnchor;
     double panAnchorBeats = 0.0;
 
-    int lastPlayheadBar = -1;
-    juce::String transportText;
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TimelineComponent)
 };
 
