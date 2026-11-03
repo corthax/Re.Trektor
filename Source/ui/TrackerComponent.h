@@ -41,6 +41,11 @@ public:
     void clearSelection();
     void setCursorRow (int row);
 
+    /** The command number the column resolves to above the given row (the one
+        an implicit cell on that row carries), or -1 when the column never named
+        a command yet. */
+    int carriedCommandNumber (int row, int ch) const;
+
     //== Geometry exposed to the tests and any host-facing tool ================
     Field getCursorField() const noexcept { return cursorField; }
     juce::Rectangle<int> fieldBoundsFor (int channel, Field field) const

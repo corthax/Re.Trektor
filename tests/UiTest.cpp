@@ -329,6 +329,55 @@ int main()
         }
     }
 
+    //== A command argument without a command number ==========================
+    {
+        check (! song.settings.hexDisplay, "command values are entered as three decimal digits here");
+
+        // park the cursor on the command value field of channel 0
+        for (int i = 0; i < 32
+             && ! (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdVal
+                   && tracker->getCursorChannel() == 0); ++i)
+        {
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        }
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdVal
+                   && tracker->getCursorChannel() == 0,
+               "the cursor sits on the command value field of channel 0");
+
+        // nothing has named a command above, so the entry has to make one
+        tracker->setCursorRow (3);
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        tracker->keyPressed (juce::KeyPress ('4', juce::ModifierKeys(), '4'));
+        tracker->keyPressed (juce::KeyPress ('5', juce::ModifierKeys(), '5'));
+
+        check (p.cell (3, 0).cmdVal == 45, "the argument is stored on the cursor row");
+        check (p.cell (3, 0).cmd == 0, "with nothing carried above, the command number becomes 0");
+
+        const auto aloneMidi = playRowAt (3);
+        check (controllerValue (aloneMidi, 0) == 45, "CC0 plays it, which is all the column had");
+
+        // now the column names a command up top
+        p.cell (0, 0).cmd = 17;
+        p.cell (0, 0).cmdVal = 8;
+        proc.syncPlaybackModel();
+
+        const auto topMidi = playRowAt (0);
+        check (controllerValue (topMidi, 17) == 8, "the row naming CC17 plays its own argument");
+
+        tracker->setCursorRow (5);
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        tracker->keyPressed (juce::KeyPress ('6', juce::ModifierKeys(), '6'));
+        tracker->keyPressed (juce::KeyPress ('3', juce::ModifierKeys(), '3'));
+
+        check (p.cell (5, 0).cmd == rtr::kEmpty, "under a carried command the cell stays implicit");
+        check (p.cell (5, 0).cmdVal == 63, "the argument is stored");
+
+        const auto belowMidi = playRowAt (5);
+        check (controllerValue (belowMidi, 17) == 63, "the CC carried down the column plays the new argument");
+        check (controllerValue (belowMidi, 0) == -1, "nothing is played on CC0");
+    }
+
     //== Column visibility chips =============================================
     {
         const bool before = p.showColumn (0, 0);

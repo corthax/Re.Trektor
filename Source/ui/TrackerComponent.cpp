@@ -687,7 +687,9 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                     {
                         const bool hasOwn = cell.cmd != kEmpty;
                         const int cmdNum = hasOwn ? cell.cmd : carried.cmd;
-                        const int cmdVal = hasOwn ? cell.cmdVal : kEmpty;
+                        // a row that names only an argument still shows it, under
+                        // the command number the column carries down from above
+                        const int cmdVal = cell.cmdVal;
 
                         if (fr.field == Field::cmdNum)
                         {
@@ -1095,6 +1097,24 @@ int TrackerComponent::clampValue (Field field, int value) const
     }
 }
 
+int TrackerComponent::carriedCommandNumber (int row, int ch) const
+{
+    auto& p = pattern();
+
+    if (ch < 0 || ch >= p.channels)
+        return -1;
+
+    for (int r = juce::jmin (row, (int) p.rows.size()) - 1; r >= 0; --r)
+    {
+        const auto& cell = p.rows[(size_t) r][(size_t) ch];
+
+        if (cell.cmd != kEmpty)
+            return cell.cmd;
+    }
+
+    return -1;
+}
+
 void TrackerComponent::applyValue (Field field, int value)
 {
     auto& cell = pattern().cell (cursorRow, cursorChannel);
@@ -1115,7 +1135,10 @@ void TrackerComponent::applyValue (Field field, int value)
         case Field::cmdVal:
             cell.cmdVal = clampValue (field, value);
 
-            if (cell.cmd == kEmpty)
+            // typing an argument below a row that named a command leaves the cell
+            // implicit, so the row plays that carried command; only a column the
+            // editor has not named a command in yet gets an explicit 0
+            if (cell.cmd == kEmpty && carriedCommandNumber (cursorRow, cursorChannel) < 0)
                 cell.cmd = 0;
 
             break;

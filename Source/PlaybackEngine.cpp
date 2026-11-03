@@ -250,6 +250,15 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                                                                                   juce::jlimit (0, 127, cell.cmdVal >= 0 ? cell.cmdVal : 0)) });
         }
 
+        // a row that only names an argument plays it on the command that is in
+        // force above it in the column, which is what an implicit cell under a
+        // carried command means; a column that never named one has nothing to
+        // carry, so such a row emits nothing
+        else if (cell.cmdVal != kEmpty && state.lastCmd >= 0 && state.lastCmd < kMacroCmdBase)
+            events.push_back ({ offset, 3,
+                                juce::MidiMessage::controllerEvent (midiCh + 1, state.lastCmd,
+                                                                    juce::jlimit (0, 127, cell.cmdVal)) });
+
         uiRow[(size_t) ch].store (row);
     }
 }

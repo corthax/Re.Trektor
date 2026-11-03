@@ -107,6 +107,13 @@ int main (int argc, char** argv)
     const bool expandPool = args.contains ("--expand-pool");
     args.removeString ("--expand-pool");
 
+    // a row that only names a command argument, under the explicit command the
+    // demo already has at row 20: the argument shows under the number the column
+    // carries, and the channel that carries nothing shows the explicit 0 the
+    // editor writes instead
+    const bool cmdCarry = args.contains ("--cmd-carry");
+    args.removeString ("--cmd-carry");
+
     int shotChannels = 0;
     for (int i = args.size(); --i >= 0;)
         if (args[i].startsWith ("--channels="))
@@ -206,6 +213,14 @@ int main (int argc, char** argv)
 
         p.cell (20, 0).cmd = 74;
         p.cell (20, 0).cmdVal = 64;
+
+        if (cmdCarry)
+        {
+            p.cell (21, 0).cmdVal = 99; // only an argument: plays the CC above
+            p.cell (24, 1).cmd = 0;     // the channel 1 has never named: the editor's own 0
+            p.cell (24, 1).cmdVal = 12;
+        }
+
         p.cell (20, 1).note = 48;
         p.cell (20, 1).inst = 1;
 

@@ -709,6 +709,72 @@ int main()
                "column controller numbers survive a state round trip");
     }
 
+    //== A command argument without a command number ===========================
+    {
+        std::cout << "A command argument without a command number\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (8);
+
+        p.cell (0, 0).cmd = 37;    // the column names CC37 on the first row
+        p.cell (0, 0).cmdVal = 8;
+        p.cell (3, 0).cmdVal = 99; // the lower row only names an argument
+
+        h.runBlocks (40);
+
+        int named = 0, carried = 0, pinned = 0;
+
+        for (auto& cc : h.controllers)
+        {
+            if (cc.number == 37 && cc.value == 8)
+                ++named;
+            else if (cc.number == 37 && cc.value == 99)
+                ++carried;
+            else if (cc.number == 0)
+                ++pinned;
+        }
+
+        check (named == 1, "the row naming the command emits CC37 with its own argument");
+        check (carried == 1, "the row naming only an argument emits the carried CC37 with 99");
+        check (pinned == 0, "the argument is not pinned to CC0 while the column carries one");
+        check (p.cell (3, 0).cmd == kEmpty, "a value-only cell stays implicit in the model");
+
+        // with nothing named above, the row has no command to answer, so it is
+        // silent; inventing CC0 would fire a controller nobody asked for
+        Harness h2;
+        auto& p2 = h2.song.patterns[0];
+        p2.setLength (8);
+        p2.cell (0, 0).cmdVal = 55;
+
+        h2.runBlocks (40);
+
+        int invented = 0;
+
+        for (auto& cc : h2.controllers)
+            if (cc.number == 0 || cc.number == 55)
+                ++invented;
+
+        check (invented == 0, "an argument with nothing carried above emits no controller");
+
+        // macros carry too, but they take no controller argument, so a value-only
+        // row below one still stays silent
+        Harness h3;
+        auto& p3 = h3.song.patterns[0];
+        p3.setLength (8);
+        p3.cell (0, 0).cmd = kMacroCmdBase + 2; // M2
+        p3.cell (3, 0).cmdVal = 44;
+
+        h3.runBlocks (40);
+
+        int fromMacro = 0;
+
+        for (auto& cc : h3.controllers)
+            if (cc.value == 44)
+                ++fromMacro;
+
+        check (fromMacro == 0, "a value-only row under a macro command emits no controller");
+    }
+
     //== Column visibility ====================================================
     {
         std::cout << "Column visibility\n";
