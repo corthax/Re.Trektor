@@ -41,6 +41,17 @@ public:
     void clearSelection();
     void setCursorRow (int row);
 
+    //== Geometry exposed to the tests and any host-facing tool ================
+    Field getCursorField() const noexcept { return cursorField; }
+    juce::Rectangle<int> fieldBoundsFor (int channel, Field field) const
+    {
+        return fieldBounds (channel, field);
+    }
+    juce::Rectangle<int> chipBoundsFor (int channel, int index) const
+    {
+        return toggleBounds (channel, index);
+    }
+
 private:
     struct FieldRect
     {
@@ -85,6 +96,7 @@ private:
     void cancelEdit();
 
     int maxDigitsFor (Field field) const;
+    int fieldGlyphs (Field field) const;
     int clampValue (Field field, int value) const;
     void applyValue (Field field, int value);
 

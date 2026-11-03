@@ -33,11 +33,20 @@ struct NoteEvent
     int velocity;
 };
 
+struct ControllerEvent
+{
+    int offset;
+    int channel;
+    int number;
+    int value;
+};
+
 struct Harness
 {
     Song song;
     PlaybackEngine engine;
     std::vector<NoteEvent> notes;
+    std::vector<ControllerEvent> controllers;
     std::vector<int> bends;
     double ppq = 0.0;
 
@@ -71,6 +80,9 @@ struct Harness
                     else if (m.isNoteOff())
                         notes.push_back ({ metadata.samplePosition, false, m.getChannel(),
                                            m.getNoteNumber(), 0 });
+                    else if (m.isController())
+                        controllers.push_back ({ metadata.samplePosition, m.getChannel(),
+                                                 m.getControllerNumber(), m.getControllerValue() });
                     else if (m.isPitchWheel())
                         bends.push_back (m.getPitchWheelValue());
                 }
@@ -80,7 +92,7 @@ struct Harness
         }
     }
 
-    void resetEvents() { notes.clear(); bends.clear(); }
+    void resetEvents() { notes.clear(); controllers.clear(); bends.clear(); }
 };
 } // namespace
 
@@ -98,6 +110,7 @@ int main()
         check (song.settings.subticksPerRow == 6, "default 6 subticks per row");
         check (kMaxTrackerChannels == 127, "channel limit is the constant 127, not a setting");
         check (song.settings.snapEnabled && song.settings.adaptiveGrid, "snap + adaptive grid on by default");
+        check (song.settings.volumeCc == 7 && song.settings.panCc == 10, "volume + pan columns default to CC7 and CC10");
 
         song.settings.defaultPatternRows = 32;
         auto& np = song.addPattern();
@@ -598,6 +611,141 @@ int main()
         check (off2 == 2, "a matching note-off precedes the re-trigger (stuck-key guard), plus the clip-end close");
         check (! h.notes.empty() && ! h.notes.front().on && h.notes.front().note == 60,
                "the moved clip plays with a note-off before the re-triggered note-on");
+    }
+
+    //== Volume + pan controllers =============================================
+    {
+        std::cout << "Volume + pan controllers\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (8);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 127; // three decimal digits: the largest volume
+
+        p.cell (1, 0).pan = 120;
+        p.cell (2, 0).vol = 64; // volume without a note
+
+        h.runBlocks (40);
+
+        int cc7 = 0, cc10 = 0, velocity127 = 0;
+
+        for (auto& cc : h.controllers)
+        {
+            if (cc.number == 7 && (cc.value == 127 || cc.value == 64))
+                ++cc7;
+            if (cc.number == 10 && cc.value == 120)
+                ++cc10;
+        }
+
+        for (auto& n : h.notes)
+            if (n.on && n.note == 60 && n.velocity == 127)
+                ++velocity127;
+
+        check (p.cell (0, 0).vol == 127, "volume holds a three-digit decimal value");
+        check (cc7 >= 2, "both volume cells drive CC7, with and without a note");
+        check (cc10 >= 1, "the pan cell drives CC10");
+        check (velocity127 >= 1, "the volume also sets the note-on velocity");
+
+        // the columns drive whatever CC the settings name
+        Harness h2;
+        auto& p2 = h2.song.patterns[0];
+        p2.setLength (8);
+        p2.cell (0, 0).note = 60;
+        p2.cell (0, 0).inst = 0;
+        p2.cell (0, 0).vol = 100;
+        p2.cell (1, 0).pan = 30;
+        h2.song.settings.volumeCc = 5;
+        h2.song.settings.panCc = 11;
+
+        h2.runBlocks (40);
+
+        int cc5 = 0, cc11 = 0, stray = 0;
+        for (auto& cc : h2.controllers)
+        {
+            if (cc.number == 5)
+                ++cc5;
+            else if (cc.number == 11)
+                ++cc11;
+            else if (cc.number == 7 || cc.number == 10)
+                ++stray;
+        }
+
+        check (cc5 >= 1, "volume drives the configured CC5");
+        check (cc11 >= 1, "pan drives the configured CC11");
+        check (stray == 0, "no CC7/CC10 once the settings name other controllers");
+
+        const auto tree = h2.song.toValueTree();
+        Song back;
+        back.fromValueTree (tree);
+        check (back.settings.volumeCc == 5 && back.settings.panCc == 11,
+               "column controller numbers survive a state round trip");
+    }
+
+    //== Column visibility ====================================================
+    {
+        std::cout << "Column visibility\n";
+        Song a;
+        auto& p = a.patterns[0];
+        p.setChannels (3);
+
+        p.toggleColumn (1, 1); // hide the volume of channel 1
+        p.toggleColumn (1, 0); // ... and its instrument
+        p.toggleColumn (2, 3); // hide the command of channel 2
+
+        check (! p.showColumn (1, 1), "volume hidden on channel 1");
+        check (p.showColumn (0, 1) && p.showColumn (2, 1), "volume stays visible on the other channels");
+        check (! p.showColumn (2, 3) && p.showColumn (1, 3), "command hidden on channel 2 only");
+
+        p.cell (0, 0).note = 60;
+        p.cell (0, 1).note = 61;
+        p.cell (0, 2).note = 62;
+
+        // hidden columns keep their state through a channel resize and a state
+        p.setChannels (2);
+        check (p.channelCapacity() == 3, "the hidden channel is kept");
+
+        const auto tree = a.toValueTree();
+        Song b;
+        b.fromValueTree (tree);
+
+        check (b.patterns[0].channels == 2, "channel count restored");
+        check (! b.patterns[0].showColumn (1, 1) && ! b.patterns[0].showColumn (1, 0),
+               "channel 1 visibility restored per field");
+        check (b.patterns[0].showColumn (0, 1), "channel 0 volume unaffected");
+        check (b.patterns[0].rows[0][2].note == 62, "the hidden channel's cells survive too");
+
+        b.patterns[0].setChannels (3);
+        check (! b.patterns[0].showColumn (2, 3), "the hidden channel keeps its command flag");
+
+        // another pattern has its own visibility
+        auto& np = a.addPattern ("Other", 8, 3);
+        check (np.showColumn (1, 1) && np.showColumn (2, 3), "new patterns show every column");
+
+        // visibility only affects the display: hidden columns still play
+        Harness h;
+        auto& hp = h.song.patterns[0];
+        hp.setChannels (1);
+        hp.toggleColumn (0, 1);
+        hp.toggleColumn (0, 2);
+        hp.cell (0, 0).note = 60;
+        hp.cell (0, 0).inst = 0;
+        hp.cell (0, 0).vol = 90;
+        hp.cell (0, 0).pan = 40;
+        h.runBlocks (40);
+
+        int cc7 = 0, cc10 = 0;
+        for (auto& cc : h.controllers)
+        {
+            if (cc.number == 7 && cc.value == 90)
+                ++cc7;
+            if (cc.number == 10 && cc.value == 40)
+                ++cc10;
+        }
+
+        check (cc7 >= 1 && cc10 >= 1, "hidden columns still play: visibility is display only");
     }
 
     std::cout << (failures == 0 ? "PASS" : "FAILED") << " (" << failures << " failures)\n";

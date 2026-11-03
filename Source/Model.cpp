@@ -476,6 +476,8 @@ juce::ValueTree Song::toValueTree() const
     st.setProperty ("fixedGridRows", settings.fixedGridRows, nullptr);
     st.setProperty ("recordOctave", settings.recordOctave, nullptr);
     st.setProperty ("stepSkip", settings.stepSkip, nullptr);
+    st.setProperty ("volumeCc", settings.volumeCc, nullptr);
+    st.setProperty ("panCc", settings.panCc, nullptr);
     root.appendChild (st, nullptr);
 
     juce::ValueTree pt ("PATTERNS");
@@ -487,10 +489,19 @@ juce::ValueTree Song::toValueTree() const
         pv.setProperty ("name", p.name, nullptr);
         pv.setProperty ("length", p.length, nullptr);
         pv.setProperty ("channels", p.channels, nullptr);
-        pv.setProperty ("showInst", p.showInst, nullptr);
-        pv.setProperty ("showVol", p.showVol, nullptr);
-        pv.setProperty ("showPan", p.showPan, nullptr);
-        pv.setProperty ("showCmd", p.showCmd, nullptr);
+
+        // Column visibility is stored per channel column (one byte each: bits
+        // for instrument, volume, pan, command), so hiding the volume of one
+        // channel does not hide it in the others.
+        const int visCols = p.visCount();
+        juce::MemoryBlock visBlock;
+        visBlock.setSize ((size_t) visCols);
+        auto* vdst = static_cast<std::uint8_t*> (visBlock.getData());
+
+        for (int c = 0; c < visCols; ++c)
+            vdst[c] = c < (int) p.vis.size() ? p.vis[(size_t) c] : kVisAll;
+
+        pv.setProperty ("vis", visBlock.toBase64Encoding(), nullptr);
 
         // Packed row data: 6 ints per cell over the capacity rectangle, so rows
         // and channel columns hidden past the pattern's visible size (kept by
@@ -583,6 +594,8 @@ void Song::fromValueTree (const juce::ValueTree& root)
         settings.fixedGridRows = juce::jmax (1, (int) st.getProperty ("fixedGridRows", 4));
         settings.recordOctave = juce::jlimit (0, 9, (int) st.getProperty ("recordOctave", 4));
         settings.stepSkip = juce::jlimit (0, 16, (int) st.getProperty ("stepSkip", 1));
+        settings.volumeCc = juce::jlimit (0, 127, (int) st.getProperty ("volumeCc", 7));
+        settings.panCc = juce::jlimit (0, 127, (int) st.getProperty ("panCc", 10));
     }
 
     if (auto pt = root.getChildWithName ("PATTERNS"); pt.isValid())
@@ -599,10 +612,12 @@ void Song::fromValueTree (const juce::ValueTree& root)
             p.name = pv.getProperty ("name", "Pattern").toString();
             p.length = juce::jlimit (1, kMaxRows, (int) pv.getProperty ("length", 64));
             p.channels = juce::jlimit (1, kMaxTrackerChannels, (int) pv.getProperty ("channels", 1));
-            p.showInst = pv.getProperty ("showInst", true);
-            p.showVol = pv.getProperty ("showVol", true);
-            p.showPan = pv.getProperty ("showPan", true);
-            p.showCmd = pv.getProperty ("showCmd", true);
+            // older states stored one visibility flag for the whole pattern; the
+            // current format stores a byte per channel column (see Pattern::vis)
+            const bool legacyInst = pv.getProperty ("showInst", true);
+            const bool legacyVol = pv.getProperty ("showVol", true);
+            const bool legacyPan = pv.getProperty ("showPan", true);
+            const bool legacyCmd = pv.getProperty ("showCmd", true);
             p.allocate();
 
             // rows and channel columns hidden past the visible size are part of the
@@ -619,6 +634,35 @@ void Song::fromValueTree (const juce::ValueTree& root)
             for (auto& r : p.rows)
                 if (capCols > (int) r.size())
                     r.resize ((size_t) capCols);
+
+            // restore per-column visibility; without the newer property the
+            // whole-pattern flags of an older state apply to every column
+            juce::MemoryBlock visBlock;
+            const juce::String visText = pv.getProperty ("vis").toString();
+
+            if (visText.isNotEmpty() && visBlock.fromBase64Encoding (visText))
+            {
+                const auto* vsrc = static_cast<const std::uint8_t*> (visBlock.getData());
+                const int visCols = juce::jmin ((int) visBlock.getSize(), kMaxTrackerChannels);
+                p.vis.resize ((size_t) visCols, kVisAll);
+
+                for (int c = 0; c < visCols; ++c)
+                    p.vis[(size_t) c] = (std::uint8_t) (vsrc[c] & kVisAll);
+            }
+            else
+            {
+                std::uint8_t legacy = 0;
+
+                if (legacyInst) legacy = (std::uint8_t) (legacy | kVisInst);
+                if (legacyVol) legacy = (std::uint8_t) (legacy | kVisVol);
+                if (legacyPan) legacy = (std::uint8_t) (legacy | kVisPan);
+                if (legacyCmd) legacy = (std::uint8_t) (legacy | kVisCmd);
+
+                p.vis.assign ((size_t) capCols, legacy);
+            }
+
+            if ((int) p.vis.size() < capCols)
+                p.vis.resize ((size_t) capCols, kVisAll);
 
             juce::MemoryBlock data;
 

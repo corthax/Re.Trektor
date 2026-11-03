@@ -101,6 +101,22 @@ SettingsPanel::SettingsPanel (ReTrektorAudioProcessor& processor)
                                     song.settings.stepSkip = (int) std::lround (v);
                                     refresh();
                                 });
+
+    volumeCcSlider = addSlider ("Volume column CC", "Controller driven by the volume column (0-127, CC7 is channel volume)",
+                                0.0, 127.0, 1.0, (double) song.settings.volumeCc,
+                                [this, refresh] (double v)
+                                {
+                                    song.settings.volumeCc = (int) std::lround (v);
+                                    refresh();
+                                });
+
+    panCcSlider = addSlider ("Pan column CC", "Controller driven by the pan column (0-127, CC10 is channel pan)",
+                             0.0, 127.0, 1.0, (double) song.settings.panCc,
+                             [this, refresh] (double v)
+                             {
+                                 song.settings.panCc = (int) std::lround (v);
+                                 refresh();
+                             });
 }
 
 //==============================================================================
@@ -159,6 +175,8 @@ void SettingsPanel::refresh()
         fixedGridSlider->setValue ((double) song.settings.fixedGridRows, juce::dontSendNotification);
         octaveSlider->setValue ((double) song.settings.recordOctave, juce::dontSendNotification);
         stepSkipSlider->setValue ((double) song.settings.stepSkip, juce::dontSendNotification);
+        volumeCcSlider->setValue ((double) song.settings.volumeCc, juce::dontSendNotification);
+        panCcSlider->setValue ((double) song.settings.panCc, juce::dontSendNotification);
     }
 
     repaint();

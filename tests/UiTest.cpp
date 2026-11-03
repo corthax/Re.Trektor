@@ -112,6 +112,18 @@ void collectCombos (juce::Component& root, std::vector<juce::ComboBox*>& out)
     }
 }
 
+// sliders in the order they were added to the component tree
+void collectSliders (juce::Component& root, std::vector<juce::Slider*>& out)
+{
+    for (auto* child : root.getChildren())
+    {
+        if (auto* slider = dynamic_cast<juce::Slider*> (child))
+            out.push_back (slider);
+
+        collectSliders (*child, out);
+    }
+}
+
 // the instrument a note is played on (JUCE numbers channels from 1, the tracker
 // names them from 0), or -1 when the note is not in the buffer
 int noteChannel (const juce::MidiBuffer& midi, int note)
@@ -138,6 +150,34 @@ bool hasNoteOn (const juce::MidiBuffer& midi, int note)
     }
 
     return false;
+}
+
+// the velocity of a note-on, or -1 when the note is not in the buffer
+int noteVelocity (const juce::MidiBuffer& midi, int note)
+{
+    for (const auto metadata : midi)
+    {
+        const auto m = metadata.getMessage();
+
+        if (m.isNoteOn() && m.getNoteNumber() == note)
+            return m.getVelocity();
+    }
+
+    return -1;
+}
+
+// the value a controller change carries, or -1 when that CC is not in the buffer
+int controllerValue (const juce::MidiBuffer& midi, int number)
+{
+    for (const auto metadata : midi)
+    {
+        const auto m = metadata.getMessage();
+
+        if (m.isController() && m.getControllerNumber() == number)
+            return m.getControllerValue();
+    }
+
+    return -1;
 }
 } // namespace
 
@@ -187,6 +227,18 @@ int main()
     auto& song = proc.getSong();
     auto& p = song.patterns.front();
 
+    // run one 64-sample block with the transport parked just before a row
+    auto playRowAt = [&] (int row)
+    {
+        juce::AudioBuffer<float> audio (2, 64);
+        juce::MidiBuffer midi;
+        head->playing = true;
+        head->ppq = (double) row / (double) juce::jmax (1, song.settings.rowsPerBeat) - 0.001;
+        proc.processBlock (audio, midi);
+        head->playing = false;
+        return midi;
+    };
+
     //== Tracker keyboard entry ==============================================
     tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys(), 'z'));
     check (p.cell (0, 0).note == 60, "z enters C-4 on row 0");
@@ -211,14 +263,118 @@ int main()
         proc.processBlock (audio, midi);
     }
 
+    //== Volume column ========================================================
+    {
+        const auto volRect = tracker->fieldBoundsFor (0, rtr::TrackerComponent::Field::vol);
+        const auto panRect = tracker->fieldBoundsFor (0, rtr::TrackerComponent::Field::pan);
+
+        check (volRect.getWidth() == panRect.getWidth() && volRect.getWidth() > 0,
+               "the volume field is as wide as the pan field, so three decimal digits fit");
+
+        // park the cursor on the volume field of channel 0
+        for (int i = 0; i < 24
+             && ! (tracker->getCursorField() == rtr::TrackerComponent::Field::vol
+                   && tracker->getCursorChannel() == 0); ++i)
+        {
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        }
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::vol && tracker->getCursorChannel() == 0,
+               "the cursor can move onto the volume field");
+
+        tracker->setCursorRow (5);
+
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+
+        check (p.cell (5, 0).vol == 100, "three decimal digits enter a volume above 99");
+
+        const auto volMidi = playRowAt (5);
+        check (controllerValue (volMidi, 7) == 100, "a volume without a note emits CC7");
+
+        // with a note the volume also drives the note-on velocity
+        p.cell (0, 0).vol = 42;
+        proc.syncPlaybackModel();
+
+        const auto noteMidi = playRowAt (0);
+        check (controllerValue (noteMidi, 7) == 42, "a volume next to a note emits CC7 too");
+        check (noteVelocity (noteMidi, 60) == 42, "and sets the note-on velocity");
+
+        // the Settings tab names the controllers the columns drive
+        std::vector<juce::Slider*> sliders;
+        collectSliders (*settings, sliders);
+        check (sliders.size() >= 8, "the settings tab exposes the volume and pan CC sliders");
+
+        if (sliders.size() >= 8)
+        {
+            sliders[sliders.size() - 2]->setValue (5.0, juce::sendNotificationSync);
+            sliders.back()->setValue (11.0, juce::sendNotificationSync);
+
+            check (song.settings.volumeCc == 5 && song.settings.panCc == 11,
+                   "moving the sliders changes the CC numbers");
+
+            p.cell (5, 0).pan = 77;
+            proc.syncPlaybackModel();
+
+            const auto ccMidi = playRowAt (5);
+            check (controllerValue (ccMidi, 5) == 100, "the volume column follows its configured CC");
+            check (controllerValue (ccMidi, 11) == 77, "the pan column follows its configured CC");
+            check (controllerValue (ccMidi, 7) == -1 && controllerValue (ccMidi, 10) == -1,
+                   "no CC7/CC10 once the settings name other controllers");
+
+            song.settings.volumeCc = 7;
+            song.settings.panCc = 10;
+            proc.syncPlaybackModel();
+        }
+    }
+
     //== Column visibility chips =============================================
     {
-        const bool before = p.showInst;
+        const bool before = p.showColumn (0, 0);
         tracker->mouseDown (makeEvent (*tracker, { 55.0f, 24.0f }));
-        check (p.showInst == ! before, "clicking the I chip hides the instrument column");
+        check (p.showColumn (0, 0) == ! before, "clicking the I chip hides the instrument column of channel 0");
 
         tracker->mouseDown (makeEvent (*tracker, { 55.0f, 24.0f }));
-        check (p.showInst == before, "clicking the I chip again restores the column");
+        check (p.showColumn (0, 0) == before, "clicking the I chip again restores the column");
+    }
+
+    //== Column visibility is per channel =====================================
+    {
+        p.setChannels (3);
+        tracker->refresh();
+
+        const auto volChip = tracker->chipBoundsFor (1, 1);
+        check (! volChip.isEmpty(), "channel 1 has its own volume chip");
+
+        tracker->mouseDown (makeEvent (*tracker, { (float) volChip.getCentreX(), (float) volChip.getCentreY() }));
+        check (! p.showColumn (1, 1), "clicking channel 1's V chip hides its volume");
+        check (p.showColumn (0, 1) && p.showColumn (2, 1), "the volume stays visible on the other channels");
+
+        const auto cmdChip = tracker->chipBoundsFor (2, 3);
+        tracker->mouseDown (makeEvent (*tracker, { (float) cmdChip.getCentreX(), (float) cmdChip.getCentreY() }));
+        check (! p.showColumn (2, 3), "clicking channel 2's C chip hides its command");
+        check (p.showColumn (0, 3) && p.showColumn (1, 3), "the command stays visible on the other channels");
+
+        // hidden columns are only hidden on screen: they still play
+        p.cell (8, 1).vol = 90;
+        p.cell (8, 1).pan = 60;
+        proc.syncPlaybackModel();
+
+        const auto visMidi = playRowAt (8);
+        check (controllerValue (visMidi, 7) == 90 && controllerValue (visMidi, 10) == 60,
+               "hidden columns still play their controllers");
+
+        // and they come back when their chip is clicked again
+        tracker->refresh();
+        tracker->mouseDown (makeEvent (*tracker, { (float) tracker->chipBoundsFor (1, 1).getCentreX(),
+                                                  (float) tracker->chipBoundsFor (1, 1).getCentreY() }));
+        check (p.showColumn (1, 1), "clicking the chip again restores channel 1's volume column");
+
+        tracker->refresh();
+        tracker->mouseDown (makeEvent (*tracker, { (float) tracker->chipBoundsFor (2, 3).getCentreX(),
+                                                  (float) tracker->chipBoundsFor (2, 3).getCentreY() }));
+        check (p.showColumn (2, 3), "channel 2's command column comes back too");
     }
 
     //== Tools transpose =====================================================

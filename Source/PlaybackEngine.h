@@ -77,6 +77,13 @@ private:
     void stopNote (std::vector<PendingEvent>& events, int offset, int ch, int midiCh, int note);
 
     std::array<ChannelState, kMaxTrackerChannels> channels;
+
+    /** Controller numbers the volume and pan columns drive. They are refreshed
+        from the song settings at the start of every block, so the Settings
+        tab can point the columns at any CC a synth listens to. */
+    int volumeCc = 7;
+    int panCc = 10;
+
     bool wasPlaying = false;
     double previousPpq = -1.0;
     bool justStarted = false;

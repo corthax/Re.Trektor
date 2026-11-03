@@ -165,11 +165,13 @@ void TrackerComponent::layoutFields()
 
     const float charW = theme::monoFont (13.0f).getStringWidthFloat ("0");
 
+    // field widths follow the widest text a field can show, so a decimal volume
+    // of 0-127 (three digits) is never clipped to two digits
     const int noteW = (int) (charW * 4.0f) + kFieldPad;
-    const int instW = (int) (charW * 2.0f) + kFieldPad;
-    const int volW = (int) (charW * 2.0f) + kFieldPad;
-    const int panW = (int) (charW * 3.0f) + kFieldPad;
-    const int cmdW = (int) (charW * 6.0f) + kFieldPad;
+    const int instW = (int) (charW * (float) fieldGlyphs (Field::inst)) + kFieldPad;
+    const int volW = (int) (charW * (float) fieldGlyphs (Field::vol)) + kFieldPad;
+    const int panW = (int) (charW * (float) fieldGlyphs (Field::pan)) + kFieldPad;
+    const int cmdW = (int) (charW * (float) (fieldGlyphs (Field::cmdNum) + fieldGlyphs (Field::cmdVal))) + kFieldPad;
 
     int x = gutterWidth - scrollX;
 
@@ -183,16 +185,16 @@ void TrackerComponent::layoutFields()
 
         add (Field::note, noteW);
 
-        if (p.showInst)
+        if (p.showColumn (ch, 0))
             add (Field::inst, instW);
 
-        if (p.showVol)
+        if (p.showColumn (ch, 1))
             add (Field::vol, volW);
 
-        if (p.showPan)
+        if (p.showColumn (ch, 2))
             add (Field::pan, panW);
 
-        if (p.showCmd)
+        if (p.showColumn (ch, 3))
         {
             const int half = cmdW / 2;
             fieldRects.push_back ({ Field::cmdNum, ch, { x, 0, half, rowHeight } });
@@ -433,7 +435,8 @@ void TrackerComponent::drawHeader (juce::Graphics& g, juce::Rectangle<int> heade
 
         // Column visibility chips, always shown so a hidden column can be restored.
         const char* labels[4] = { "I", "V", "P", "C" };
-        const bool states[4] = { p.showInst, p.showVol, p.showPan, p.showCmd };
+        const bool states[4] = { p.showColumn (ch, 0), p.showColumn (ch, 1),
+                                 p.showColumn (ch, 2), p.showColumn (ch, 3) };
 
         for (int i = 0; i < 4; ++i)
         {
@@ -642,18 +645,18 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                     case Field::vol:
                         if (cell.vol != kEmpty)
                         {
-                            text = valueString (cell.vol, hex, 2);
+                            text = valueString (cell.vol, hex, fieldGlyphs (Field::vol));
                             colour = theme::vol;
                         }
                         else if (carried.vol >= 0 && notePresent)
                         {
-                            text = valueString (carried.vol, hex, 2);
+                            text = valueString (carried.vol, hex, fieldGlyphs (Field::vol));
                             colour = theme::vol;
                             dim = true;
                         }
                         else
                         {
-                            text = "--";
+                            text = hex ? "--" : "---";
                             colour = theme::textDim.withAlpha (0.45f);
                         }
 
@@ -690,7 +693,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                         {
                             if (cmdNum >= 0)
                             {
-                                text = valueString (cmdNum, hex, 2);
+                                text = valueString (cmdNum, hex, fieldGlyphs (Field::cmdNum));
                                 colour = cmdNum >= kMacroCmdBase ? theme::cmdMacro : theme::cmdCC;
                                 dim = ! hasOwn;
                             }
@@ -704,7 +707,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                         {
                             if (cmdVal >= 0)
                             {
-                                text = valueString (cmdVal, hex, 2);
+                                text = valueString (cmdVal, hex, fieldGlyphs (Field::cmdVal));
                                 colour = theme::cmdCC;
                             }
                             else
@@ -814,6 +817,12 @@ void TrackerComponent::mouseDown (const juce::MouseEvent& e)
         {
             auto& p = pattern();
 
+            const auto chipField = [] (int i)
+            {
+                constexpr Field fields[4] = { Field::inst, Field::vol, Field::pan, Field::cmdNum };
+                return i >= 0 && i < 4 ? fields[i] : Field::note;
+            };
+
             for (int ch = 0; ch < p.channels; ++ch)
             {
                 for (int i = 0; i < 4; ++i)
@@ -821,13 +830,16 @@ void TrackerComponent::mouseDown (const juce::MouseEvent& e)
                     if (! toggleBounds (ch, i).contains (e.getPosition()))
                         continue;
 
-                    switch (i)
+                    // one chip hides one field of one channel only
+                    p.toggleColumn (ch, i);
+
+                    if (cursorChannel == ch && ! p.showColumn (ch, i)
+                        && (cursorField == chipField (i) || (i == 3 && cursorField == Field::cmdVal)))
                     {
-                        case 0: p.showInst = ! p.showInst; break;
-                        case 1: p.showVol = ! p.showVol; break;
-                        case 2: p.showPan = ! p.showPan; break;
-                        case 3: p.showCmd = ! p.showCmd; break;
-                        default: break;
+                        // the cursor cannot sit in a field just hidden: park it
+                        cursorField = Field::note;
+                        editing = false;
+                        editBuffer.clear();
                     }
 
                     layoutFields();
@@ -1054,6 +1066,22 @@ int TrackerComponent::maxDigitsFor (Field field) const
     }
 }
 
+int TrackerComponent::fieldGlyphs (Field field) const
+{
+    const bool hex = song.settings.hexDisplay;
+
+    switch (field)
+    {
+        case Field::note: return 4; // "A#" plus an octave of up to two characters
+        case Field::inst: return hex ? 2 : 3; // "-" prefix plus one/two digits
+        case Field::vol: return hex ? 2 : 3; // 0-255 hex, 0-127 decimal
+        case Field::pan: return 3; // hex shows three padded digits, decimal up to 127
+        case Field::cmdNum: return hex ? 2 : 3; // CC number up to 143
+        case Field::cmdVal: return hex ? 2 : 3; // argument 0-127
+        default: return 1;
+    }
+}
+
 int TrackerComponent::clampValue (Field field, int value) const
 {
     switch (field)
@@ -1140,19 +1168,21 @@ void TrackerComponent::moveCursor (int deltaRow, int deltaField)
 
     if (deltaField != 0)
     {
-        auto visibleFields = [&]() -> std::vector<Field>
+        // fields depend on the channel: visibility is per channel now, and the
+        // last visible field of the previous channel can differ between them
+        auto fieldsFor = [&] (int ch) -> std::vector<Field>
         {
             std::vector<Field> f { Field::note };
 
-            if (p.showInst) f.push_back (Field::inst);
-            if (p.showVol) f.push_back (Field::vol);
-            if (p.showPan) f.push_back (Field::pan);
-            if (p.showCmd) { f.push_back (Field::cmdNum); f.push_back (Field::cmdVal); }
+            if (p.showColumn (ch, 0)) f.push_back (Field::inst);
+            if (p.showColumn (ch, 1)) f.push_back (Field::vol);
+            if (p.showColumn (ch, 2)) f.push_back (Field::pan);
+            if (p.showColumn (ch, 3)) { f.push_back (Field::cmdNum); f.push_back (Field::cmdVal); }
 
             return f;
         };
 
-        auto fields = visibleFields();
+        auto fields = fieldsFor (cursorChannel);
         int idx = 0;
 
         for (int i = 0; i < (int) fields.size(); ++i)
@@ -1163,16 +1193,18 @@ void TrackerComponent::moveCursor (int deltaRow, int deltaField)
 
         if (idx >= (int) fields.size())
         {
-            idx = 0;
             cursorChannel = (cursorChannel + 1) % p.channels;
+            cursorField = Field::note; // first field of the next channel
         }
         else if (idx < 0)
         {
-            idx = (int) fields.size() - 1;
             cursorChannel = (cursorChannel + p.channels - 1) % p.channels;
+            cursorField = fieldsFor (cursorChannel).back(); // last field of the previous one
         }
-
-        cursorField = fields[(size_t) idx];
+        else
+        {
+            cursorField = fields[(size_t) idx];
+        }
     }
 
     ensureCursorVisible();

@@ -386,17 +386,11 @@ void PoolComponent::showContextMenu (int patternId)
                                         const juce::String name = p->name + " copy";
                                         const int length = p->length;
                                         const int channels = p->channels;
-                                        const bool sInst = p->showInst;
-                                        const bool sVol = p->showVol;
-                                        const bool sPan = p->showPan;
-                                        const bool sCmd = p->showCmd;
+                                        const auto vis = p->vis;
                                         const auto rows = p->rows;
 
                                         auto& copy = song.addPattern (name, length, channels);
-                                        copy.showInst = sInst;
-                                        copy.showVol = sVol;
-                                        copy.showPan = sPan;
-                                        copy.showCmd = sCmd;
+                                        copy.vis = vis;
                                         copy.rows = rows;
                                         copy.length = length;
                                         song.activePatternId = copy.id;

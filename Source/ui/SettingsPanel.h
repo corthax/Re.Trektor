@@ -52,6 +52,8 @@ private:
     juce::Slider* fixedGridSlider = nullptr;
     juce::Slider* octaveSlider = nullptr;
     juce::Slider* stepSkipSlider = nullptr;
+    juce::Slider* volumeCcSlider = nullptr;
+    juce::Slider* panCcSlider = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SettingsPanel)
 };

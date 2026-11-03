@@ -3,6 +3,12 @@
     the component tree so the layout can be verified without looking at pixels.
 
     Usage: ReTrektorEditorShot /path/out.png [width height] [--dump]
+           [tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
+           [--click-timeline=PCT] [--hide=0v1c] [--expand-pool] [--hex]
+
+    --hide= takes channel/letter pairs (i instrument, v volume, p pan, c
+    command), so --hide=0v1c hides the volume of channel 0 and the command of
+    channel 1: the chips above a channel hide one field of that channel only.
 */
 
 #include "PluginProcessor.h"
@@ -132,11 +138,26 @@ int main (int argc, char** argv)
             args.remove (i);
         }
 
+    // show values in hex, so the narrower hex field widths can be checked
+    const bool shotHex = args.contains ("--hex");
+    args.removeString ("--hex");
+
     juce::String tab;
     for (int i = args.size(); --i >= 0;)
         if (args[i].startsWith ("--tab="))
         {
             tab = args[i].fromFirstOccurrenceOf ("=", false, false).toLowerCase();
+            args.remove (i);
+        }
+
+    // column visibility for the shot: each pair is a channel digit plus i/v/p/c
+    // (instrument, volume, pan, command), so "--hide=0v1c" hides the volume of
+    // channel 0 and the command of channel 1
+    juce::String shotHide;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--hide="))
+        {
+            shotHide = args[i].fromFirstOccurrenceOf ("=", false, false);
             args.remove (i);
         }
 
@@ -155,6 +176,7 @@ int main (int argc, char** argv)
         p.setChannels (2);
         p.setLength (64);
         p.name = "Main";
+        song.settings.hexDisplay = shotHex;
 
         const int notes[] = { 60, 63, 67, 63, 60, 63, 67, 70 };
 
@@ -242,6 +264,35 @@ int main (int argc, char** argv)
 
             p->setChannels (juce::jmax (1, shotChannels / 2)); // narrow ...
             p->setChannels (shotChannels);                     // ... widen back: columns restored
+        }
+    }
+
+    if (shotHide.isNotEmpty())
+    {
+        const juce::ScopedLock sl (proc.getModelLock());
+
+        if (auto* p = proc.getSong().activePattern())
+        {
+            for (int i = 0; i + 1 < shotHide.length(); ++i)
+            {
+                const int ch = shotHide[i] - '0';
+
+                if (ch < 0 || ch >= p->channels)
+                    continue;
+
+                int field = -1;
+                const juce::juce_wchar letter = shotHide[i + 1];
+
+                if (letter == 'i') field = 0;
+                else if (letter == 'v') field = 1;
+                else if (letter == 'p') field = 2;
+                else if (letter == 'c') field = 3;
+                else
+                    continue;
+
+                p->setColumn (ch, field, false);
+                ++i;
+            }
         }
     }
 

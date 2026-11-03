@@ -166,12 +166,18 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             state.activeClip = clip.uid;
         }
 
-        // Volume without a note acts as channel volume; with a note it became velocity.
-        if (cell.vol != kEmpty && cell.note == kEmpty)
-            events.push_back ({ offset, 2, juce::MidiMessage::controllerEvent (midiCh + 1, 7, juce::jlimit (0, 127, cell.vol)) });
+        // An explicit volume or pan cell always drives its configured controller
+        // (CC7 and CC10 by default, set in the Settings tab). A volume on a row
+        // that also has a note doubles as the note-on velocity, so both arrive.
+        if (cell.vol != kEmpty)
+            events.push_back ({ offset, 2,
+                                juce::MidiMessage::controllerEvent (midiCh + 1, volumeCc,
+                                                                    juce::jlimit (0, 127, cell.vol)) });
 
         if (cell.pan != kEmpty)
-            events.push_back ({ offset, 2, juce::MidiMessage::controllerEvent (midiCh + 1, 10, juce::jlimit (0, 127, cell.pan)) });
+            events.push_back ({ offset, 2,
+                                juce::MidiMessage::controllerEvent (midiCh + 1, panCc,
+                                                                    juce::jlimit (0, 127, cell.pan)) });
 
         if (cell.cmd != kEmpty)
         {
@@ -252,6 +258,9 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                               int numSamples, double sampleRate, bool /*passThrough*/)
 {
     std::vector<PendingEvent> events;
+
+    volumeCc = juce::jlimit (0, 127, song.settings.volumeCc);
+    panCc = juce::jlimit (0, 127, song.settings.panCc);
 
     const double ppqPerSample = (t.bpm / 60.0) / juce::jmax (1.0, sampleRate);
     const double ppqStart = t.ppq;

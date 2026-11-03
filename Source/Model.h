@@ -4,6 +4,7 @@
 #include <juce_data_structures/juce_data_structures.h>
 #include <vector>
 #include <memory>
+#include <cstdint>
 
 namespace rtr
 {
@@ -15,6 +16,14 @@ constexpr int kMaxTrackerChannels = 127;
 constexpr int kMidiChannelCount = 16;
 constexpr int kMaxMacros = 16;
 constexpr int kMacroCmdBase = 128; // command values 128..143 call macros M0..M15
+
+/** Column visibility bits: the chips above a channel toggle one field of one
+    channel, so the state is one byte per channel (see Pattern::vis). */
+constexpr std::uint8_t kVisInst = 1;
+constexpr std::uint8_t kVisVol = 2;
+constexpr std::uint8_t kVisPan = 4;
+constexpr std::uint8_t kVisCmd = 8;
+constexpr std::uint8_t kVisAll = 15;
 
 //==============================================================================
 /** A single tracker cell (one row of one tracker channel). */
@@ -45,12 +54,55 @@ struct Pattern
     int length = 64;
     int channels = 1;
 
-    bool showInst = true;
-    bool showVol = true;
-    bool showPan = true;
-    bool showCmd = true;
-
     std::vector<std::vector<Cell>> rows; // [row][channel]
+
+    /** Column visibility is per pattern and per tracker channel: one byte per
+        channel column, with a bit for each field (instrument, volume, pan,
+        command). The chips above a channel toggle one field of one channel, so
+        hiding the volume of channel 2 leaves the other channels alone. Like the
+        channel capacity, the flags grow only: columns past the visible channel
+        count keep their state so raising the count again restores it. */
+    std::vector<std::uint8_t> vis;
+
+    /** Field index used by the chips (0 instrument, 1 volume, 2 pan,
+        3 command) mapped to its visibility bit. */
+    static constexpr std::uint8_t fieldBit (int field) noexcept
+    {
+        const int bit = field < 0 || field > 3 ? 3 : field;
+        return (std::uint8_t) (1u << bit);
+    }
+
+    bool showColumn (int ch, int field) const noexcept
+    {
+        return ch < 0 || ch >= (int) vis.size()
+                   ? true
+                   : ((vis[(size_t) ch] & fieldBit (field)) != 0);
+    }
+
+    void setColumn (int ch, int field, bool show) noexcept
+    {
+        if (ch < 0 || ch >= channelCapacity())
+            return;
+
+        if ((int) vis.size() < channelCapacity())
+            vis.resize ((size_t) channelCapacity(), kVisAll);
+
+        if (show)
+            vis[(size_t) ch] = (std::uint8_t) (vis[(size_t) ch] | fieldBit (field));
+        else
+            vis[(size_t) ch] = (std::uint8_t) (vis[(size_t) ch] & ~fieldBit (field));
+    }
+
+    void toggleColumn (int ch, int field) noexcept
+    {
+        setColumn (ch, field, ! showColumn (ch, field));
+    }
+
+    /** Number of visibility entries to store: at least one per channel. */
+    int visCount() const noexcept
+    {
+        return juce::jmax ((int) vis.size(), channelCapacity());
+    }
 
     void allocate()
     {
@@ -61,6 +113,8 @@ struct Pattern
 
         for (auto& r : rows)
             r.resize ((size_t) channels);
+
+        vis.assign ((size_t) channels, kVisAll);
     }
 
     Cell& cell (int row, int ch) noexcept
@@ -166,6 +220,10 @@ struct Pattern
                 r.resize ((size_t) newChannels); // grows only: keeps hidden columns
 
         channels = newChannels;
+
+        if ((int) vis.size() < channels)
+            vis.resize ((size_t) channels, kVisAll); // fresh columns start visible
+
         trimHiddenChannels();
     }
 
@@ -216,6 +274,12 @@ struct Settings
     int fixedGridRows = 4;
     int recordOctave = 4;
     int stepSkip = 1;
+
+    /** Controller numbers the volume and pan columns drive. They are emitted
+        whenever such a cell is written explicitly, so the tracker can feed
+        anything a synth listens to (CC7 channel volume by default, CC10 pan). */
+    int volumeCc = 7;
+    int panCc = 10;
 };
 
 //==============================================================================
