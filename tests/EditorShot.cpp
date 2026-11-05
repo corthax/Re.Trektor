@@ -5,11 +5,15 @@
     Usage: ReTrektorEditorShot /path/out.png [width height] [--dump]
            [tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
            [--click-timeline=PCT] [--hide=0v1c] [--expand-pool] [--hex]
-           [--drag-preview=IDX]
+           [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1]
 
     --hide= takes channel/letter pairs (i instrument, v volume, p pan, c
     command), so --hide=0v1c hides the volume of channel 0 and the command of
     channel 1: the chips above a channel hide one field of that channel only.
+
+    --select= holds a rectangle of cells selected for the shot, given as row0,
+    channel0,row1,channel1 and inclusive at both ends, so --select=6,1,7,1
+    paints only channel 1's rows 6 and 7 rather than a band across the pattern.
 
     --drag-preview= composites the image JUCE floats at the cursor while pool
     item IDX is dragged out of the pool, so the shot can show that only that
@@ -181,6 +185,17 @@ int main (int argc, char** argv)
         if (args[i].startsWith ("--hide="))
         {
             shotHide = args[i].fromFirstOccurrenceOf ("=", false, false);
+            args.remove (i);
+        }
+
+    // cells to hold selected for the shot: four numbers row0,ch0,row1,ch1
+    // (inclusive, both corners in any order), so "--select=6,1,7,1" selects
+    // channel 1's rows 6 and 7 and the shot paints those two cells only
+    juce::String shotSelect;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--select="))
+        {
+            shotSelect = args[i].fromFirstOccurrenceOf ("=", false, false);
             args.remove (i);
         }
 
@@ -356,6 +371,30 @@ int main (int argc, char** argv)
         else
         {
             std::cerr << "no tracker child for --scroll\n";
+        }
+    }
+
+    if (! shotSelect.isEmpty())
+    {
+        // the selection goes in through the same path a Shift-drag takes, so the
+        // shot shows the per-cell tint instead of a band across the pattern
+        if (auto* tr = findChild<rtr::TrackerComponent> (*editor))
+        {
+            const auto parts = juce::StringArray::fromTokens (shotSelect, ",", {});
+            int v[4] = { 0, 0, 0, 0 };
+
+            for (int i = 0; i < 4; ++i)
+                v[i] = i < parts.size() ? parts[i].getIntValue() : 0;
+
+            tr->refresh(); // the selection reads the pattern the tracker shows
+            tr->addCellsToSelection (v[0], v[1], v[2], v[3]);
+
+            std::cout << "selection over cells (" << v[0] << "," << v[1] << ")..("
+                      << v[2] << "," << v[3] << ")\n";
+        }
+        else
+        {
+            std::cerr << "no tracker child for --select\n";
         }
     }
 

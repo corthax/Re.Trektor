@@ -849,6 +849,7 @@ int main()
         const int offId = a.addPattern ("Offs", 32, 1).id;
         const int rampId = a.addPattern ("Ramp", 32, 1).id;
         const int macroId = a.addPattern ("Macros", 32, 1).id;
+        const int holedId = a.addPattern ("Holed", 32, 2).id;
 
         auto* pn = a.findPattern (noteId);
         auto* pi = a.findPattern (instId);
@@ -856,6 +857,19 @@ int main()
         auto* po = a.findPattern (offId);
         auto* pr = a.findPattern (rampId);
         auto* pm = a.findPattern (macroId);
+        auto* ph = a.findPattern (holedId);
+
+        // the selection is a set of cells rather than a pair of row and channel
+        // ranges, so the tool takes a predicate over (row, channel). A rectangle
+        // is what a selection drag paints, and the masks here are those
+        // rectangles written out.
+        auto rect = [] (int row0, int row1, int ch0, int ch1)
+        {
+            return [row0, row1, ch0, ch1] (int row, int ch) noexcept
+            {
+                return row >= row0 && row <= row1 && ch >= ch0 && ch <= ch1;
+            };
+        };
 
         // --- only the gaps between anchors inside the range are ramped ---
         pn->cell (4, 0).note = 40; // above the range: ignored
@@ -866,7 +880,7 @@ int main()
         pn->cell (28, 1).note = 40;
         pn->cell (31, 2).note = 20; // an anchor outside the range stays as it is
 
-        const int noteWritten = pn->interpolate (InterpField::note, 8, 29, 0, pn->channels - 1);
+        const int noteWritten = pn->interpolate (InterpField::note, rect (8, 29, 0, pn->channels - 1));
         check (noteWritten == 15, "every gap between neighbouring anchors is ramped on its own");
 
         check (pn->cell (7, 0).note == kEmpty && pn->cell (6, 0).note == kEmpty,
@@ -896,7 +910,7 @@ int main()
         pi->cell (10, 1).inst = 0;
         pi->cell (20, 1).inst = 15;
 
-        const int oneChannel = pi->interpolate (InterpField::inst, 10, 20, 0, 0);
+        const int oneChannel = pi->interpolate (InterpField::inst, rect (10, 20, 0, 0));
         check (oneChannel == 9, "narrowing the channels fills one column only");
         check (pi->cell (15, 1).inst == kEmpty && pi->cell (19, 1).inst == kEmpty,
                "the channel outside the range is untouched");
@@ -912,7 +926,7 @@ int main()
         check (pi->cell (11, 0).inst == 2 && pi->cell (19, 0).inst == 14,
                "the ramp climbs one instrument per row when the anchors are ten rows apart");
 
-        const int allChannels = pi->interpolate (InterpField::inst, 10, 20, 0, 1);
+        const int allChannels = pi->interpolate (InterpField::inst, rect (10, 20, 0, 1));
         check (allChannels == 9, "widening the channel range fills the other column as well");
         check (pi->cell (15, 1).inst == 8, "the second column ramps the same way");
 
@@ -921,14 +935,14 @@ int main()
         po->cell (14, 0).note = kNoteOff;
         po->cell (20, 0).note = 72;
 
-        check (po->interpolate (InterpField::note, 8, 24, 0, 0) == 0,
+        check (po->interpolate (InterpField::note, rect (8, 24, 0, 0)) == 0,
                "a note-off in the way means nothing can be ramped across it");
         check (po->cell (12, 0).note == kEmpty && po->cell (17, 0).note == kEmpty,
                "the blanks on either side of a note-off stay blank");
         check (po->cell (14, 0).note == kNoteOff, "the note-off is never used as a value to write");
 
         po->cell (24, 0).note = 90;
-        check (po->interpolate (InterpField::note, 8, 24, 0, 0) == 3,
+        check (po->interpolate (InterpField::note, rect (8, 24, 0, 0)) == 3,
                "a segment after a note-off ramps between its own anchors");
         check (po->cell (21, 0).note == 77 && po->cell (22, 0).note == 81
                && po->cell (23, 0).note == 86,
@@ -937,7 +951,7 @@ int main()
         // --- commands and their arguments ramp apart ---
         pc->cell (10, 0).cmd = 74;
         pc->cell (20, 0).cmd = 90;
-        check (pc->interpolate (InterpField::cmdNum, 10, 20, 0, 0) == 9,
+        check (pc->interpolate (InterpField::cmdNum, rect (10, 20, 0, 0)) == 9,
                "the CC number column ramps on its own");
         check (pc->cell (11, 0).cmd == 76 && pc->cell (15, 0).cmd == 82,
                "the CC number between two commands is linear too");
@@ -947,7 +961,7 @@ int main()
         pc->cell (24, 0).cmd = 74;
         pc->cell (24, 0).cmdVal = 100;
         pc->cell (30, 0).cmdVal = 40;
-        check (pc->interpolate (InterpField::cmdVal, 24, 30, 0, 0) == 5,
+        check (pc->interpolate (InterpField::cmdVal, rect (24, 30, 0, 0)) == 5,
                "the command argument column ramps on its own");
         check (pc->cell (25, 0).cmdVal == 90 && pc->cell (27, 0).cmdVal == 70
                && pc->cell (29, 0).cmdVal == 50,
@@ -960,7 +974,7 @@ int main()
         pr->cell (2, 0).vol = 7;
         pr->cell (4, 0).vol = 127;
         pr->cell (10, 0).vol = 0;
-        check (pr->interpolate (InterpField::vol, 0, 10, 0, 0) == 7,
+        check (pr->interpolate (InterpField::vol, rect (0, 10, 0, 0)) == 7,
                "every one of the three segments is filled");
         check (pr->cell (1, 0).vol == 4 && pr->cell (3, 0).vol == 67,
                "a half step rounds up");
@@ -972,7 +986,7 @@ int main()
 
         pm->cell (0, 0).cmd = 138;
         pm->cell (10, 0).cmd = kMacroCmdBase + kMaxMacros; // past the last macro
-        check (pm->interpolate (InterpField::cmdNum, 0, 10, 0, 0) == 9,
+        check (pm->interpolate (InterpField::cmdNum, rect (0, 10, 0, 0)) == 9,
                "the macro range ramps like any other number");
         check (pm->cell (1, 0).cmd == 139 && pm->cell (5, 0).cmd == 141
                && pm->cell (9, 0).cmd == 143,
@@ -983,6 +997,36 @@ int main()
                 macrosIntact = false;
 
         check (macrosIntact, "a filled command number always names a macro");
+
+        // --- the selection is a set of cells, so it can have a hole in it ---
+        ph->cell (4, 0).note = 60;
+        ph->cell (10, 0).note = 70;
+        ph->cell (12, 0).note = 80;
+        ph->cell (4, 1).note = 60;
+        ph->cell (12, 1).note = 80;
+
+        check (ph->interpolate (InterpField::note, [] (int, int) { return false; }) == 0,
+               "a selection with nothing in it writes nothing");
+
+        // rows 4..12 of both channels, except row 11 of channel 0
+        auto holedSelection = [] (int row, int ch) noexcept
+        {
+            if (row < 4 || row > 12)
+                return false;
+            return ! (ch == 0 && row == 11);
+        };
+
+        const int holed = ph->interpolate (InterpField::note, holedSelection);
+        check (holed == 12, "a selection with a hole in it ramps up to the hole and stops there");
+
+        check (ph->cell (5, 0).note == 62 && ph->cell (9, 0).note == 68,
+               "the column with the hole ramps into it from above");
+        check (ph->cell (11, 0).note == kEmpty, "the row left out of the selection is never written");
+        check (ph->cell (11, 1).note == 78, "the neighbouring channel has no hole, so it keeps ramping");
+        check (ph->cell (10, 0).note == 70 && ph->cell (12, 0).note == 80,
+               "the two anchors on either side of the hole never join into one ramp");
+        check (ph->cell (3, 0).note == kEmpty && ph->cell (13, 1).note == kEmpty,
+               "the selection still never reaches outside itself");
     }
 
     std::cout << (failures == 0 ? "PASS" : "FAILED") << " (" << failures << " failures)\n";

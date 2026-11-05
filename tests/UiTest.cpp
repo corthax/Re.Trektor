@@ -8,6 +8,8 @@
       - column visibility chip clicks
       - the transpose amount field and its direction buttons in the tools panel
       - selection interpolation in the tools panel
+      - cell selection: a click selects one cell, a drag a rectangle of cells,
+        Shift unions another rectangle into it and Ctrl takes one away
       - timeline drag-and-drop from the pool
       - pool double-click placement with snapping
       - settings toggles
@@ -47,14 +49,24 @@ struct MockPlayHead final : juce::AudioPlayHead
     }
 };
 
-juce::MouseEvent makeEvent (juce::Component& c, juce::Point<float> pos)
+// the selection gestures read the modifiers a mouse event carries, so the tests
+// can hold Shift (union) or Ctrl (subtract) while they sweep a rectangle
+juce::MouseEvent makeEvent (juce::Component& c, juce::Point<float> pos, int mods)
 {
     auto source = juce::Desktop::getInstance().getMainMouseSource();
     const auto now = juce::Time::getCurrentTime();
 
-    return juce::MouseEvent (source, pos, juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+    return juce::MouseEvent (source, pos, juce::ModifierKeys (mods), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
                              &c, &c, now, pos, now, 1, false);
 }
+
+juce::MouseEvent makeEvent (juce::Component& c, juce::Point<float> pos)
+{
+    return makeEvent (c, pos, 0);
+}
+
+constexpr int kShiftMod = juce::ModifierKeys::shiftModifier;
+constexpr int kCtrlMod = juce::ModifierKeys::ctrlModifier;
 
 template <typename T>
 T* findChild (juce::Component& root)
@@ -539,9 +551,9 @@ int main()
         std::vector<juce::ComboBox*> combos;
         collectCombos (*tools, combos);
 
-        check (combos.size() == 5, "the tools panel exposes the scope, the remap pair and the two interpolation dropdowns");
+        check (combos.size() == 4, "the tools panel exposes the scope, the remap pair and the interpolation dropdown");
 
-        if (combos.size() != 5)
+        if (combos.size() != 4)
         {
             check (false, "the remap dropdowns could not be found");
         }
@@ -608,20 +620,27 @@ int main()
                 check (noteChannel (playRow (4), 66) == 5, "the implicit row follows the new instrument");
                 check (noteChannel (playRow (3), 67) == 7, "the other channel still plays its own instrument");
 
-                //== selection scope, source above the selection =========
+                //== selection scope, one channel column of the selection ====
                 p.cell (5, 1).inst = 6; // instrument only, above the selection
                 p.cell (6, 1).note = 68;
                 p.cell (7, 1).note = 69;
                 p.cell (9, 1).note = 71;
                 p.cell (9, 1).inst = 6; // below the selection: must stay -6
+                p.cell (6, 0).inst = 6; // same row, another channel column
 
                 tracker->refresh();
-                tracker->mouseDown (makeEvent (*tracker, { 57.0f, 169.0f })); // row 6
-                tracker->mouseDrag (makeEvent (*tracker, { 57.0f, 188.0f })); // row 7
-                tracker->mouseUp (makeEvent (*tracker, { 57.0f, 188.0f }));
+                const float chOne = (float) tracker->channelBoundsFor (1).getCentreX();
 
-                check (tracker->getSelectionStart() == 6 && tracker->getSelectionEnd() == 7,
-                       "dragging in the tracker selects rows 6 and 7");
+                tracker->mouseDown (makeEvent (*tracker, { chOne, 169.0f })); // row 6
+                tracker->mouseDrag (makeEvent (*tracker, { chOne, 188.0f })); // row 7
+                tracker->mouseUp (makeEvent (*tracker, { chOne, 188.0f }));
+
+                check (tracker->isCellSelected (6, 1) && tracker->isCellSelected (7, 1),
+                       "dragging down one channel column selects those two cells");
+                check (! tracker->isCellSelected (5, 1) && ! tracker->isCellSelected (8, 1),
+                       "the sweep stops at the rows it passed through");
+                check (! tracker->isCellSelected (6, 0),
+                       "the cell beside the sweep is out of reach of a channel-level selection");
 
                 scope->setSelectedId (1); // "Selection only"
                 fromBox->setSelectedId (8); // "-6"
@@ -632,6 +651,7 @@ int main()
                 check (p.cell (6, 1).inst == 9, "the carried instrument is pinned inside the selection");
                 check (p.cell (7, 1).inst == rtr::kEmpty, "the next row is left implicit");
                 check (p.cell (9, 1).inst == 6, "the instrument below the selection keeps its value");
+                check (p.cell (6, 0).inst == 6, "the cell in the same row but another channel keeps its value");
 
                 check (noteChannel (playRow (6), 68) == 9, "the pinned row plays on MIDI channel 9");
                 check (noteChannel (playRow (7), 69) == 9, "the implicit row carries the new instrument");
@@ -645,7 +665,8 @@ int main()
                 remap->onClick();
 
                 check (p.cell (3, 0).inst == 11 && p.cell (3, 1).inst == 11
-                           && p.cell (6, 1).inst == 11 && p.cell (9, 1).inst == 11,
+                           && p.cell (6, 1).inst == 11 && p.cell (9, 1).inst == 11
+                           && p.cell (6, 0).inst == 11,
                        "All in the source box moves every explicit instrument to the target");
                 check (p.cell (4, 0).inst == rtr::kEmpty && p.cell (7, 1).inst == rtr::kEmpty,
                        "rows that already resolve to the target are left implicit");
@@ -669,15 +690,14 @@ int main()
         std::vector<juce::ComboBox*> combos;
         collectCombos (*tools, combos);
 
-        if (combos.size() != 5)
+        if (combos.size() != 4)
         {
-            check (false, "the interpolation dropdowns could not be found");
+            check (false, "the tools panel does not expose the scope, the remap pair and one interpolation dropdown");
         }
         else
         {
             auto* scope = combos[0];
             auto* fieldBox = combos[3];
-            auto* whereBox = combos[4];
 
             check (fieldBox->getNumItems() == 6
                        && fieldBox->getItemText (0) == "Note"
@@ -688,13 +708,8 @@ int main()
                        && fieldBox->getItemText (5) == "CC value",
                    "the field dropdown offers every column the tool can ramp");
 
-            check (whereBox->getNumItems() == 2
-                       && whereBox->getItemText (0) == "All channels"
-                       && whereBox->getItemText (1) == "Active channel",
-                   "the channel dropdown offers the whole pattern width and the cursor's channel");
-
-            check (fieldBox->getSelectedId() == 1 && whereBox->getSelectedId() == 1,
-                   "the defaults are the note field over every channel");
+            check (fieldBox->getSelectedId() == 1,
+                   "the interpolation dropdown opens on the note column");
 
             // the volume column is free of edits here, so its blanks are clean
             p.setChannels (2);
@@ -720,25 +735,26 @@ int main()
             }
             else
             {
-                // dragging inside channel 1's columns selects the rows and parks
-                // the cursor in that channel
+                // dragging down one channel column selects those cells of that
+                // channel only, and parks the cursor in it
                 tracker->refresh();
-                const float chOne = (float) tracker->chipBoundsFor (1, 1).getCentreX();
+                const float chOne = (float) tracker->channelBoundsFor (1).getCentreX();
 
-                tracker->mouseDown (makeEvent (*tracker, { chOne, 245.0f }));
-                tracker->mouseDrag (makeEvent (*tracker, { chOne, 340.0f }));
+                tracker->mouseDown (makeEvent (*tracker, { chOne, 245.0f })); // row 10
+                tracker->mouseDrag (makeEvent (*tracker, { chOne, 340.0f })); // row 15
                 tracker->mouseUp (makeEvent (*tracker, { chOne, 340.0f }));
 
-                check (tracker->getSelectionStart() == 10 && tracker->getSelectionEnd() == 15,
-                       "dragging in channel 1 selects rows 10 to 15");
+                check (tracker->isCellSelected (10, 1) && tracker->isCellSelected (15, 1),
+                       "dragging down channel 1 selects its rows 10 to 15");
+                check (! tracker->isCellSelected (10, 0) && ! tracker->isCellSelected (15, 0),
+                       "channel 0's cells in the same rows stay out of the selection");
                 check (tracker->getCursorChannel() == 1,
                        "the cursor sits in the second tracker channel");
 
                 fieldBox->setSelectedId (3); // "Volume"
-                whereBox->setSelectedId (2); // "Active channel"
 
-                // the whole-pattern scope is still selected, and interpolation
-                // only works on a hand-picked range
+                // the whole-pattern scope is still selected, and the ramp is a
+                // selection tool: widening it would ramp every blank of the pattern
                 scope->setSelectedId (2); // "Whole pattern"
                 interpolate->onClick();
                 check (p.cell (11, 0).vol == rtr::kEmpty && p.cell (11, 1).vol == rtr::kEmpty,
@@ -748,32 +764,68 @@ int main()
                 interpolate->onClick();
 
                 check (p.cell (11, 1).vol == 20 && p.cell (12, 1).vol == 40
-                       && p.cell (13, 1).vol == 60 && p.cell (14, 1).vol == 80,
-                       "the active channel ramps between its own anchors");
+                           && p.cell (13, 1).vol == 60 && p.cell (14, 1).vol == 80,
+                       "the selected cells ramp between their own anchors");
                 check (p.cell (10, 1).vol == 0 && p.cell (15, 1).vol == 100,
                        "the anchors of that channel stay put");
                 check (p.cell (9, 1).vol == rtr::kEmpty && p.cell (16, 1).vol == rtr::kEmpty,
                        "the ramp never leaves the selected rows");
                 check (p.cell (11, 0).vol == rtr::kEmpty && p.cell (13, 0).vol == rtr::kEmpty
-                       && p.cell (14, 0).vol == rtr::kEmpty,
-                       "the other channel is untouched by the active channel");
-                check (p.cell (12, 0).vol == 70, "an anchor in the other channel keeps its value");
+                           && p.cell (14, 0).vol == rtr::kEmpty,
+                       "the cells outside the selection are never written");
+                check (p.cell (12, 0).vol == 70, "an anchor outside the selection keeps its value");
                 check (p.cell (8, 0).vol == 10 && p.cell (17, 0).vol == 5,
                        "the anchors outside the selection keep their values too");
 
-                whereBox->setSelectedId (1); // "All channels"
+                //== Shift unions another column, then interpolate ==========
+                // Shift adds another rectangle to what the first gesture drew
+                // rather than replacing it, so the selection now covers both
+                // columns of these rows
+                tracker->refresh();
+                const float chZero = (float) tracker->channelBoundsFor (0).getCentreX();
+
+                tracker->mouseDown (makeEvent (*tracker, { chZero, 245.0f }, kShiftMod));
+                tracker->mouseDrag (makeEvent (*tracker, { chZero, 340.0f }, kShiftMod));
+                tracker->mouseUp (makeEvent (*tracker, { chZero, 340.0f }, kShiftMod));
+
+                check (tracker->isCellSelected (10, 0) && tracker->isCellSelected (15, 0),
+                       "Shift selects channel 0's rows as well");
+                check (tracker->isCellSelected (12, 1),
+                       "Shift keeps the rectangle the first gesture drew");
+
                 interpolate->onClick();
 
                 check (p.cell (11, 0).vol == 85 && p.cell (13, 0).vol == 60
-                       && p.cell (14, 0).vol == 50,
-                       "widening to every channel ramps channel 0 as well");
+                           && p.cell (14, 0).vol == 50,
+                       "the added cells ramp channel 0 between its own anchors");
                 check (p.cell (12, 0).vol == 70, "the middle anchor is not moved");
                 check (p.cell (9, 0).vol == rtr::kEmpty,
-                       "the anchor above the range is not carried into the selection");
+                       "the anchor above the selection is not carried into it");
                 check (p.cell (16, 0).vol == rtr::kEmpty && p.cell (17, 0).vol == 5,
                        "nothing is written below the selection either");
                 check (p.cell (11, 1).vol == 20 && p.cell (14, 1).vol == 80,
-                       "the channel that was already ramped is left alone");
+                       "the cells that were already ramped are left alone");
+
+                //== Ctrl subtracts a band, so the selection has a hole =====
+                // Ctrl takes the rectangle it sweeps away from the selection,
+                // which leaves a hole the ramp must not reach across
+                tracker->refresh();
+                tracker->mouseDown (makeEvent (*tracker, { chZero, 283.0f }, kCtrlMod)); // row 12
+                tracker->mouseDrag (makeEvent (*tracker, { chZero, 302.0f }, kCtrlMod)); // row 13
+                tracker->mouseUp (makeEvent (*tracker, { chZero, 302.0f }, kCtrlMod));
+
+                check (! tracker->isCellSelected (12, 0) && ! tracker->isCellSelected (13, 0),
+                       "Ctrl took those two cells away from the selection");
+                check (tracker->isCellSelected (11, 0) && tracker->isCellSelected (14, 0)
+                           && tracker->isCellSelected (12, 1),
+                       "the cells above, below and beside the hole stay selected");
+
+                interpolate->onClick();
+
+                check (p.cell (12, 0).vol == 70 && p.cell (13, 0).vol == 60,
+                       "the hole stops the ramp: neither the anchor nor the cell beside it moves");
+                check (p.cell (11, 0).vol == 85 && p.cell (14, 0).vol == 50,
+                       "the anchors on either side of the hole keep their values");
 
                 // both channels now hold 60 at row 13, so the CC7 the row plays
                 // proves the filled cells reached the playback snapshot
@@ -784,7 +836,6 @@ int main()
                 tracker->clearSelection();
                 scope->setSelectedId (1); // back to the scope a fresh panel opens on
                 fieldBox->setSelectedId (1);
-                whereBox->setSelectedId (1);
             }
         }
     }

@@ -35,9 +35,10 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
     scopeBox.addItem ("Whole pattern", 2);
     scopeBox.addItem ("All patterns in song", 3);
     scopeBox.addItem ("All created patterns", 4);
-    // interpolation only works on a hand-picked row range, so the panel opens on
-    // the one scope that acts on what the user last selected: transpose and remap
-    // then need the dropdown moved to a wider scope when nothing is selected
+    // the panel opens on the one scope that acts on what the user last selected,
+    // which is now a set of cells rather than a band of whole rows: transpose and
+    // remap then need the dropdown moved to a wider scope when nothing is
+    // selected, and the wider scopes ignore the selection entirely
     scopeBox.setSelectedId (1); // "Selection only"
     styleCombo (scopeBox);
     addAndMakeVisible (scopeBox);
@@ -73,7 +74,9 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
     styleCombo (remapToBox);
     addAndMakeVisible (remapToBox);
 
-    // ids follow the InterpField enumerators so the tool can map them directly
+    // ids follow the InterpField enumerators so the tool can map them directly.
+    // Which column the ramp fills is all it needs: which cells it fills is the
+    // selection, so the old "all channels / active channel" dropdown is gone
     interpolateFieldBox.addItem ("Note", 1);
     interpolateFieldBox.addItem ("Instrument", 2);
     interpolateFieldBox.addItem ("Volume", 3);
@@ -83,12 +86,6 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
     interpolateFieldBox.setSelectedId (1); // Note
     styleCombo (interpolateFieldBox);
     addAndMakeVisible (interpolateFieldBox);
-
-    interpolateWhereBox.addItem ("All channels", 1); // the whole pattern width
-    interpolateWhereBox.addItem ("Active channel", 2); // only the cursor's channel
-    interpolateWhereBox.setSelectedId (1);
-    styleCombo (interpolateWhereBox);
-    addAndMakeVisible (interpolateWhereBox);
 
     styleButton (remapApply);
     styleButton (interpolateButton);
@@ -122,7 +119,6 @@ void ToolsPanel::paint (juce::Graphics& g)
     section ("TRANSPOSE SEMITONES", transposeAmount);
     section ("REMAP", remapFromBox);
     section ("INTERPOLATE", interpolateFieldBox);
-    section ("CHANNELS", interpolateWhereBox);
 
     // an arrow between the two remap dropdowns names the direction of the edit
     if (remapFromBox.getWidth() > 0 && remapToBox.getWidth() > 0)
@@ -176,10 +172,6 @@ void ToolsPanel::resized()
     area.removeFromTop (12); // INTERPOLATE label
     interpolateFieldBox.setBounds (area.removeFromTop (22));
 
-    area.removeFromTop (2);
-    area.removeFromTop (12); // CHANNELS label
-    interpolateWhereBox.setBounds (area.removeFromTop (22));
-
     area.removeFromTop (4);
     interpolateButton.setBounds (area.removeFromTop (22));
 }
@@ -202,61 +194,45 @@ std::vector<Pattern*> ToolsPanel::scopedPatterns()
 
     if (scope == ToolScope::selection)
     {
-        // Selection scope only ever edits the active pattern, and only when
-        // there is an actual row selection.
+        // the selection scope only ever reaches the active pattern, since the
+        // cells the user selected are a view of what the tracker shows. An
+        // empty selection costs nothing: the tools ask per cell and find
+        // nothing in reach.
         patterns.clear();
 
-        if (getSelection)
-        {
-            auto sel = getSelection();
-
-            if (sel.first >= 0 && sel.second >= 0)
-                if (auto* p = song.findPattern (song.activePatternId))
-                    patterns.push_back (p);
-        }
+        if (isCellSelected)
+            if (auto* p = song.findPattern (song.activePatternId))
+                patterns.push_back (p);
     }
 
     return patterns;
 }
 
-std::pair<int, int> ToolsPanel::rowRange (const Pattern& p) const
+bool ToolsPanel::cellInScope (int row, int ch) const
 {
     if (scopeBox.getSelectedId() != 1)
-        return { 0, p.length - 1 };
+        return true; // the wider scopes name whole patterns, selection aside
 
-    if (! getSelection)
-        return { -1, -1 };
-
-    auto sel = getSelection();
-
-    if (sel.first < 0 || sel.second < 0)
-        return { -1, -1 };
-
-    const int start = juce::jmax (0, juce::jmin (sel.first, sel.second));
-    const int end = juce::jmin (p.length - 1, juce::jmax (sel.first, sel.second));
-
-    return { start, end };
+    // the selection scope reaches exactly the cells the tracker is holding, and
+    // an unset hook means there is no selection to reach
+    return isCellSelected ? isCellSelected (row, ch) : false;
 }
 
-void ToolsPanel::applyToRows (Pattern& p, const std::function<void (Cell&, int row)>& fn)
+void ToolsPanel::applyToCells (Pattern& p, const std::function<void (Cell&, int row, int ch)>& fn)
 {
-    const auto range = rowRange (p);
-    const int start = range.first;
-    const int end = range.second;
-
-    if (start < 0 || start > end)
-        return;
-
-    for (int row = start; row <= end; ++row)
+    for (int row = 0; row < p.length; ++row)
+    {
         for (int ch = 0; ch < p.channels; ++ch)
-            fn (p.rows[(size_t) row][(size_t) ch], row);
+            if (cellInScope (row, ch))
+                fn (p.rows[(size_t) row][(size_t) ch], row, ch);
+    }
 }
 
 void ToolsPanel::applyTranspose (int semitones)
 {
     for (auto* p : scopedPatterns())
     {
-        applyToRows (*p, [semitones] (Cell& c, int)
+        applyToCells (*p, [semitones] (Cell& c, int, int)
         {
             if (c.note >= 0 && c.note <= 127)
                 c.note = juce::jlimit (0, 127, c.note + semitones);
@@ -281,11 +257,6 @@ void ToolsPanel::applyRemap()
 
     for (auto* p : scopedPatterns())
     {
-        const auto range = rowRange (*p);
-
-        if (range.first < 0 || range.first > range.second)
-            continue;
-
         for (int ch = 0; ch < p->channels; ++ch)
         {
             // the instrument the column resolves to at this row, before and
@@ -294,7 +265,11 @@ void ToolsPanel::applyRemap()
             int before = kEmpty;
             int after = kEmpty;
 
-            for (int row = 0; row <= range.second; ++row)
+            // the walk covers the rows above the cells in reach on purpose: a
+            // carry has to be known before it can be pinned inside the
+            // selection, and pinning means writing an explicit value only where
+            // the cell is actually selected
+            for (int row = 0; row < p->length; ++row)
             {
                 auto& c = p->rows[(size_t) row][(size_t) ch];
 
@@ -302,7 +277,7 @@ void ToolsPanel::applyRemap()
                 {
                     const int current = c.inst;
 
-                    if (row >= range.first && (all || current == from))
+                    if ((all || current == from) && cellInScope (row, ch))
                         c.inst = to;
 
                     before = current;
@@ -310,7 +285,7 @@ void ToolsPanel::applyRemap()
                     continue;
                 }
 
-                if (row < range.first)
+                if (! cellInScope (row, ch))
                     continue;
 
                 const bool matches = all ? before != kEmpty : before == from;
@@ -336,41 +311,25 @@ void ToolsPanel::applyRemap()
 
 void ToolsPanel::applyInterpolate()
 {
-    // interpolation only works on a hand-picked row range: the row range of the
-    // other scopes is the whole pattern, where ramping blanks is rarely useful
+    // the ramp only works on what the user picked: outside the selection scope
+    // the reach is a whole pattern, where ramping blanks is rarely useful
     if (scopeBox.getSelectedId() != 1)
         return;
 
     const int fieldId = interpolateFieldBox.getSelectedId();
-    const int whereId = interpolateWhereBox.getSelectedId();
 
-    if (fieldId <= 0 || whereId <= 0)
+    if (fieldId <= 0)
         return;
 
     const auto field = (InterpField) (fieldId - 1);
 
     for (auto* p : scopedPatterns())
     {
-        const auto range = rowRange (*p);
-        const int start = range.first;
-        const int end = range.second;
-
-        if (start < 0 || start > end)
-            continue;
-
-        int chStart = 0;
-        int chEnd = p->channels - 1;
-
-        if (whereId == 2)
-        {
-            // the tracker's cursor channel is the track last clicked at any
-            // column, and 0 while a pattern has only been selected
-            const int cursor = getCursorChannel ? juce::jmax (0, getCursorChannel()) : 0;
-            chStart = juce::jlimit (0, chEnd, cursor);
-            chEnd = chStart; // the ramp is confined to that one column
-        }
-
-        p->interpolate (field, start, end, chStart, chEnd);
+        // the selection is the range the ramp is confined to: anchors come only
+        // from selected cells, only selected cells are ever written, and a cell
+        // left out of the selection ends the run, so a ragged selection ramps
+        // in pieces rather than across the hole
+        p->interpolate (field, [this] (int row, int ch) { return cellInScope (row, ch); });
     }
 
     if (onModelChanged)

@@ -2,6 +2,9 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../PluginProcessor.h"
+#include <array>
+#include <cstdint>
+#include <vector>
 
 namespace rtr
 {
@@ -35,11 +38,20 @@ public:
 
     int getCursorRow() const noexcept { return cursorRow; }
     int getCursorChannel() const noexcept { return cursorChannel; }
-    bool hasSelection() const noexcept { return selStartRow >= 0 && selEndRow >= 0; }
-    int getSelectionStart() const noexcept { return juce::jmin (selStartRow, selEndRow); }
-    int getSelectionEnd() const noexcept { return juce::jmax (selStartRow, selEndRow); }
-    void clearSelection();
     void setCursorRow (int row);
+
+    //== Cell selection =======================================================
+    /** The selection is a set of cells rather than a band of whole rows: a
+        rectangle covers rows in one direction and channels in the other, so a
+        tool can be told to touch one column of one row and any shape the user
+        dragged out of the tracker. */
+    bool hasSelection() const noexcept;
+    bool isCellSelected (int row, int ch) const noexcept;
+    void clearSelection();
+    /** Adds a rectangle of cells to the selection, both ends inclusive, for the
+        tests and any host-facing tool. The mouse gestures reach the same path
+        with the modifiers, which union or subtract the rectangle they sweep. */
+    void addCellsToSelection (int row0, int ch0, int row1, int ch1);
 
     /** The command number the column resolves to above the given row (the one
         an implicit cell on that row carries), or -1 when the column never named
@@ -55,6 +67,14 @@ public:
     juce::Rectangle<int> chipBoundsFor (int channel, int index) const
     {
         return toggleBounds (channel, index);
+    }
+    /** The whole channel column a cell occupies, so a gesture or a test can
+        name a cell without adding up its fields. */
+    juce::Rectangle<int> channelBoundsFor (int channel) const
+    {
+        return channel < 0 || channel >= (int) channelRects.size()
+                    ? juce::Rectangle<int>()
+                    : channelRects[(size_t) channel];
     }
 
 private:
@@ -74,6 +94,7 @@ private:
 
     int rowAtY (int y) const noexcept;
     int fieldIndexAtX (int x) const;
+    int channelAtX (int x) const;
     juce::Rectangle<int> fieldBounds (int channel, Field field) const;
     juce::Rectangle<int> toggleBounds (int channel, int index) const;
     juce::Rectangle<int> cursorBounds() const;
@@ -99,6 +120,15 @@ private:
     void clearCurrentField();
     void commitEditBuffer();
     void cancelEdit();
+
+    //== Selection machinery ==================================================
+    /** What the gesture the mouse is doing does to the set of selected cells:
+        a plain click and drag takes over the selection, Shift unions what it
+        sweeps into it and Ctrl takes it away. */
+    enum class SelectOp { replace, add, remove };
+    void applyCellRect (int rowA, int chA, int rowB, int chB, SelectOp op);
+    /** What the mouse is holding the gesture to: Shift unions, Ctrl subtracts. */
+    SelectOp gestureOp (const juce::MouseEvent&) const;
 
     int maxDigitsFor (Field field) const;
     int fieldGlyphs (Field field) const;
@@ -129,14 +159,26 @@ private:
     int cursorChannel = 0;
     Field cursorField = Field::note;
 
-    int selStartRow = -1;
-    int selEndRow = -1;
+    // selection is one bit per (row, channel) cell: the channel count caps at
+    // kMaxTrackerChannels, so two words hold a whole row and a rectangle is
+    // added or removed whole words at a time. Rows the pattern does not show
+    // have no bits, and stale bits outside the visible area read as unselected
+    static constexpr int kSelWords = (kMaxTrackerChannels + 63) / 64;
+    static constexpr std::array<std::uint64_t, kSelWords> kNoCells {};
+    std::vector<std::array<std::uint64_t, kSelWords>> selBits; // [row][word]
+    int selAnchorRow = 0; // where the gesture in progress started
+    int selAnchorChannel = 0;
+    int selDragRow = -1; // the cell the last drag event painted, to skip no-ops
+    int selDragChannel = -1;
     bool selecting = false;
+    SelectOp selectOp = SelectOp::replace;
 
     juce::String editBuffer;
     bool editing = false;
 
     std::vector<FieldRect> fieldRects;
+    // one entry per channel column, the span its visible fields cover
+    std::vector<juce::Rectangle<int>> channelRects;
     int playRow = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TrackerComponent)

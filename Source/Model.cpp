@@ -107,21 +107,16 @@ bool isRampAnchor (const Cell& c, InterpField field) noexcept
 } // anonymous namespace
 
 //==============================================================================
-int Pattern::interpolate (InterpField field, int rowStart, int rowEnd,
-                          int chStart, int chEnd) noexcept
+int Pattern::interpolate (InterpField field,
+                          const std::function<bool (int row, int ch)>& inCell) noexcept
 {
-    if (rows.empty())
+    if (rows.empty() || ! inCell)
         return 0;
 
     // a channel column exists only as far as the ragged rows go
     int widest = 1;
     for (const auto& r : rows)
         widest = juce::jmax (widest, (int) r.size());
-
-    const int firstRow = juce::jlimit (0, (int) rows.size() - 1, rowStart);
-    const int lastRow = juce::jlimit (0, (int) rows.size() - 1, rowEnd);
-    const int firstCh = juce::jlimit (0, widest - 1, chStart);
-    const int lastCh = juce::jlimit (0, widest - 1, chEnd);
 
     auto at = [this] (int row, int ch) noexcept -> Cell*
     {
@@ -135,18 +130,26 @@ int Pattern::interpolate (InterpField field, int rowStart, int rowEnd,
     const int top = fieldTop (field);
     int written = 0;
 
-    for (int ch = firstCh; ch <= lastCh; ++ch)
+    for (int ch = 0; ch < widest; ++ch)
     {
         int anchorRow = -1;
         int anchorValue = kEmpty;
 
-        for (int row = firstRow; row <= lastRow; ++row)
+        for (int row = 0; row < (int) rows.size(); ++row)
         {
+            // a cell outside the selection ends the run, so the ramp never
+            // reaches across a hole and nothing outside it is written
+            if (! inCell (row, ch))
+            {
+                anchorRow = -1;
+                continue;
+            }
+
             Cell* c = at (row, ch);
             if (c == nullptr)
                 continue; // this row has no such channel: nothing to fill here
 
-            if (fieldValue (*c, field) == kNoteOff && field == InterpField::note)
+            if (field == InterpField::note && fieldValue (*c, field) == kNoteOff)
             {
                 anchorRow = -1; // === closes the segment: blanks before it stay blank
                 continue;
@@ -157,6 +160,8 @@ int Pattern::interpolate (InterpField field, int rowStart, int rowEnd,
 
             const int value = juce::jlimit (0, top, fieldValue (*c, field));
 
+            // every row between the two anchors is inside the selection already,
+            // because a row outside it would have ended the run above
             if (anchorRow >= 0 && row - anchorRow > 1)
             {
                 const double span = (double) (row - anchorRow);

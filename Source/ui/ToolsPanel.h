@@ -22,8 +22,12 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    std::function<std::pair<int, int>()> getSelection; // returns {start, end} or {-1,-1}
-    std::function<int()> getCursorChannel; // channel the cursor sits in, or -1
+    /** The tracker's selection: which cells it is holding. The scope dropdown
+        decides what the tools reach, and the selection scope asks this cell by
+        cell, so a tool can be limited to one column of one row. */
+    std::function<bool (int row, int ch)> isCellSelected;
+    // the channel the tracker's cursor sits in, or -1
+    std::function<int()> getCursorChannel;
     std::function<void()> onModelChanged;
 
 private:
@@ -31,10 +35,11 @@ private:
     void applyRemap();
     void applyInterpolate();
     std::vector<Pattern*> scopedPatterns();
-    // rows the current scope selects inside a pattern: { start, end },
-    // or { -1, -1 } when the selection scope has no row selection
-    std::pair<int,int> rowRange (const Pattern& p) const;
-    void applyToRows (Pattern& p, const std::function<void (Cell&, int row)>& fn);
+    /** Whether a cell of a pattern is in reach of the current scope: the wider
+        scopes name whole patterns and ignore the selection, while the
+        selection scope reaches exactly the cells the tracker is holding. */
+    bool cellInScope (int row, int ch) const;
+    void applyToCells (Pattern& p, const std::function<void (Cell&, int row, int ch)>& fn);
 
     ReTrektorAudioProcessor& proc;
     rtr::Song& song;
@@ -48,9 +53,9 @@ private:
     juce::ComboBox remapFromBox;
     juce::ComboBox remapToBox;
     juce::TextButton remapApply { "Remap" };
-    // what the interpolation ramps and how wide it reaches
+    // what the interpolation ramps; how wide it reaches is the selection itself,
+    // so the panel no longer needs a channel dropdown beside it
     juce::ComboBox interpolateFieldBox;
-    juce::ComboBox interpolateWhereBox;
     juce::TextButton interpolateButton { "Interpolate" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToolsPanel)

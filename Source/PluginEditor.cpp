@@ -114,13 +114,9 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     pool.onModelChanged = [this] { refreshAll(); };
     pool.snapBeat = [this] (double beat) { return timeline.snapBeat (beat); };
 
-    tools.getSelection = [this]() -> std::pair<int, int>
-    {
-        if (! tracker.hasSelection())
-            return { -1, -1 };
-
-        return { tracker.getSelectionStart(), tracker.getSelectionEnd() };
-    };
+    // the tools ask the tracker per cell which ones it holds, so a selection can
+    // be any shape and one column of one row is as reachable as a whole pattern
+    tools.isCellSelected = [this] (int row, int ch) { return tracker.isCellSelected (row, ch); };
     tools.getCursorChannel = [this] { return tracker.getCursorChannel(); };
     tools.onModelChanged = [this] { refreshAll(); };
 

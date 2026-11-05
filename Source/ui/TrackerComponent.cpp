@@ -145,12 +145,9 @@ void TrackerComponent::refresh()
     auto& p = pattern();
     cursorRow = juce::jlimit (0, p.length - 1, cursorRow);
     cursorChannel = juce::jlimit (0, p.channels - 1, cursorChannel);
-
-    if (selStartRow >= 0)
-        selStartRow = juce::jlimit (0, p.length - 1, selStartRow);
-
-    if (selEndRow >= 0)
-        selEndRow = juce::jlimit (0, p.length - 1, selEndRow);
+    // the selected cells are left alone: the accessors only report cells inside
+    // the pattern that is showing, so shrinking or switching patterns cannot
+    // lose a selection the user comes back to
     rowsEditor.setText (juce::String (p.length), false);
     layoutFields();
     clampScroll();
@@ -162,6 +159,7 @@ void TrackerComponent::layoutFields()
 {
     auto& p = pattern();
     fieldRects.clear();
+    channelRects.clear();
 
     const float charW = theme::monoFont (13.0f).getStringWidthFloat ("0");
 
@@ -177,6 +175,8 @@ void TrackerComponent::layoutFields()
 
     for (int ch = 0; ch < p.channels; ++ch)
     {
+        const int startX = x;
+
         auto add = [&] (Field f, int w)
         {
             fieldRects.push_back ({ f, ch, { x, 0, w, rowHeight } });
@@ -201,6 +201,11 @@ void TrackerComponent::layoutFields()
             fieldRects.push_back ({ Field::cmdVal, ch, { x + half, 0, cmdW - half, rowHeight } });
             x += cmdW;
         }
+
+        // the channel's cell spans the fields it shows, and stops before the
+        // gap that separates the channels, so a selected cell reads as its own
+        // column rather than as a band across the pattern
+        channelRects.push_back ({ startX, 0, x - startX, rowHeight });
 
         x += kChannelGap;
     }
@@ -249,6 +254,23 @@ int TrackerComponent::fieldIndexAtX (int x) const
     }
 
     return -1;
+}
+
+/** The channel whose column an x sits in, for the selection rectangle. The
+    gutter stands for the first channel and everything past the last field
+    stands for the last one, so a drag that wanders off the columns still
+    names cells instead of dropping the edge of the rectangle. */
+int TrackerComponent::channelAtX (int x) const
+{
+    const int idx = fieldIndexAtX (x);
+
+    if (idx >= 0)
+        return fieldRects[(size_t) idx].channel;
+
+    if (x <= gutterWidth || fieldRects.empty())
+        return 0;
+
+    return fieldRects.back().channel;
 }
 
 int TrackerComponent::rowAtY (int y) const noexcept
@@ -531,18 +553,6 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
             g.fillRect (rowRect);
         }
 
-        if (hasSelection())
-        {
-            const int s = juce::jmin (selStartRow, selEndRow);
-            const int e = juce::jmax (selStartRow, selEndRow);
-
-            if (row >= s && row <= e)
-            {
-                g.setColour (theme::selection.withAlpha (0.45f));
-                g.fillRect (rowRect.withTrimmedLeft (gutterWidth));
-            }
-        }
-
         if (row == playRow)
         {
             g.setColour (theme::playhead.withAlpha (0.12f));
@@ -573,6 +583,22 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
         {
             const auto& cell = p.rows[(size_t) row][(size_t) ch];
             const auto& carried = eff[(size_t) ch][(size_t) row];
+
+            // the selection is per cell, so it tints one channel column of this
+            // row instead of a band across the whole pattern
+            if (isCellSelected (row, ch))
+            {
+                const auto bounds = ch < (int) channelRects.size()
+                                        ? channelRects[(size_t) ch]
+                                        : juce::Rectangle<int>();
+                const auto span = visibleColumn ({ bounds.getX(), y, bounds.getWidth(), rowHeight });
+
+                if (! span.isEmpty())
+                {
+                    g.setColour (theme::selection.withAlpha (0.45f));
+                    g.fillRect (span);
+                }
+            }
 
             const bool isCursorCh = row == cursorRow && ch == cursorChannel;
             const bool notePresent = cell.note != kEmpty;
@@ -878,19 +904,17 @@ void TrackerComponent::mouseDown (const juce::MouseEvent& e)
     editing = false;
     editBuffer.clear();
 
-    if (e.mods.isShiftDown())
-    {
-        if (selStartRow < 0)
-            selStartRow = cursorRow;
-
-        selEndRow = cursorRow;
-    }
-    else
-    {
-        selStartRow = cursorRow;
-        selEndRow = cursorRow;
-        selecting = true;
-    }
+    // a click now selects the cell it lands on rather than the whole row, and
+    // the modifier it is holding says what this click and the drag that follows
+    // do to the set of selected cells: Shift unions, Ctrl subtracts, a plain
+    // click hands the selection over to this cell and the rectangle it sweeps
+    selectOp = gestureOp (e);
+    selAnchorRow = cursorRow;
+    selAnchorChannel = cursorChannel;
+    selDragRow = cursorRow;
+    selDragChannel = cursorChannel;
+    applyCellRect (cursorRow, cursorChannel, cursorRow, cursorChannel, selectOp);
+    selecting = true;
 
     repaint();
 }
@@ -908,12 +932,21 @@ void TrackerComponent::mouseDrag (const juce::MouseEvent& e)
         return;
 
     const int row = juce::jlimit (0, pattern().length - 1, rowAtY (e.y));
+    const int ch = channelAtX (e.x);
 
-    if (row >= 0 && row != selEndRow)
-    {
-        selEndRow = row;
-        repaint();
-    }
+    // the corner that started the gesture keeps its place, so sweeping back
+    // shortens the rectangle being drawn instead of turning it around, and a
+    // modifier pressed or released mid-gesture changes the operation from there
+    const auto op = gestureOp (e);
+
+    if (row == selDragRow && ch == selDragChannel && op == selectOp)
+        return;
+
+    applyCellRect (selAnchorRow, selAnchorChannel, row, ch, op);
+    selDragRow = row;
+    selDragChannel = ch;
+    selectOp = op;
+    repaint();
 }
 
 void TrackerComponent::mouseUp (const juce::MouseEvent&)
@@ -985,12 +1018,13 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                             }
                             else if (result == 4 && hasSelection())
                             {
-                                const int s = juce::jmin (selStartRow, selEndRow);
-                                const int en = juce::jmax (selStartRow, selEndRow);
-
-                                for (int r = s; r <= en; ++r)
-                                    for (auto& fr : fieldRects)
-                                        clearFieldAt (r, fr.channel, fr.field);
+                                // only the selected cells lose their contents: a
+                                // cell-level selection means the rows through
+                                // them and the columns beside them stay put
+                                for (int r = 0; r < p.length; ++r)
+                                    for (int c = 0; c < p.channels; ++c)
+                                        if (isCellSelected (r, c))
+                                            p.cell (r, c).clear();
 
                                 markChanged();
                             }
@@ -1038,10 +1072,135 @@ void TrackerComponent::clearCurrentField()
     repaint();
 }
 
+//==============================================================================
+//== Cell selection ===========================================================
+TrackerComponent::SelectOp TrackerComponent::gestureOp (const juce::MouseEvent& e) const
+{
+    // Ctrl takes cells away and Shift adds them to what is already selected;
+    // when both happen to be held the subtraction wins, so a gesture is never
+    // adding and removing at once
+    const bool removing = e.mods.isCtrlDown() || e.mods.isCommandDown();
+    const bool adding = e.mods.isShiftDown() && ! removing;
+
+    if (removing)
+        return TrackerComponent::SelectOp::remove;
+
+    if (adding)
+        return TrackerComponent::SelectOp::add;
+
+    return TrackerComponent::SelectOp::replace;
+}
+
+/** Applies a rectangle of cells, both ends inclusive and in any order, to the
+    selection set. Ends outside the pattern that is showing are clamped away. */
+void TrackerComponent::applyCellRect (int rowA, int chA, int rowB, int chB,
+                                      TrackerComponent::SelectOp op)
+{
+    const auto& p = pattern();
+
+    if (p.length <= 0 || p.channels <= 0)
+        return;
+
+    const int row0 = juce::jlimit (0, p.length - 1, juce::jmin (rowA, rowB));
+    const int row1 = juce::jlimit (0, p.length - 1, juce::jmax (rowA, rowB));
+    const int ch0 = juce::jlimit (0, p.channels - 1, juce::jmin (chA, chB));
+    const int ch1 = juce::jlimit (0, p.channels - 1, juce::jmax (chA, chB));
+
+    if (row0 > row1 || ch0 > ch1)
+        return;
+
+    if (op == TrackerComponent::SelectOp::replace)
+    {
+        for (auto& words : selBits)
+            words = kNoCells;
+    }
+
+    if ((int) selBits.size() < p.length)
+        selBits.resize ((size_t) p.length, kNoCells);
+
+    for (int row = row0; row <= row1; ++row)
+    {
+        auto& words = selBits[(size_t) row];
+
+        for (int w = 0; w < kSelWords; ++w)
+        {
+            const int firstBit = w * 64;
+            if (firstBit > ch1)
+                break;
+
+            const int lo = juce::jmax (ch0, firstBit);
+            const int hi = juce::jmin (ch1, firstBit + 63);
+            const int run = hi - lo + 1;
+
+            // the channels the rectangle covers inside this word of the row
+            const std::uint64_t mask = run >= 64
+                                        ? ~std::uint64_t { 0 }
+                                        : ((std::uint64_t { 1 } << run) - 1)
+                                          << (lo - firstBit);
+
+            if (op == TrackerComponent::SelectOp::remove)
+                words[(size_t) w] &= ~mask;
+            else
+                words[(size_t) w] |= mask;
+        }
+    }
+}
+
+bool TrackerComponent::isCellSelected (int row, int ch) const noexcept
+{
+    const auto& p = pattern();
+
+    // a cell only exists inside the pattern that is showing, so a selection
+    // made over a wider pattern never reads onto a narrower one
+    if (row < 0 || row >= p.length || ch < 0 || ch >= p.channels)
+        return false;
+
+    if (row >= (int) selBits.size())
+        return false;
+
+    const auto& words = selBits[(size_t) row];
+    return (words[(size_t) (ch / 64)] & (std::uint64_t { 1 } << (ch % 64))) != 0;
+}
+
+bool TrackerComponent::hasSelection() const noexcept
+{
+    const auto& p = pattern();
+    const int rows = juce::jmin ((int) selBits.size(), p.length);
+
+    for (int row = 0; row < rows; ++row)
+    {
+        const auto& words = selBits[(size_t) row];
+
+        for (int w = 0; w < kSelWords; ++w)
+        {
+            const int firstBit = w * 64;
+            if (firstBit >= p.channels)
+                break;
+
+            const int run = juce::jmin (64, p.channels - firstBit);
+            const std::uint64_t mask = run >= 64
+                                        ? ~std::uint64_t { 0 }
+                                        : ((std::uint64_t { 1 } << run) - 1);
+
+            if ((words[(size_t) w] & mask) != 0)
+                return true;
+        }
+    }
+
+    return false;
+}
+
+void TrackerComponent::addCellsToSelection (int row0, int ch0, int row1, int ch1)
+{
+    applyCellRect (row0, ch0, row1, ch1, TrackerComponent::SelectOp::add);
+    repaint();
+}
+
 void TrackerComponent::clearSelection()
 {
-    selStartRow = -1;
-    selEndRow = -1;
+    for (auto& words : selBits)
+        words = kNoCells;
+
     repaint();
 }
 

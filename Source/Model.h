@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <cstdint>
+#include <functional>
 
 namespace rtr
 {
@@ -250,18 +251,20 @@ struct Pattern
                 c.clear();
     }
 
-    /** Linear interpolation of one column, confined to a rectangle of the pattern.
-        Anchors are the cells inside the rectangle that already name a value for
-        that field; every blank cell between two neighbouring anchors in the same
-        channel gets the value linearly between them, rounded and clamped to the
-        field's range. Only blanks are ever written, so the anchors and any value
-        outside the rectangle stay as they were. Nothing is extrapolated before or
+    /** Linear interpolation of one column, confined to the cells a selection
+        names. `inCell (row, ch)` says whether a cell of the pattern is in reach,
+        so the selection can be any shape: anchors come only from cells inside it,
+        only cells inside it are ever written, and a cell left out of it ends the
+        run, which means a selection with a gap in it ramps in pieces instead of
+        across the gap. Every blank cell between two neighbouring anchors in the
+        same channel gets the value linearly between them, rounded and clamped to
+        the field's range; only blanks are written, so the anchors and any value
+        outside the selection stay as they were. Nothing is extrapolated before or
         after the outermost anchors, and in the note column a note-off (`===`)
-        closes a segment: the blanks between an anchor and a note-off stay blank.
-        `rowStart`/`rowEnd` and `chStart`/`chEnd` are clamped to the pattern.
-        Returns the number of cells written. */
-    int interpolate (InterpField field, int rowStart, int rowEnd,
-                     int chStart, int chEnd) noexcept;
+        closes a segment. A row whose cells are shorter than the channel asked for
+        is skipped without ending the run. Returns the number of cells written. */
+    int interpolate (InterpField field,
+                     const std::function<bool (int row, int ch)>& inCell) noexcept;
 };
 
 //==============================================================================
