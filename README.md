@@ -60,21 +60,30 @@ cmake --build tests/build -j"$(nproc)"
 * `ReTrektorCoreTest` – model, sequencing, snapping, macro expansion, slicing,
   paste, state, the volume/pan columns' controller numbers, per-channel column
   visibility (and that hidden columns still play), interpolation of one column
-  between the values that already exist (the ramp restarting at each anchor,
-  nothing extrapolated, anchors outside the range ignored, a channel range
-  narrowing what is touched, the note column's `===` closing a segment,
-  rounding and each field's range clamping)
+  between the values that already exist (the tool is handed a predicate over
+  (row, channel) rather than a row and channel range, so the checks drive it with
+  a rectangle mask helper and a selection with a hole in it: the ramp restarting
+  at each anchor, a hole ending a run so the column beside it stops there while
+  the neighbouring channel keeps ramping, the row left out never written, nothing
+  extrapolated, anchors outside the mask ignored, the note column's `===` closing
+  a segment, rounding and each field's range clamping)
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column chips
-  clicked per channel, volume column entering three decimal digits and emitting
+  clicked per channel, selection gestures — a click selecting one cell, a drag
+  sweeping a rectangle of cells, a Shift-drag unioning another column and a Ctrl-drag
+  taking a band away, all named through the channel columns' bounds and read back
+  cell by cell —, volume column entering three decimal digits and emitting
   CC7, the settings volume/pan CC sliders driving those columns, tools
   transpose with its semitone amount field and its two direction buttons (one
   amount moving both ways, notes stopping at the edge of the note range, a
   `===` row having no number to move), instrument remap with its source and
   target dropdowns across
-  scopes and carries, selection interpolation with its field and channel
-  dropdowns (and that a fresh panel opens on the selection-only scope, so the
-  default transposes nothing), timeline click parking the playhead, timeline drop, pool
+  scopes, carries and a selection that covers one channel column only (a cell in
+  the same row of the other channel stays put), selection interpolation with its
+  one field dropdown (four dropdowns in the panel, the channel one gone, and the
+  ramp restarts at a hole the selection has in it; and that a fresh panel opens
+  on the selection-only scope, so the default transposes nothing), timeline click
+  parking the playhead, timeline drop, pool
   placement, pool drag preview covering one item cell rather than the panel,
   window size remembered across a closed and reopened editor,
   channels slider, tracker horizontal scrollbar) and confirms which
@@ -93,10 +102,13 @@ cmake --build tests/build -j"$(nproc)"
   `--hex` to render the narrower hex field widths, with `--drag-preview=IDX`
   compositing the image JUCE floats at the cursor while pool item IDX is dragged
   out of the pool, so a shot can show that only that item's cell follows the
-  pointer), and `--cmd-carry` to write a row that only names a command argument
+  pointer), `--cmd-carry` to write a row that only names a command argument
   below the demo's command at row 20, together with an explicit `0` argument in
   the other channel that never named one, so a shot can show the dim carried
-  number over the bright argument next to the explicit zero)
+  number over the bright argument next to the explicit zero, and `--select=6,1,9,1`
+  to hold a rectangle of cells selected for the shot (row0,channel0,row1,channel1,
+  inclusive at both ends), so a shot can show that the tint paints those cells'
+  channel columns rather than a band across the pattern)
 
 Example:
 
@@ -156,22 +168,37 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   reach the channels that do not fit, and shift + mouse wheel scrolls the
   same way. The row-number gutter stays fixed while the columns slide under
   it. Without a strip the bottom edge is a normal row click.
+  Selection is by cell rather than by row: a plain left click selects the one
+  cell it lands on, a drag sweeps a rectangle of cells over rows and channels,
+  Shift unions another rectangle into what is already selected and Ctrl takes the
+  rectangle it sweeps away from it, so the selection can be any shape and a tool
+  can be pointed at a single column of a single row. The rectangle snaps to
+  channel boundaries, so a selected cell is one channel's visible fields and the
+  gap between channels is never part of a cell: one channel column of one row
+  tints on its own instead of a band across the pattern. Ctrl wins over Shift when
+  both are held so a gesture never adds and removes at once, and a modifier
+  pressed or released mid-drag changes what the sweep does from that moment on,
+  with the corner where the gesture started keeping its place so sweeping back
+  shortens the rectangle instead of turning it around. The selection is not
+  saved with the song.
 * **Macros tab** – macro definitions (name, kind, two parameters). Definitions
   live with the song and are called from the tracker's Command column with
   command `128`–`143`.
 * **Right panel** – Transpose, instrument Remapping and Selection
   Interpolation. Each tool uses the selected scope: selection only, whole
   pattern, all patterns in the song, or all created patterns, but
-  Interpolation only reads rows the user picked by hand, so it does nothing
+  Interpolation only reads cells the user picked, so it does nothing
   until the panel is on `Selection only` – where it opens – and Transpose and
   Remap are the tools that need the dropdown widened when nothing is selected.
-  Interpolation takes two more dropdowns: what to ramp (`Note`, `Instrument`,
-  `Volume`, `Pan`, `CC number`, `CC value`) and how wide it reaches (`All
-  channels` across the pattern width, or `Active channel` for the one channel
-  the cursor sits in). Only blank cells between two cells that already name a
-  value inside the selection get filled, with the value linearly between them,
-  so a ramp restarts at every anchor rather than only between the ends of the
-  range, and nothing is written before the first anchor or after the last:
+  Interpolation takes one dropdown, what to ramp (`Note`, `Instrument`,
+  `Volume`, `Pan`, `CC number`, `CC value`): where it reaches is the selection
+  itself, so the panel has no channel dropdown beside it any more, and the wider
+  scopes name whole patterns and ignore which cells are selected. Only blank
+  cells between two cells that already name a value inside the selection get
+  filled, with the value linearly between them, so a ramp restarts at every
+  anchor rather than only between the ends of the range, a selection with a hole
+  in it ramps in pieces instead of across the hole, and nothing is written
+  before the first anchor or after the last:
   values outside the selection are ignored and nothing outside it is touched.
   In the note column a `===` note-off has no number to ramp to or from, so it
   closes a segment and the blanks on either side of it stay blank. A filled
@@ -202,6 +229,27 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   (clamped to the 900–2600 × 560–1600 resize limits) instead of always the
   built-in 1240×760. The size belongs to the plug-in instance, not to the saved
   song, so a fresh instance still opens at 1240×760.
+
+## Mouse map
+
+The tracker's selection gestures are the modifiers they hold while they sweep:
+
+| Gesture | Tracker action |
+| ------- | -------------- |
+| left click on a cell | selects that one cell and parks the cursor on its field |
+| left drag | sweeps a rectangle of cells, handing the selection over to it |
+| Shift + click or drag | unions the rectangle into what is already selected |
+| Ctrl + click or drag | takes the rectangle away from the selection, leaving a hole |
+| right click | opens the cell's context menu, so Ctrl is free for selecting |
+| click or drag on the bottom strip | jumps or drags the horizontal scrollbar's thumb |
+| shift + mouse wheel | scrolls the channel columns that do not fit |
+
+Ctrl beats Shift when both are held, so a gesture only ever does one thing; a
+modifier pressed or released mid-drag changes what the sweep does from there on,
+and the corner where the gesture began keeps its place. The selection lives in the
+tracker view rather than in the saved song, and it survives the pattern being
+shortened or switched: cells outside the pattern that is showing simply read as
+not selected.
 
 ## Keyboard map
 
@@ -325,6 +373,14 @@ accepts `0`–`143`: `128`–`143` (hex `80`–`8F`) call macros `M0`–`M15`.
   been retested in Reaper itself yet.
 * Command kinds beyond plain CC and the three macro kinds (dedicated pitch
   bend CC105/CC106 pair, tempo, song position) are future work.
+* Selection snaps to channel boundaries: a cell is one channel's visible
+  fields, so selecting only one field of a channel — its volume alone, its
+  command value alone — is not possible yet. Copying selected cells is future
+  work, and the plan parked for it is a paste filter: `Ctrl+V` pasting
+  everything, with a right-click paste submenu that offers pasting only notes,
+  instrument, volume, pan, command or command value. The existing `Ctrl+C`,
+  `Ctrl+V` and `Ctrl+X` shortcuts are pattern clipboard actions rather than cell
+  ones, so cell copy/paste would have to move them.
 * Note entry assumes a US keyboard layout.
 
 ## Licensing
@@ -403,6 +459,7 @@ The plug-in binary loads on hosts whose libm is older (commit ee29e69): Bitwig S
 
 which also matches the exception the user quoted. Bitwig is a system Flatpak (/var/lib/flatpak/app/com.bitwig.BitwigStudio, its log naming /app/bin/BitwigPluginHost-X64-AVX2), and that is why the loader message quotes the Debian-family /usr/lib/x86_64-linux-gnu path that does not exist on this Arch host; probing it with flatpak run --command=sh showed the root ships glibc 2.42, so GLIBC_2.43 is genuinely missing there. The binary asked libm for 2.43 on exactly two symbols: objdump -R had two JUMP_SLOT relocations and the dynsym said sqrtf@GLIBC_2.43 and atan2f@GLIBC_2.43, while every other requirement topped out at GLIBC_2.38 (__isoc23_strtol/strtoll/sscanf, fmod), which a 2.42 host has. The references themselves are unversioned in the objects (nm -u says U sqrtf / U atan2f in the amalgamated juce_graphics, juce_gui_basics and juce_audio_basics translation units), so the 2.43 tag is chosen at link time by binding to this system's libm default, and the calls come from JUCE's geometry (std::atan2/std::sqrt on floats in PathStrokeType and Point.h) plus vendored HarfBuzz (sqrtf in hb-ft.cc): the requirement was not new to this rebuild, the Oct 30 build-instrument artefact carries it too, so the plug-in has never loaded in Bitwig rather than having regressed. Source/Portability.cpp defines both inside the plug-in target (added to its target_sources, so the instrument-fallback build inherits it): sqrtf compiles to the sqrtss instruction with no libm call at all and atan2f takes libm's double atan2, whose version is unchanged since GLIBC_2.2.5, so the newest version the binary asks for goes back to 2.38. Both names are aliased with .set in assembly with .hidden written by hand rather than declared directly, because GCC ignores a visibility attribute on a libc name ("visibility attribute ignored because it conflicts with previous declaration", a -Wattributes note against its own built-in declaration) and would otherwise export them and interpose on every other plug-in in the same host process: the definitions ended LOCAL in the built .so's dynamic symbol table. That one file skips LTO (set_source_files_properties COMPILE_FLAGS -fno-lto), because the LTO plugin resolves the aliases before it has seen rtr_sqrtf/rtr_atan2f and reports undefined references instead. A probe build linked both ways over a range of arguments and printed the two routines identically to libm's, so the geometry and the glyph metrics HarfBuzz derives keep the same values. Verified on both bundles after rebuilding: objdump -R names no sqrtf/atan2f relocation and readelf -VW tops out at GLIBC_2.38 with GLIBCXX_3.4.32, CoreTest 157, UiTest 127 and Smoke 13 checks all PASS, and the 900x560 --dump still lays the tools panel out at 156x488 with the interpolation combos at y=232/y=268 and the button at 8,294 140x22.
 Transpose is one amount and a direction (commit 410b1fe): the right panel offered four buttons for -12, -1, +1 and +12, so the common octave move was one click but any other interval meant editing cells by hand. ToolsPanel::transposeAmount is the plug-in's usual number widget, a juce::Slider in IncDecButtons style with an editable text box like the bottom bar's OCT/STEP/CHANNELS and the Settings tab's sliders, so the drag buttons step a single semitone while typing the box sets the amount outright; it holds whole semitones from 1 to 48 and opens at 12, the octave the four buttons encoded, and a minimum of 1 keeps a direction button from being a no-op. transposeUp/transposeDown then only choose which way to move, so an amount typed once applies to every following click until it is changed, and the model layer's existing applyTranspose (int semitones) is untouched. arrowUpGlyph/arrowDownGlyph in ToolsPanel.h name the two button labels: juce::String takes a plain narrow literal as native bytes, so the raw UTF-8 arrows left in the sources came out on screen as an a-circumflex plus two control characters, and handing the explicit UTF-8 over made both arrows draw, so the font has both codepoints and the string was the problem; the --dump's mojibake on the older build was that same double-encoded text, not a font gap. UiTest finds the direction buttons through those helpers, which leaves one place that names the labels and means the test cannot pass against a mis-encoded label. The three controls stay on one row: at the 900x560 minimum window the field is 9,87 82x20 with value 12.00, a 46 px text box and two 16 px inc/dec buttons, the arrows sit at 93,87 and 121,87 both 26x20 inside the panel's 140 px content width, nothing in the panel is OUTSIDE its parent, and the row the old buttons' second line used moved Interpolate from 8,294 to 8,270 while the panel kept its 156x488. UiTest + 8 checks (the panel exposes one amount field, opens at 12 semitones, is a whole number of them from 1 to 48, the direction button reads the field so one amount moves both ways, the field's 5 raises 60 to 65, a note at 125 that would pass 127 stops at the edge, a `===` row has no number to move and stays a note-off as notes come down through it); the last three document the pre-existing applyTranspose guard c.note >= 0 && c.note <= 127 against the kEmpty -1 and kNoteOff 253 sentinels rather than a new rule, and the block restores the cells and the amount it touched so the later remap and interpolation blocks still see the pattern they expect. CoreTest 157, UiTest 135, Smoke 13 all PASS; the portability shim and the instrument-fallback bundle are untouched by this change.
+Selection holds cells rather than rows (commit 292ff37): a selection was a band of whole rows, so every tool reached every channel of those rows and transposing one instrument channel moved the whole pattern. The tracker's selection is now a set of cells, which is what the user asked for: any cell can be selected on its own, a group of cells by a selection rectangle, Shift unions another rectangle into the set and Ctrl takes one away. State is one bit per (row, channel) cell — kMaxTrackerChannels = 127 makes kSelWords = (127 + 63) / 64 == 2, so a row is two uint64 words and the rectangle operations are word masks that union, subtract or replace whole words at a time, which also means the set can be any shape a sequence of gestures paints rather than only a rectangle. layoutFields records one channelRects entry per channel, the span its visible fields cover ending before the inter-channel gap, so a selected cell reads as its own column: drawRows tints each selected cell's column instead of the row band, and channelAtX plus the new public channelBoundsFor and addCellsToSelection let a gesture or a test name a cell without adding up fields. mouseDown parks the cursor as before and then applies the one-cell rectangle with the operation the mouse is holding, mouseDrag recomputes that operation on every event so a modifier pressed or released mid-drag changes what the sweep does from there, and gestureOp lets Ctrl win over Shift so a gesture is never adding and removing at once; the anchor of the gesture stays where the click started, so sweeping back shortens the rectangle instead of turning it around. A right-button modifier opens the context menu and on Linux JUCE's popupMenuClickModifier is the right button alone (commandModifier is the same flag as ctrlModifier), so a Ctrl+left click reaches the selection handlers rather than the menu. refresh() stopped clamping the selection to the visible length because isCellSelected and hasSelection report only cells inside the pattern that is showing, so a selection survives a shortened pattern or a pattern switch instead of being silently cut. The tracker's "Clear selection" menu item now clears only the selected cells. Pattern::interpolate moved to a predicate form at the model layer — interpolate (InterpField, const std::function<bool (int row, int ch)>& inCell) — because a cell selection has no bounds to hand over: anchors come only from cells inside the mask, only mask cells are written, and a cell outside the mask ends the anchor run, so a selection with a hole in it ramps in pieces rather than across the hole (this is what made the fill loop need no extra bounds check: a row outside the mask closed the run it would have used); an unset predicate returns 0 without dereferencing. ToolsPanel's rowRange/applyToRows became cellInScope/applyToCells and a new cellInScope that the wider scopes answer true to — the selection belongs to the tracker's view, so the wider scopes name whole patterns and ignore it — and applyRemap now walks every column from row 0 on purpose, since a carry has to be known before it can be pinned and pinning now means writing an explicit value only in a cell that is actually selected. Interpolation is still confined to the "Selection only" scope and its mask is the selection, so the panel's "All channels / Active channel" dropdown and its CHANNELS section are gone: the reach is the selection, and the getCursorChannel hook the dropdown used stays wired in ToolsPanel.h and PluginEditor.cpp as the panel's cursor hook even though nothing reads it now. UiTest drives the gestures with juce::ModifierKeys (mods) events, so the new makeEvent overload holding kShiftMod/kCtrlMod and the two-argument one delegating to it keeps the older call sites unchanged; both gesture blocks now name cells through channelBoundsFor (ch).getCentreX() and read the state back through isCellSelected. Verification: plugin and tests rebuilt clean with only the pre-existing warnings, CoreTest 164, UiTest 144, Smoke 13 all PASS; the 1240x760 --dump lists four ComboBoxes (scope 8,38, the remap pair 9,135 / 87,135, the interpolation field 8,208) and no CHANNELS row, with Interpolate at 8,234 instead of the earlier 8,270, and a 900x620 --select=6,1,9,1 shot crop-verified over the tracker at 176,188 568x398: the tint spans image x 393..545 and y 348..423, exactly channel 1's column of rows 6..9, with channel 0's cells in those rows and the rows above and below untouched.
 Active
 None.
 Blocked
@@ -414,31 +471,33 @@ Confirm interactively that the right-click menus now open beside the cursor in t
 Verify pool drag-drop preview and context-menu paste/slice flows interactively in Carla; confirm Reaper compatibility of the MIDI effect (instrument fallback IS_SYNTH build compiles locally but is untested in Reaper).
 Further command kinds: dedicated pitch bend CC105/CC106 pair command, tempo and song position commands.
 Grid preview currently always starts at row 0 (no preview scrolling yet).
+Parked for later, not to implement now: cell copy/paste with a paste filter — `Ctrl+V` pastes everything, a right-click paste submenu offering to paste only notes, instrument, volume, pan, command or command value.
 Confirm in the DAW that the volume column now emits CC7 (CC10 for pan), that a note-off row (`===`) with an explicit volume/pan still applies both controllers, that the Settings tab's Volume column CC / Pan column CC sliders repoint them, and that a channel's column chips hide only that channel's field.
 Confirm interactively that dragging a pattern from the pool floats only that item (its grid preview when expanded, semi-transparent) under the pointer, that the grabbed spot stays under the cursor, and that the clip still lands at the drop position.
 Confirm in the DAW that Remap moves only the instrument named in the source dropdown, that the dim carried rows follow it, and that All in the source box covers every instrument in the scope.
 Confirm in the DAW that closing a floating Re.Trektor window and opening it again reopens it at the size it had before, and that a size dragged to the window's corner is what comes back.
 Confirm in the DAW that the timeline ruler now shows only bar numbers, with the playback state, song position and bpm coming from the top bar's position label.
 Confirm in the DAW that a command argument entered with the command number empty plays the command number carried down that column (the row shows the carried number dim next to the bright argument), that a column nothing was ever entered in still needs the explicit 0, and that a value below a macro call does nothing.
-Confirm in the DAW that interpolation ramps only the blanks between the values that already exist inside the rows selected by hand, that Active channel is the channel the cursor sits in, and that Transpose and Remap now need the scope dropdown moved to a wider scope while nothing is selected.
+Confirm in the DAW that interpolation ramps only the blanks between the values that already exist inside the selected cells, that a cell left out of the selection ends the ramp there so a selection with a hole in it fills in pieces, and that Transpose and Remap still need the scope dropdown widened while nothing is selected.
+Confirm in the DAW that a plain click selects the one cell under the cursor, that a Shift-drag unions another rectangle and a Ctrl-drag subtracts one, that the tint paints one channel column of a row rather than a band over the pattern, and that transpose, remap and interpolation then touch only the selected cells.
 Confirm that the pinned bundle loads in Bitwig Studio 6.1.4, whose Flatpak root ships glibc 2.42, and that Reaper still loads it.
 Confirm in the DAW that typing a number into the transpose amount field and clicking only a direction button moves the notes by that many semitones, that an amount past an octave still behaves, and that the two direction buttons draw as up and down arrows rather than boxes in Bitwig and Reaper.
 Relevant Files
 /media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
-/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate).
+/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate taking a std::function<bool (int row, int ch)> mask so the selection can be any shape and a cell outside the mask ends the anchor run).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h / PlaybackEngine.cpp: host-synced MIDI generation, carry/duplicate logic, explicit note-off panic, volume/pan driven by the Settings CC numbers, a value-only row using the command number carried in the column.
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock, the size of the last GUI shown.
-/media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size.
+/media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size, wiring the tools panel's isCellSelected hook to the tracker's selection.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom, ruler (bar numbers only, no transport readout).
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber).
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber), cell selection (selBits one bit per (row, channel) in kSelWords = 2 uint64 words per row, applyCellRect unioning/subtracting/replacing word masks, gestureOp reading the held modifiers, channelAtX and channelBoundsFor naming a cell, per-cell painting and a "Clear selection" menu item that clears only the selected cells).
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source (the drag image is the item's cell), grid preview, rename.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose as one semitone amount field (IncDecButtons slider with an editable text box, whole semitones 1-48 opening at 12) plus arrow direction buttons whose labels arrowUpGlyph/arrowDownGlyph build as explicit UTF-8, remap (source dropdown All/-0..-F -> target dropdown -0..-F, rowRange shared with applyToRows and applyInterpolate), interpolation with its field dropdown (Note/Instrument/Volume/Pan/CC number/CC value, ids following the InterpField enumerators), its channel dropdown (All channels/Active channel) and the scope box defaulting to "Selection only".
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose as one semitone amount field (IncDecButtons slider with an editable text box, whole semitones 1-48 opening at 12) plus arrow direction buttons whose labels arrowUpGlyph/arrowDownGlyph build as explicit UTF-8, remap (source dropdown All/-0..-F -> target dropdown -0..-F), cell scope (cellInScope answers whether a cell is in reach and applyToCells walks the cells, so the wider scopes name whole patterns and only the "Selection only" scope consults the tracker through the isCellSelected hook), interpolation with its single field dropdown (Note/Instrument/Volume/Pan/CC number/CC value, ids following the InterpField enumerators, the mask being the selection so there is no channel dropdown any more), the getCursorChannel hook still wired but unread, and the scope box defaulting to "Selection only".
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls, including the Volume column CC and Pan column CC sliders.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: macro editor (definitions; executed in playback via command 128-143).
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel.
 /media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp: the sqrtf and atan2f defined inside the plug-in so its libm requirement stays portable, aliased hidden in assembly and built without LTO.
 /media/data2/GameDev/Plugins/ReTrektor/tests/CMakeLists.txt: smoke/core/editor-shot test targets.
-/media/data2/GameDev/Plugins/ReTrektor/tests/CoreTest.cpp, SmokeTest.cpp, EditorShot.cpp: automated verification harnesses.
+/media/data2/GameDev/Plugins/ReTrektor/tests/CoreTest.cpp, UiTest.cpp, SmokeTest.cpp, EditorShot.cpp: automated verification harnesses (CoreTest drives the interpolation predicate directly with rectangle masks and a holed mask, UiTest drives the selection gestures through juce::ModifierKeys-carrying mouse events, EditorShot can hold a selection with --select=r0,c0,r1,c1).
 /media/data2/GameDev/Plugins/ReTrektor/JUCE: vendored framework.
 Important Context
 Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) (build dir currently configured and passing).
@@ -446,7 +505,7 @@ Portability check: readelf -VW <Re.Trektor.so inside the bundle> | grep -oE "GLI
 Tests: cmake -S tests -B tests/build -DCMAKE_BUILD_TYPE=Release then build targets ReTrektorSmoke, ReTrektorCoreTest, ReTrektorEditorShot.
 Smoke run: DISPLAY=:0 tests/build/ReTrektorSmoke_artefacts/Release/ReTrektorSmoke <bundle> [--screenshot=path].
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git (newest first): 410b1fe transpose is an editable semitone amount plus a direction button instead of four fixed steps; c3e2f36 document the interpolation tool, its dropdowns and its default scope; ee29e69 pin the two float routines the plug-in takes through libm's newest symbol versions so a host with an older libm loads the binary; 2e67b16 interpolation fills the blanks between the values that already exist, with field and channel dropdowns and the panel opening on the selection-only scope; 40345cc document that a command argument uses the carried command number; 76115ec a command argument without a command number uses the command carried in the column; 205cfe1 document that the timeline ruler keeps only bar numbers; d2f672e the timeline ruler drops the transport readout; 8d077f7 document that a reopened editor keeps the window size; c12431b a reopened editor comes back at the size the closed one had; ece35e2 document that a pool drag floats one item, not the pool panel; df03559 a pool drag floats only the item's cell at the cursor; 3f14d6f volume/pan controllers precede the note-off branch; cd3fc2c volume column drives CC7, Settings name the volume/pan CC numbers, chips hide one field of one channel; f9acf12 instrument remap reads a source and a target dropdown; 08af633 anchor right-click menus at the cursor; 32499ef document that a timeline click parks the playhead; 02c0ca3 jump the playhead to a timeline click; 117744f document pool copy actions and the removed redundant clip menu item; ce6422d drop the redundant "Copy pattern data (unique)" clip menu action; ae95cac scrollbar + --scroll docs; 97f50ea tracker horizontal scrollbar; 93dd668 channel/limit docs; 0716702 hidden channel columns + constant 127 channel cap; 121ecd0 pattern resize preserves hidden rows; 9ffaaa4 EditorShot
+Git (newest first): 292ff37 selection holds cells rather than rows so the tools stop hitting every channel; e8f3049 document that transpose reads a semitone amount and a direction; 410b1fe transpose is an editable semitone amount plus a direction button instead of four fixed steps; ef3417f document that the plug-in binary is pinned so an older libm can load it; c3e2f36 document the interpolation tool, its dropdowns and its default scope; ee29e69 pin the two float routines the plug-in takes through libm's newest symbol versions so a host with an older libm loads the binary; 2e67b16 interpolation fills the blanks between the values that already exist, with field and channel dropdowns and the panel opening on the selection-only scope; 40345cc document that a command argument uses the carried command number; 76115ec a command argument without a command number uses the command carried in the column; 205cfe1 document that the timeline ruler keeps only bar numbers; d2f672e the timeline ruler drops the transport readout; 8d077f7 document that a reopened editor keeps the window size; c12431b a reopened editor comes back at the size the closed one had; ece35e2 document that a pool drag floats one item, not the pool panel; df03559 a pool drag floats only the item's cell at the cursor; 3f14d6f volume/pan controllers precede the note-off branch; cd3fc2c volume column drives CC7, Settings name the volume/pan CC numbers, chips hide one field of one channel; f9acf12 instrument remap reads a source and a target dropdown; 08af633 anchor right-click menus at the cursor; 32499ef document that a timeline click parks the playhead; 02c0ca3 jump the playhead to a timeline click; 117744f document pool copy actions and the removed redundant clip menu item; ce6422d drop the redundant "Copy pattern data (unique)" clip menu action; ae95cac scrollbar + --scroll docs; 97f50ea tracker horizontal scrollbar; 93dd668 channel/limit docs; 0716702 hidden channel columns + constant 127 channel cap; 121ecd0 pattern resize preserves hidden rows; 9ffaaa4 EditorShot
 --channels=N flag; a5e6e2d bottom-bar/settings channel docs; b02e52a CHANNELS slider direct edit; 1173682 stuck-note docs; b1725b1 stuck-note fix for hosts that skip MIDI-effect calls while stopped; de11909 pool grid preview; c4a8422 README macro-playback update; 49ec706 macro playback wiring; c36c6c7 ReTtrektor typo fix; 4263853 instrument fallback option; f89454e headless UI interaction test; c168e8b panels fit minimum window; a2ec7c9 Re.Trektor sources; ccc50f2 vendored JUCE 8.0.9.
 DISPLAY=:0 / wayland-0 available; no Reaper; /usr/bin/carla exists.
 Missing xcb-util-devel/xcb-util-wm-devel were installed via sudo dnf earlier (leftover from iPlug2 attempt, harmless).
