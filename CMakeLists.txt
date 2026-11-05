@@ -43,6 +43,13 @@ endif()
 
 juce_generate_juce_header(ReTrektor)
 
+# Source/Portability.cpp redefines the libm float routines whose newest symbol
+# versions older hosts lack (see README.md). Its aliases are written in
+# assembly, which the LTO plugin resolves before it has seen the functions they
+# name, so that one file is compiled without LTO.
+set_source_files_properties(Source/Portability.cpp PROPERTIES
+    COMPILE_FLAGS "-fno-lto")
+
 target_sources(ReTrektor PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
@@ -52,6 +59,7 @@ target_sources(ReTrektor PRIVATE
     Source/Model.cpp
     Source/PlaybackEngine.h
     Source/PlaybackEngine.cpp
+    Source/Portability.cpp
     Source/ui/Theme.h
     Source/ui/TimelineComponent.cpp
     Source/ui/TimelineComponent.h
