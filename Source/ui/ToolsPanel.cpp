@@ -42,16 +42,25 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
     styleCombo (scopeBox);
     addAndMakeVisible (scopeBox);
 
-    for (auto* b : { &transposeDown12, &transposeDown1, &transposeUp1, &transposeUp12 })
-    {
-        styleButton (*b);
-        addAndMakeVisible (*b);
-    }
+    // the amount is an input field in semitones that both direction buttons read,
+    // so the panel offers one value and one click instead of four fixed steps:
+    // the drag buttons step by a single semitone, and typing into the text box
+    // sets the amount directly. The default is an octave, the commonest move
+    transposeAmount.setRange (1.0, 48.0, 1.0); // whole semitones, up to four octaves
+    transposeAmount.setValue (12.0, juce::dontSendNotification);
+    transposeAmount.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 46, 18);
+    transposeAmount.setColour (juce::Slider::textBoxTextColourId, theme::text);
+    transposeAmount.setColour (juce::Slider::textBoxBackgroundColourId, theme::panelLight);
+    transposeAmount.setColour (juce::Slider::textBoxOutlineColourId, theme::outline);
+    addAndMakeVisible (transposeAmount);
 
-    transposeDown12.onClick = [this] { applyTranspose (-12); };
-    transposeDown1.onClick = [this] { applyTranspose (-1); };
-    transposeUp1.onClick = [this] { applyTranspose (1); };
-    transposeUp12.onClick = [this] { applyTranspose (12); };
+    styleButton (transposeUp);
+    styleButton (transposeDown);
+    addAndMakeVisible (transposeUp);
+    addAndMakeVisible (transposeDown);
+
+    transposeUp.onClick = [this] { applyTranspose ((int) transposeAmount.getValue()); };
+    transposeDown.onClick = [this] { applyTranspose (- (int) transposeAmount.getValue()); };
 
     remapFromBox.addItem ("All", 1); // a source that matches every instrument
     addInstruments (remapFromBox, 1); // ids 2..17 are the -0 .. -F instruments
@@ -108,7 +117,9 @@ void ToolsPanel::paint (juce::Graphics& g)
     };
 
     section ("SCOPE", scopeBox);
-    section ("TRANSPOSE", transposeDown12);
+    // the label names the unit so the field and the two buttons read as one
+    // instruction: move the notes by this many semitones, this way
+    section ("TRANSPOSE SEMITONES", transposeAmount);
     section ("REMAP", remapFromBox);
     section ("INTERPOLATE", interpolateFieldBox);
     section ("CHANNELS", interpolateWhereBox);
@@ -146,13 +157,12 @@ void ToolsPanel::resized()
 
     area.removeFromTop (14);
     area.removeFromTop (12); // TRANSPOSE label
-    auto row1 = area.removeFromTop (22);
-    transposeDown12.setBounds (row1.removeFromLeft (row1.getWidth() / 2).reduced (1));
-    transposeDown1.setBounds (row1.reduced (1));
-    area.removeFromTop (2);
-    auto row2 = area.removeFromTop (22);
-    transposeUp1.setBounds (row2.removeFromLeft (row2.getWidth() / 2).reduced (1));
-    transposeUp12.setBounds (row2.reduced (1));
+    // the amount and both directions share one row: the field is the same width
+    // as the bottom bar's number sliders, the two buttons sit to its right
+    auto transposeRow = area.removeFromTop (22);
+    transposeAmount.setBounds (transposeRow.removeFromLeft (84).reduced (1));
+    transposeUp.setBounds (transposeRow.removeFromLeft (28).reduced (1));
+    transposeDown.setBounds (transposeRow.reduced (1)); // the last 28 px
 
     area.removeFromTop (14);
     area.removeFromTop (12); // REMAP label

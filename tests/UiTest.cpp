@@ -6,7 +6,7 @@
     playback snapshot are updated. Covers:
       - note entry through the tracker keyboard handler
       - column visibility chip clicks
-      - transpose buttons in the tools panel
+      - the transpose amount field and its direction buttons in the tools panel
       - selection interpolation in the tools panel
       - timeline drag-and-drop from the pool
       - pool double-click placement with snapping
@@ -432,29 +432,43 @@ int main()
         std::vector<juce::ComboBox*> toolCombos;
         collectCombos (*tools, toolCombos);
 
-        if (toolCombos.empty())
+        std::vector<juce::Slider*> amounts;
+        collectSliders (*tools, amounts);
+
+        check (amounts.size() == 1, "the tools panel exposes one transpose amount field");
+
+        if (toolCombos.empty() || amounts.size() != 1)
         {
-            check (false, "the tools panel has no scope dropdown");
+            check (false, "the tools panel is missing its scope dropdown or its transpose amount field");
         }
         else
         {
             auto* scope = toolCombos[0];
+            auto* amount = amounts[0];
+
             check (scope->getSelectedId() == 1, "a fresh tools panel opens on the selection-only scope");
+            check (juce::roundToInt (amount->getValue()) == 12,
+                   "a fresh transpose amount is an octave in semitones");
+            check (juce::roundToInt (amount->getRange().getStart()) == 1
+                        && juce::roundToInt (amount->getRange().getEnd()) == 48
+                        && juce::roundToInt (amount->getInterval()) == 1,
+                   "the amount is a whole number of semitones between one and four octaves");
 
             tracker->clearSelection();
 
-            if (auto* down12 = findButton (*tools, "-12"))
-                down12->onClick();
+            if (auto* down = findButton (*tools, rtr::arrowDownGlyph()))
+                down->onClick();
 
             check (p.cell (0, 0).note == 60, "with nothing selected the default scope transposes nothing");
 
             scope->setSelectedId (2); // "Whole pattern"
         }
     }
-    if (auto* down12 = findButton (*tools, "-12"))
+    // the direction button reads the field, so one amount moves both ways
+    if (auto* down = findButton (*tools, rtr::arrowDownGlyph()))
     {
-        down12->onClick();
-        check (p.cell (0, 0).note == 48, "transpose -12 shifts the whole pattern");
+        down->onClick();
+        check (p.cell (0, 0).note == 48, "the whole-pattern scope moves the note down by the 12 semitones the field holds");
 
         juce::AudioBuffer<float> audio (2, 64);
         juce::MidiBuffer midi;
@@ -469,17 +483,55 @@ int main()
     }
     else
     {
-        check (false, "tools panel exposes the -12 button");
+        check (false, "the tools panel exposes no transpose direction button");
     }
 
-    if (auto* up12 = findButton (*tools, "+12"))
+    if (auto* up = findButton (*tools, rtr::arrowUpGlyph()))
     {
-        up12->onClick();
-        check (p.cell (0, 0).note == 60, "transpose +12 restores the note");
+        up->onClick();
+        check (p.cell (0, 0).note == 60, "the other button moves it back by the same amount");
     }
     else
     {
-        check (false, "tools panel exposes the +12 button");
+        check (false, "the tools panel exposes no transpose direction button");
+    }
+
+    //== Transpose amount, clamping and note-offs ============================
+    {
+        std::vector<juce::Slider*> amounts;
+        collectSliders (*tools, amounts);
+
+        auto* up = findButton (*tools, rtr::arrowUpGlyph());
+        auto* down = findButton (*tools, rtr::arrowDownGlyph());
+
+        if (amounts.size() != 1 || up == nullptr || down == nullptr)
+        {
+            check (false, "the transpose controls could not be found");
+        }
+        else
+        {
+            auto* amount = amounts[0];
+            amount->setValue (5.0, juce::dontSendNotification);
+
+            const int savedHigh = p.cell (1, 0).note;
+            const int savedOff = p.cell (2, 0).note;
+            p.cell (1, 0).note = 125; // near the top of the note range
+            p.cell (2, 0).note = rtr::kNoteOff; // a row that names no note at all
+
+            up->onClick();
+            check (p.cell (0, 0).note == 65, "raising by the field's 5 semitones moves the note to 65");
+            check (p.cell (1, 0).note == 127, "a note that would pass the top of the note range stops there");
+            check (p.cell (2, 0).note == rtr::kNoteOff, "a note-off has no number to move and stays a note-off");
+
+            down->onClick();
+            check (p.cell (0, 0).note == 60, "the other direction moves every other row back");
+            check (p.cell (2, 0).note == rtr::kNoteOff, "the note-off stays a note-off as the notes come down");
+
+            // put the pattern back the way the later blocks expect it
+            p.cell (1, 0).note = savedHigh;
+            p.cell (2, 0).note = savedOff;
+            amount->setValue (12.0, juce::dontSendNotification);
+        }
     }
 
     //== Tools instrument remap ==============================================

@@ -6,6 +6,13 @@
 namespace rtr
 {
 
+/** Labels for the transpose direction buttons. juce::String takes a plain
+    narrow string as native bytes, so the UTF-8 for these codepoints is handed
+    to it explicitly: a raw arrow in the source came out as three separate
+    characters on screen. */
+inline juce::String arrowUpGlyph() { return juce::String::fromUTF8 (u8"\u2191"); }
+inline juce::String arrowDownGlyph() { return juce::String::fromUTF8 (u8"\u2193"); }
+
 class ToolsPanel final : public juce::Component
 {
 public:
@@ -33,10 +40,11 @@ private:
     rtr::Song& song;
 
     juce::ComboBox scopeBox;
-    juce::TextButton transposeDown12 { "-12" };
-    juce::TextButton transposeDown1 { "-1" };
-    juce::TextButton transposeUp1 { "+1" };
-    juce::TextButton transposeUp12 { "+12" };
+    // the amount is an editable field the two direction buttons read, so
+    // transposing is one value plus one click rather than four fixed steps
+    juce::Slider transposeAmount { juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft };
+    juce::TextButton transposeUp { arrowUpGlyph() };
+    juce::TextButton transposeDown { arrowDownGlyph() };
     juce::ComboBox remapFromBox;
     juce::ComboBox remapToBox;
     juce::TextButton remapApply { "Remap" };
