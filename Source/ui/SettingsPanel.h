@@ -52,6 +52,7 @@ private:
     juce::Slider* fixedGridSlider = nullptr;
     juce::Slider* octaveSlider = nullptr;
     juce::Slider* stepSkipSlider = nullptr;
+    juce::Slider* undoStepsSlider = nullptr;
     juce::Slider* volumeCcSlider = nullptr;
     juce::Slider* panCcSlider = nullptr;
 

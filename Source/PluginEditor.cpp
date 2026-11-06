@@ -55,7 +55,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
 
         song.settings.snapEnabled = snapButton.getToggleState();
         settings.refresh();
-        refreshAll();
+        commitEdit();
     };
     addAndMakeVisible (snapButton);
 
@@ -82,7 +82,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
             song.settings.fixedGridRows = 1 << (id - 2);
 
         settings.refresh();
-        refreshAll();
+        commitEdit();
     };
     addAndMakeVisible (gridBox);
 
@@ -104,29 +104,41 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     addChildComponent (settings);
     addChildComponent (macros);
 
-    timeline.onModelChanged = [this] { refreshAll(); };
+    // every model change ends in commitEdit(), which records the state the
+    // model reached as the newest point of the undo line before refreshing, so
+    // Ctrl+Z walks the actions back in the order they happened. The point is
+    // recorded here rather than inside refreshAll(), which tab switches and
+    // layout also call, and the pattern selection gets its own inside
+    // selectPattern() because moving the active pattern moves the saved song
+    timeline.onModelChanged = [this] { commitEdit(); };
     timeline.onPatternSelected = [this] (int id) { selectPattern (id); };
 
-    tracker.onModelChanged = [this] { refreshAll(); };
+    tracker.onModelChanged = [this] { commitEdit(); };
     tracker.onPatternEdited = [this] { timeline.refresh(); };
 
     pool.onPatternSelected = [this] (int id) { selectPattern (id); };
-    pool.onModelChanged = [this] { refreshAll(); };
+    pool.onModelChanged = [this] { commitEdit(); };
     pool.snapBeat = [this] (double beat) { return timeline.snapBeat (beat); };
 
     // the tools ask the tracker per cell which ones it holds, so a selection can
     // be any shape and one column of one row is as reachable as a whole pattern
     tools.isCellSelected = [this] (int row, int ch) { return tracker.isCellSelected (row, ch); };
     tools.getCursorChannel = [this] { return tracker.getCursorChannel(); };
-    tools.onModelChanged = [this] { refreshAll(); };
+    tools.onModelChanged = [this] { commitEdit(); };
 
     settings.onSettingsChanged = [this]
     {
         applySettingsToModel();
-        refreshAll();
+        commitEdit();
     };
 
-    macros.onModelChanged = [this] { refreshAll(); };
+    macros.onModelChanged = [this] { commitEdit(); };
+
+    // the tracker's Undo / Redo menu items go through the editor rather than
+    // calling the plug-in directly, so the step refreshes the whole view and,
+    // unlike a model change, records no point of its own
+    tracker.undoStep = [this] { return performUndo(); };
+    tracker.redoStep = [this] { return performRedo(); };
 
     //== bottom bar ===========================================================
     auto setupBottomSlider = [this] (juce::Slider& s, juce::Label& label, const juce::String& text,
@@ -158,6 +170,10 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
             return;
 
         song.settings.recordOctave = (int) octaveSlider.getValue();
+
+        // the bottom bar moves the model without going through a component's
+        // callback, so the point it changes has to be recorded here too
+        proc.pushUndoPoint();
         settings.refresh();
     };
 
@@ -167,6 +183,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
             return;
 
         song.settings.stepSkip = (int) stepSlider.getValue();
+        proc.pushUndoPoint();
         settings.refresh();
     };
 
@@ -182,7 +199,10 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
 
             // The channel limit is the constant kMaxTrackerChannels, and shrinking
             // keeps the cells of the removed columns in the pattern's capacity, so
-            // widening it again restores them.
+            // widening it again restores them. The bottom bar changes the model
+            // without going through a component's callback, so like the OCT and
+            // STEP sliders it records the point it reached itself.
+            proc.pushUndoPoint();
             proc.syncPlaybackModel();
             tracker.refresh();
             timeline.refresh();
@@ -205,7 +225,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
             if (p->name.isEmpty())
                 p->name = "Pattern";
 
-            refreshAll();
+            commitEdit();
         }
 
         tracker.grabKeyboardFocus();
@@ -372,6 +392,37 @@ void ReTrektorAudioProcessorEditor::refreshAll()
     repaint();
 }
 
+void ReTrektorAudioProcessorEditor::commitEdit()
+{
+    proc.pushUndoPoint();
+    refreshAll();
+}
+
+bool ReTrektorAudioProcessorEditor::performUndo()
+{
+    if (! proc.undo())
+        return false;
+
+    refreshAll();
+
+    // the Settings tab's rows keep their own values rather than reading them
+    // off the model as the other panels do, so an undo that moved a setting has
+    // to push the row back or the tab would still show the setting that was
+    // undone
+    settings.refresh();
+    return true;
+}
+
+bool ReTrektorAudioProcessorEditor::performRedo()
+{
+    if (! proc.redo())
+        return false;
+
+    refreshAll();
+    settings.refresh();
+    return true;
+}
+
 void ReTrektorAudioProcessorEditor::selectPattern (int patternId)
 {
     song.activePatternId = patternId;
@@ -381,6 +432,11 @@ void ReTrektorAudioProcessorEditor::selectPattern (int patternId)
         if (clip.patternId == patternId)
             break;
     }
+
+    // moving which pattern is the active one moves the saved song, so it is an
+    // undo point of its own: an edit made in a freshly selected pattern that
+    // rewound to the pattern that was active before would read as a jump
+    proc.pushUndoPoint();
 
     syncBottomBar();
     tracker.refresh();
@@ -527,6 +583,35 @@ bool ReTrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
         return true;
     }
 
+    // undo and redo walk the undo line the model changes append: Ctrl+Z steps
+    // back one point and Ctrl+Y or Ctrl+Shift+Z steps forward again. They reach
+    // the editor rather than the tracker, which lets a Ctrl or Cmd modifier
+    // through its keyboard handler untouched, and both work while the host is
+    // playing: the rows after the playhead play the restored data, while what
+    // was already sent to the host cannot be taken back.
+    // While a numeric edit buffer is half typed the press only closes that
+    // buffer, the way Esc does, so the same press never both forgets the digits
+    // and rewinds the model
+    if (ctrl && key.getModifiers().isShiftDown() && key.getKeyCode() == 'Z')
+    {
+        performRedo();
+        return true;
+    }
+
+    if (ctrl && key.getKeyCode() == 'Z')
+    {
+        if (! tracker.cancelPendingEdit())
+            performUndo();
+
+        return true;
+    }
+
+    if (ctrl && key.getKeyCode() == 'Y')
+    {
+        performRedo();
+        return true;
+    }
+
     if (key.getKeyCode() == juce::KeyPress::F5Key)
     {
         setTab (Tab::tracker);
@@ -559,7 +644,7 @@ void ReTrektorAudioProcessorEditor::doPaste (bool forceUnique)
     if (auto* clip = song.pasteAt (beat, unique))
     {
         song.activePatternId = clip->patternId;
-        refreshAll();
+        commitEdit();
     }
 }
 
@@ -578,5 +663,5 @@ void ReTrektorAudioProcessorEditor::doSlice()
         return;
 
     if (song.sliceClipAt (target->uid, beat))
-        refreshAll();
+        commitEdit();
 }

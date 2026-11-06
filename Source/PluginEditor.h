@@ -24,7 +24,10 @@ public:
     bool keyPressed (const juce::KeyPress&) override;
 
     void refreshAll();
+    void commitEdit(); // the funnel a model change ends in: record, then refresh
     void selectPattern (int patternId);
+    bool performUndo();
+    bool performRedo();
     void followHostTransport();
 
 private:

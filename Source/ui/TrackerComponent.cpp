@@ -1019,13 +1019,21 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
     pasteMenu.addItem (13, "Command Value");
     menu.addSubMenu ("Paste", pasteMenu, hasCellClipboard());
 
+    // the undo pair sits last so the menu reads as the actions the cursor is on
+    // first and the steps along the state line after them; the ids continue the
+    // paste submenu's because one callback sees all of them by number alone,
+    // and the two counts grey the pair out at the ends of the line
+    menu.addItem (14, "Undo", proc.getUndoDepth() > 0);
+    menu.addItem (15, "Redo", proc.getUndoRedoCount() > 0);
+
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition (),
                         [this] (int result)
                         {
                             auto& p = pattern();
 
                             // 1..4 are the "Clear" submenu's leaves, 5 is the
-                            // top-level copy and 7..13 the "Paste" submenu's
+                            // top-level copy, 7..13 the "Paste" submenu's and
+                            // 14/15 the top-level undo pair
                             if (result == 1)
                             {
                                 clearCurrentField();
@@ -1069,6 +1077,20 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                                                                   kPastePan, kPasteCmd,
                                                                   kPasteCmdVal };
                                 pasteClipboardAtCursor (pasteMasks[result - 7]);
+                            }
+                            else if (result == 14)
+                            {
+                                // the same shape as the Ctrl+Z key: a half-typed
+                                // value is what the press closes, and pressing
+                                // again walks back. Stepping the line is the
+                                // editor's, which refreshes everything and leaves
+                                // the undo point the model is in where it was
+                                if (! cancelPendingEdit())
+                                    undoStep();
+                            }
+                            else if (result == 15)
+                            {
+                                redoStep();
                             }
 
                             repaint();
@@ -1425,6 +1447,15 @@ void TrackerComponent::cancelEdit()
     editing = false;
     editBuffer.clear();
     repaint();
+}
+
+bool TrackerComponent::cancelPendingEdit()
+{
+    if (! editing)
+        return false;
+
+    cancelEdit();
+    return true;
 }
 
 //==============================================================================

@@ -102,6 +102,14 @@ SettingsPanel::SettingsPanel (ReTrektorAudioProcessor& processor)
                                     refresh();
                                 });
 
+    undoStepsSlider = addSlider ("Undo steps", "Model states Ctrl+Z can walk back (0 turns undoing off)",
+                                 0.0, (double) kMaxUndoSteps, 1.0, (double) song.settings.undoSteps,
+                                 [this, refresh] (double v)
+                                 {
+                                     song.settings.undoSteps = (int) std::lround (v);
+                                     refresh();
+                                 });
+
     volumeCcSlider = addSlider ("Volume column CC", "Controller driven by the volume column (0-127, CC7 is channel volume)",
                                 0.0, 127.0, 1.0, (double) song.settings.volumeCc,
                                 [this, refresh] (double v)
@@ -175,6 +183,7 @@ void SettingsPanel::refresh()
         fixedGridSlider->setValue ((double) song.settings.fixedGridRows, juce::dontSendNotification);
         octaveSlider->setValue ((double) song.settings.recordOctave, juce::dontSendNotification);
         stepSkipSlider->setValue ((double) song.settings.stepSkip, juce::dontSendNotification);
+        undoStepsSlider->setValue ((double) song.settings.undoSteps, juce::dontSendNotification);
         volumeCcSlider->setValue ((double) song.settings.volumeCc, juce::dontSendNotification);
         panCcSlider->setValue ((double) song.settings.panCc, juce::dontSendNotification);
     }

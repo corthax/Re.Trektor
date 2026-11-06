@@ -6,6 +6,7 @@
            [tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
            [--click-timeline=PCT] [--hide=0v1c] [--expand-pool] [--hex]
            [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
+           [--undo=N] [--redo=N]
 
     --hide= takes channel/letter pairs (i instrument, v volume, p pan, c
     command), so --hide=0v1c hides the volume of channel 0 and the command of
@@ -18,6 +19,11 @@
     --paste-at= goes with --select=: the selected cells take the copy Ctrl+C
     makes and then land at ROW,CH with everything, so the shot shows the pasted
     block at the cursor and what does not fit inside the pattern dropped.
+
+    --undo= and --redo= walk that many points of the undo line after the
+    actions above ran, so --select= / --paste-at= followed by --undo=1 shows
+    the pasted block retracted the way Ctrl+Z takes it back; a walk that runs
+    out of states stops at the end rather than failing the shot.
 
     --drag-preview= composites the image JUCE floats at the cursor while pool
     item IDX is dragged out of the pool, so the shot can show that only that
@@ -210,6 +216,22 @@ int main (int argc, char** argv)
         if (args[i].startsWith ("--paste-at="))
         {
             shotPasteAt = args[i].fromFirstOccurrenceOf ("=", false, false);
+            args.remove (i);
+        }
+
+    // undo/redo steps to walk once the actions above have run, so a shot can
+    // show the state an action left behind taken back
+    int shotUndo = 0, shotRedo = 0;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--undo="))
+        {
+            shotUndo = juce::jmax (0, args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue());
+            args.remove (i);
+        }
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--redo="))
+        {
+            shotRedo = juce::jmax (0, args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue());
             args.remove (i);
         }
 
@@ -447,6 +469,43 @@ int main (int argc, char** argv)
         else
         {
             std::cerr << "no tracker child for --paste-at\n";
+        }
+    }
+
+    if (shotUndo > 0 || shotRedo > 0)
+    {
+        // the same walk the Ctrl+Z / Ctrl+Y keys and the tracker's menu make:
+        // the editor steps the plug-in's line and refreshes every panel, so the
+        // shot below is drawn from the state the walk landed on
+        auto* view = dynamic_cast<ReTrektorAudioProcessorEditor*> (editor.get());
+
+        if (view == nullptr)
+        {
+            std::cerr << "no editor for --undo/--redo\n";
+        }
+        else
+        {
+            int walked = 0;
+
+            for (int i = 0; i < shotUndo; ++i)
+            {
+                if (! view->performUndo())
+                    break;
+
+                ++walked;
+            }
+
+            for (int i = 0; i < shotRedo; ++i)
+            {
+                if (! view->performRedo())
+                    break;
+
+                ++walked;
+            }
+
+            std::cout << "undo/redo walked " << walked << " of " << (shotUndo + shotRedo)
+                      << " steps, undo depth " << proc.getUndoDepth()
+                      << " redo " << proc.getUndoRedoCount() << "\n";
         }
     }
 

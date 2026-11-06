@@ -13,6 +13,10 @@
       - the cell clipboard: Ctrl+C copies the selection, Ctrl+V pastes it at the
         cursor with everything, the paste submenu filters one field, a clipboard
         hole pastes nothing, and what does not fit inside the pattern is dropped
+      - undo and redo: Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z walk the states the
+        model changes append, the Settings tab's Undo steps row caps how far
+        back they go, and the walk covers note entry, a cell paste, a clip
+        placed from the pool, a settings change and the bottom bar
       - timeline drag-and-drop from the pool
       - pool double-click placement with snapping
       - settings toggles
@@ -1257,6 +1261,348 @@ int main()
     song.settings.defaultPatternRows = 32;
     auto& created = song.addPattern();
     check (created.length == 32, "new patterns use the configured length");
+
+    //== Undo and redo =======================================================
+    {
+        // undo walks the states the model changes append, so every check
+        // measures what an action touched just before it ran and reads it back
+        // after the step: restoring a state replaces the pattern objects, which
+        // is why nothing here may hold a reference across one
+        auto pressUndo = [&]
+        { return editor->keyPressed (juce::KeyPress ('Z', juce::ModifierKeys (kCtrlMod), 'Z')); };
+        auto pressRedo = [&]
+        { return editor->keyPressed (juce::KeyPress ('Y', juce::ModifierKeys (kCtrlMod), 'Y')); };
+        auto pressRedoShift = [&]
+        { return editor->keyPressed (juce::KeyPress ('Z', juce::ModifierKeys (kShiftMod | kCtrlMod), 'Z')); };
+
+        // a click parks the cursor on a row: the header is 46px and a row 19
+        auto clickRow = [&] (int row)
+        {
+            tracker->mouseDown (makeEvent (*tracker, { 70.0f, 46.0f + 19.0f * (float) row + 9.5f }));
+        };
+
+        // every field of a cell at once, so a paste and the undo that takes it
+        // back can be compared on more than the note
+        auto sigAt = [&] (int row, int ch)
+        {
+            auto* p = song.activePattern();
+
+            if (p == nullptr)
+                return juce::String();
+
+            const auto cell = p->cell (row, ch);
+            juce::String s;
+            s << cell.note << "/" << cell.inst << "/" << cell.vol << "/" << cell.pan
+              << "/" << cell.cmd << "/" << cell.cmdVal;
+            return s;
+        };
+
+        //== note entry, undo, redo =======================================
+        clickRow (4); // a row 19px tall, so the click lands on row 4
+        const int undoRow = tracker->getCursorRow();
+        const int undoCh = tracker->getCursorChannel();
+
+        const juce::String beforeNoteSig = sigAt (undoRow, undoCh);
+
+        tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys(), 'z'));
+        const int cursorAfterEntry = tracker->getCursorRow();
+        const juce::String enteredNoteSig = sigAt (undoRow, undoCh);
+        auto* entryPattern = song.activePattern();
+        const int enteredNote = entryPattern != nullptr
+                                  ? entryPattern->cell (undoRow, undoCh).note
+                                  : rtr::kEmpty;
+        check (enteredNoteSig != beforeNoteSig, "a note entered at the cursor changes that cell");
+
+        check (pressUndo(), "the editor takes Ctrl+Z");
+        check (sigAt (undoRow, undoCh) == beforeNoteSig, "Ctrl+Z takes the entered note back");
+        check (tracker->getCursorRow() == cursorAfterEntry && tracker->getCursorChannel() == undoCh,
+               "Ctrl+Z does not enter a note of its own, so the cursor stays where it was");
+
+        check (pressRedo(), "the editor takes Ctrl+Y");
+        check (sigAt (undoRow, undoCh) == enteredNoteSig, "Ctrl+Y puts the note back");
+        check (proc.getUndoRedoCount() == 0, "the newest state of the line leaves nothing to redo");
+        check (pressRedoShift(), "Ctrl+Shift+Z is the other spelling of redo");
+        check (sigAt (undoRow, undoCh) == enteredNoteSig && proc.getUndoRedoCount() == 0,
+               "a redo at the line's end changes nothing, either spelling");
+
+        //== the whole line, back to the start and forward again ==============
+        {
+            int stepsBack = 0;
+
+            while (proc.getUndoDepth() > 0 && stepsBack <= rtr::kMaxUndoSteps + 2)
+            {
+                pressUndo();
+                ++stepsBack;
+            }
+
+            check (proc.getUndoDepth() == 0, "Ctrl+Z reaches the oldest point the line holds");
+
+            const int clipsAtStart = (int) song.clips.size();
+            const int patternsAtStart = (int) song.patterns.size();
+            const int activeAtStart = song.activePatternId;
+            pressUndo();
+            check (proc.getUndoDepth() == 0
+                       && (int) song.clips.size() == clipsAtStart
+                       && (int) song.patterns.size() == patternsAtStart
+                       && song.activePatternId == activeAtStart,
+                   "Ctrl+Z at that end changes nothing further, patterns and clips alone");
+
+            int forward = 0;
+
+            while (proc.getUndoRedoCount() > 0 && forward <= rtr::kMaxUndoSteps + 2)
+            {
+                // both spellings on real steps, so the alias is not only
+                // exercised where it is inert
+                if (forward % 2 == 0)
+                    pressRedoShift();
+                else
+                    pressRedo();
+
+                ++forward;
+            }
+
+            check (forward == stepsBack, "Ctrl+Y and Ctrl+Shift+Z walk the same number of points");
+            check (sigAt (undoRow, undoCh) == enteredNoteSig,
+                   "and the model is back to the state it was in when the walk began");
+        }
+
+        //== a structural change: the pool places a clip ====================
+        {
+            song.editPlayheadBeats = 66.3;
+            const int clipsBefore = (int) song.clips.size();
+
+            pool->mouseDoubleClick (makeEvent (*pool, { 80.0f, 45.0f }));
+            check ((int) song.clips.size() == clipsBefore + 1, "double-clicking the pool adds a clip");
+
+            pressUndo();
+            check ((int) song.clips.size() == clipsBefore, "Ctrl+Z takes the clip and the pattern it used back");
+            check (proc.getUndoRedoCount() > 0, "the undone clip is still ahead of the cursor");
+
+            pressRedo();
+            check ((int) song.clips.size() == clipsBefore + 1, "Ctrl+Y places it again");
+            pressUndo(); // the clip goes back to where it was not
+        }
+
+        //== a cell paste and its undo ======================================
+        {
+            clickRow (undoRow); // the cell the note check left with a note
+            editor->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kCtrlMod), 'C'));
+            check (tracker->hasCellClipboard(), "Ctrl+C copies the cell under the cursor");
+
+            clickRow (undoRow + 10);
+            const juce::String targetBefore = sigAt (undoRow + 10, undoCh);
+            editor->keyPressed (juce::KeyPress ('V', juce::ModifierKeys (kCtrlMod), 'V'));
+            const juce::String targetAfter = sigAt (undoRow + 10, undoCh);
+            check (targetAfter == enteredNoteSig && targetAfter != targetBefore,
+                   "the paste writes the copied cell where the cursor was parked");
+
+            pressUndo();
+            check (sigAt (undoRow + 10, undoCh) == targetBefore, "Ctrl+Z takes the pasted cell back");
+            check (tracker->hasCellClipboard(), "and leaves the cell clipboard alone");
+
+            pressRedo();
+            check (sigAt (undoRow + 10, undoCh) == targetAfter, "Ctrl+Y writes it again");
+            pressUndo();
+        }
+
+        //== an action that changed nothing makes no undo point ==============
+        {
+            std::vector<juce::ComboBox*> toolCombos;
+            collectCombos (*tools, toolCombos);
+
+            if (toolCombos.empty())
+            {
+                check (false, "the tools panel is out of reach for the no-op check");
+            }
+            else
+            {
+                toolCombos[0]->setSelectedId (1); // "Selection only"
+                tracker->clearSelection();
+
+                const int depthBefore = proc.getUndoDepth();
+
+                if (auto* down = findButton (*tools, rtr::arrowDownGlyph()))
+                    down->onClick();
+
+                check (proc.getUndoDepth() == depthBefore,
+                       "a transpose that reaches no cell leaves the undo depth alone");
+            }
+        }
+
+        //== undo also reverts the Settings tab =============================
+        if (auto* hex = findToggle (*settings, "Hexadecimal values"))
+        {
+            hex->setToggleState (false, juce::dontSendNotification);
+            hex->onClick();
+            check (! song.settings.hexDisplay, "switching the hex display off is an undoable action");
+
+            pressUndo();
+            check (song.settings.hexDisplay, "Ctrl+Z puts it back on, the Settings tab included");
+
+            pressRedo();
+            check (! song.settings.hexDisplay, "Ctrl+Y switches it off again");
+        }
+        else
+        {
+            check (false, "the settings tab's hex toggle is out of reach for the undo check");
+        }
+
+        //== the bottom bar changes the model on its own ====================
+        {
+            juce::Slider* chSlider = nullptr;
+
+            for (auto* child : editor->getChildren())
+                if (auto* s = dynamic_cast<juce::Slider*> (child))
+                    chSlider = s; // the CHANNELS slider is the last direct one
+
+            auto* beforeWide = song.activePattern();
+            const int channelsBefore = beforeWide != nullptr ? beforeWide->channels : 0;
+
+            if (chSlider != nullptr && channelsBefore > 0)
+            {
+                chSlider->setValue ((double) (channelsBefore + 1), juce::sendNotificationSync);
+                auto* widened = song.activePattern();
+                check (widened != nullptr && widened->channels == channelsBefore + 1,
+                       "the CHANNELS slider widens the pattern");
+
+                pressUndo();
+                auto* backWide = song.activePattern();
+                check (backWide != nullptr && backWide->channels == channelsBefore,
+                       "Ctrl+Z narrows it again, so the bottom bar's change is on the line");
+            }
+            else
+            {
+                check (false, "the bottom bar's channel slider is out of reach");
+            }
+        }
+
+        //== Ctrl+Z closes a half-typed value instead of stepping ============
+        {
+            // one field right of the note, which needs two digits to commit in
+            // decimal, so a single digit stays pending
+            for (int i = 0; i < 8
+                     && tracker->getCursorField() != rtr::TrackerComponent::Field::inst; ++i)
+                tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+
+            const int bufferRow = tracker->getCursorRow();
+            const int bufferCh = tracker->getCursorChannel();
+            const juce::String instBefore = sigAt (bufferRow, bufferCh);
+            const int depthBefore = proc.getUndoDepth();
+
+            tracker->keyPressed (juce::KeyPress ('5', juce::ModifierKeys(), '5'));
+            check (proc.getUndoDepth() == depthBefore, "a digit still in its buffer changes no model");
+
+            pressUndo();
+            check (proc.getUndoDepth() == depthBefore && sigAt (bufferRow, bufferCh) == instBefore,
+                   "the first Ctrl+Z closes that buffer rather than walking back");
+
+            pressUndo();
+            check (proc.getUndoDepth() == depthBefore - 1,
+                   "the next one steps, which is what makes the pair one press one effect");
+        }
+
+        //== the depth the Settings tab asks for ============================
+        {
+            std::vector<juce::Slider*> rows;
+            collectSliders (*settings, rows);
+
+            if (rows.size() >= 9)
+            {
+                // the undo row sits with the input prefs, ahead of the volume
+                // and pan CC pair, so it is the third slider from the end
+                auto* depthRow = rows[rows.size() - 3];
+
+                depthRow->setValue (2.0, juce::sendNotificationSync);
+                check (song.settings.undoSteps == 2, "the Undo steps row feeds the undo depth");
+
+                for (int row = 44; row < 47; ++row)
+                {
+                    clickRow (row);
+                    tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys(), 'z'));
+                }
+
+                check (proc.getUndoDepth() == 2, "only the two points the row asks for are reachable");
+
+                pressUndo();
+                pressUndo();
+                check (proc.getUndoDepth() == 0, "both of them can be walked back");
+
+                const juce::String atOldest = sigAt (46, undoCh);
+                pressUndo();
+                check (proc.getUndoDepth() == 0 && sigAt (46, undoCh) == atOldest,
+                       "a third Ctrl+Z has nothing left to take back");
+
+                depthRow->setValue (0.0, juce::sendNotificationSync);
+                check (song.settings.undoSteps == 0, "the row can turn undoing off");
+
+                clickRow (47);
+                tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys(), 'z'));
+                const juce::String offSig = sigAt (47, undoCh);
+                check (proc.getUndoDepth() == 0, "an action while undoing is off records no state");
+
+                pressUndo();
+                check (sigAt (47, undoCh) == offSig, "and Ctrl+Z changes nothing while it is off");
+
+                // back to the shipped default so the checks after this one have
+                // undo available again, which also starts a fresh line
+                depthRow->setValue (50.0, juce::sendNotificationSync);
+                check (song.settings.undoSteps == 50, "the row comes back to the default 50");
+            }
+            else
+            {
+                check (false, "the settings tab has too few sliders to find the undo row");
+            }
+        }
+
+        //== undo while the host is playing =================================
+        {
+            // the pair is meant to work mid-playback: an undo refreshes the
+            // snapshot the audio thread reads without resetting the engine, so
+            // the rows ahead of the playhead play what the restored model
+            // holds. The octave is raised first so the note the key enters is
+            // one no other row of the pattern plays, which lets these checks
+            // look for that single note-on instead of counting events.
+            song.settings.recordOctave = 9;
+
+            // the row is whatever the click lands on rather than a counted one,
+            // because the view scrolls and the click's y is read through that
+            // scroll; the playhead is parked where the note was written
+            clickRow (20);
+            const int playRow = tracker->getCursorRow();
+            const int playCh = tracker->getCursorChannel();
+
+            check (tracker->getCursorField() == rtr::TrackerComponent::Field::note,
+                   "a click inside a row parks the cursor on its note column");
+
+            tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys(), 'z'));
+
+            auto* played = song.activePattern();
+            const int playedNote = played != nullptr ? played->cell (playRow, playCh).note : rtr::kEmpty;
+            check (playedNote != rtr::kEmpty,
+                   "the note entered at the cursor is the cell the cursor parked on");
+            check (proc.getUndoDepth() > 0, "the entered note left a point Ctrl+Z can walk back to");
+
+            head->playing = true;
+            head->ppq = (double) playRow / (double) juce::jmax (1, song.settings.rowsPerBeat);
+            pressUndo();
+            head->playing = false;
+
+            const auto clearedMidi = playRowAt (playRow);
+            check (! hasNoteOn (clearedMidi, playedNote),
+                   "undoing while the transport runs leaves the row without the note");
+
+            check (proc.getUndoRedoCount() > 0, "the undone note is still ahead of the cursor");
+
+            head->playing = true;
+            head->ppq = (double) playRow / (double) juce::jmax (1, song.settings.rowsPerBeat);
+            pressRedo();
+            head->playing = false;
+
+            const auto playedMidi = playRowAt (playRow);
+            check (hasNoteOn (playedMidi, playedNote),
+                   "redoing it while the transport runs puts the row back to playing the note");
+        }
+    }
 
     //== Floating window size ==========================================
     {

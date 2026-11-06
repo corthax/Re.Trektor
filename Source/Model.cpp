@@ -671,6 +671,7 @@ juce::ValueTree Song::toValueTree() const
     st.setProperty ("stepSkip", settings.stepSkip, nullptr);
     st.setProperty ("volumeCc", settings.volumeCc, nullptr);
     st.setProperty ("panCc", settings.panCc, nullptr);
+    st.setProperty ("undoSteps", settings.undoSteps, nullptr);
     root.appendChild (st, nullptr);
 
     juce::ValueTree pt ("PATTERNS");
@@ -789,6 +790,7 @@ void Song::fromValueTree (const juce::ValueTree& root)
         settings.stepSkip = juce::jlimit (0, 16, (int) st.getProperty ("stepSkip", 1));
         settings.volumeCc = juce::jlimit (0, 127, (int) st.getProperty ("volumeCc", 7));
         settings.panCc = juce::jlimit (0, 127, (int) st.getProperty ("panCc", 10));
+        settings.undoSteps = juce::jlimit (0, kMaxUndoSteps, (int) st.getProperty ("undoSteps", 50));
     }
 
     if (auto pt = root.getChildWithName ("PATTERNS"); pt.isValid())

@@ -17,6 +17,7 @@ constexpr int kMaxTrackerChannels = 127;
 constexpr int kMidiChannelCount = 16;
 constexpr int kMaxMacros = 16;
 constexpr int kMacroCmdBase = 128; // command values 128..143 call macros M0..M15
+constexpr int kMaxUndoSteps = 200; // most undo steps the undo line can be asked for
 
 /** Column visibility bits: the chips above a channel toggle one field of one
     channel, so the state is one byte per channel (see Pattern::vis). */
@@ -358,6 +359,13 @@ struct Settings
         anything a synth listens to (CC7 channel volume by default, CC10 pan). */
     int volumeCc = 7;
     int panCc = 10;
+
+    /** How far Ctrl+Z can walk back: the number of model states the undo line
+        keeps. It belongs to the song rather than to the view, so a host that
+        saves the state or hands the plug-in a brand new editor gets the same
+        depth back, and changing it is itself an undoable edit. Zero turns
+        undoing off, which also stops the plug-in from storing states at all. */
+    int undoSteps = 50;
 };
 
 //==============================================================================

@@ -65,6 +65,19 @@ public:
     int pasteClipboardAtCursor (int fieldMask);
     bool hasCellClipboard() const noexcept { return ! cellClipboard.empty(); }
 
+    //== Undo and redo ========================================================
+    /** The editor's step along the undo line, injected rather than reached
+        through the plug-in so the menu pair walks the same line the Ctrl+Z and
+        Ctrl+Y keys walk and refreshes the whole view, including the Settings
+        tab, instead of only the grid. Stepping records no point of its own. */
+    std::function<bool()> undoStep;
+    std::function<bool()> redoStep;
+
+    /** Closes a half-typed numeric buffer the way Esc does and reports whether
+        one was there, which is what makes Ctrl+Z or the menu's Undo one press
+        one effect: a press either forgets the digits or walks back. */
+    bool cancelPendingEdit();
+
     /** The command number the column resolves to above the given row (the one
         an implicit cell on that row carries), or -1 when the column never named
         a command yet. */
