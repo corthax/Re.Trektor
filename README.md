@@ -100,7 +100,17 @@ cmake --build tests/build -j"$(nproc)"
   parking the playhead, timeline drop, pool
   placement, pool drag preview covering one item cell rather than the panel,
   window size remembered across a closed and reopened editor,
-  channels slider, tracker horizontal scrollbar) and confirms which
+  channels slider, tracker horizontal scrollbar, undo and redo — Ctrl+Z
+  walking a note entered, a cell pasted, a clip placed from the pool, a
+  settings toggle and the bottom bar's channel slider back and Ctrl+Y or
+  Ctrl+Shift+Z walking them forward again, the cursor left where it was by an
+  undo, a redo at the line's newest state inert in both spellings, an action
+  that wrote nothing leaving the depth alone, the Settings tab's Undo steps
+  row capping how far the walk reaches with its third press inert and 0
+  turning undoing off, a Ctrl+Z pressed over a half-typed number closing that
+  buffer on the first press and stepping on the second, and undoing while the
+  mock transport runs leaving the row ahead of the playhead without the note it
+  played and redoing it putting it back) and confirms which
   MIDI channel and which controller value the notes and columns end up on
 * `ReTrektorEditorShot` – renders the editor headlessly and can dump the
   component layout (`--dump`, optionally `--tab=settings|macros`,
@@ -129,7 +139,11 @@ cmake --build tests/build -j"$(nproc)"
   prints how many cells it wrote: a block that fits writes all of it, one
   anchored at the last channel writes only the block's first column and drops
   the rest, and one below a shortened pattern writes only the rows that still
-  fit)
+  fit, and `--undo=N` / `--redo=N` walk that many points of the undo line once
+  the other actions ran, so a shot paired with `--select=` / `--paste-at=`
+  shows the pasted block retracted the way Ctrl+Z takes it back and prints how
+  many steps walked before the render, a walk running out of states stopping at
+  the line's end rather than failing the shot)
 
 Example:
 
@@ -221,6 +235,26 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   discarded, so a paste never grows the pattern, and since pasting cells is
   a cell edit rather than a timeline edit it stays available while the host
   is playing.
+  Undoing belongs to the plug-in rather than to the host, since the VST3 spec
+  hands a plug-in no undo of its own: every model change appends the state it
+  reached to an undo line here, `Ctrl+Z` walks back along it and `Ctrl+Y` or
+  `Ctrl+Shift+Z` walks forward again, and the tracker's cell menu ends with an
+  Undo / Redo pair for the same two steps, greyed out at the line's ends. The
+  states are the song in the form the host's state blocks use, so one step back
+  restores exactly what reloading that state would have restored, and it
+  restores the whole song: a cell edit, a clip dropped or sliced, a pattern
+  resized and a setting moved all take back. What the line does not carry is
+  not rewound either — the pattern clipboard, the cursor, the timeline's playhead
+  and the position mirrored from the host keep their current values, which is
+  why an undo reads as a rewind of the song rather than as a jump of where the
+  user is working in it. How far it goes is the Settings tab's Undo steps row
+  (default 50) and a 32 MB budget drops the oldest states on top of that, so a
+  pattern whose states do not fit that comfortably keeps fewer of them;
+  setting the row to 0 turns undoing off and stops the plug-in from holding
+  states at all. An undo reaches the playback snapshot the way a cell edit does,
+  so while the transport runs the rows ahead of the playhead play what the
+  restored song holds. `Ctrl+Z` while a number is still half typed closes that
+  buffer instead of stepping, which is what makes one press one effect.
 * **Macros tab** – macro definitions (name, kind, two parameters). Definitions
   live with the song and are called from the tracker's Command column with
   command `128`–`143`.
@@ -269,7 +303,10 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   while nothing is selected) and a "Paste" submenu (greyed out while the cell
   clipboard is empty) whose items are Everything / Note / Instrument / Volume /
   Pan / Command / Command Value. What the cursor's last click parked is what the
-  clears work on and what a paste starts at.
+  clears work on and what a paste starts at. The menu's Undo and Redo items sit
+  after that trio and walk the same line `Ctrl+Z` and `Ctrl+Y` walk, so they
+  reach the whole editor rather than only the grid; like the keys, an Undo
+  pressed while a number is half typed closes that buffer first.
 * The window remembers its size: hosts such as Reaper close a floating plug-in
   window by throwing it away and ask the plug-in for a brand new editor when the
   GUI is opened again, so a new editor starts at the size the closed one had
@@ -301,7 +338,8 @@ not selected. The cell menu groups its clears under a "Clear" submenu
 nothing is selected, and a "Paste" submenu, greyed out while the cell clipboard
 is empty, whose items are Everything / Note / Instrument / Volume / Pan /
 Command / Command Value; either menu paste writes at the cursor the last click
-parked, at its row and channel, the same place `Ctrl+V` writes at.
+parked, at its row and channel, the same place `Ctrl+V` writes at, and the two
+items after them are the Undo / Redo pair.
 
 ## Keyboard map
 
@@ -326,6 +364,8 @@ Q 2 W 3 E R 5 T 6 Y 7 U   ->  next octave
 | `Ctrl+Shift+C` | copy the active pattern to the pattern clipboard |
 | `Ctrl+Shift+V` | paste that pattern at the playhead as a unique pattern |
 | `Ctrl+X` | slice clip at playhead |
+| `Ctrl+Z` | undo the last change |
+| `Ctrl+Y` / `Ctrl+Shift+Z` | redo the last undone change |
 | `F5` | switch to the Tracker tab |
 
 The field filters (`Everything`, `Note`, `Instrument`, `Volume`, `Pan`,
@@ -334,6 +374,16 @@ submenu, so the keyboard paste always writes everything. The pattern
 clipboard's paste as an instance — the choice Settings names — is in the
 timeline's and pool menus rather than on a shortcut, since the plain `Ctrl+V`
 now belongs to the cells.
+
+Undo and redo belong to the plug-in rather than to the host, since VST3 gives a
+plug-in no undo of its own, so `Ctrl+Z` steps back through the states the plug-in's
+own changes produced — a cell written, a clip dropped, a setting moved — and
+`Ctrl+Y` or `Ctrl+Shift+Z` steps forward again over the ones just undone, with the
+tracker's menu Undo / Redo pair reaching the same line. While a numeric field is
+half typed the undo press closes that buffer instead of stepping, so the step
+comes on the next press and one press stays one effect. Both keys work while the
+transport is playing: the rows ahead of the playhead play what the restored song
+holds, while what the plug-in already sent to the host is not rewound.
 
 Numeric fields accept hex when "Hexadecimal values" is enabled in Settings,
 decimal otherwise. Instrument values are the MIDI output channel (`0`–`F` in
@@ -403,6 +453,12 @@ accepts `0`–`143`: `128`–`143` (hex `80`–`8F`) call macros `M0`–`M15`.
 * Record octave and step skip
 * Volume column CC and Pan column CC (default 7 and 10): the controllers those
   columns drive, each `0`–`127`
+* Undo steps (default 50, range `0`–`200`): how many model states `Ctrl+Z` can
+  walk back — changing a setting is itself an undoable action, so the row's own
+  value rewinds too. `0` turns undoing off and stops the plug-in from holding
+  states at all, and a 32 MB budget drops the oldest states of a pattern whose
+  states do not fit that well, so a huge pattern keeps fewer of them than the
+  row asks for
 
 ## Known limitations
 
@@ -444,6 +500,18 @@ accepts `0`–`143`: `128`–`143` (hex `80`–`8F`) call macros `M0`–`M15`.
   / `Ctrl+Shift+V` so the plain shortcuts could name cells instead; pasting the
   copied pattern as an instance, the choice Settings names, is now only in the
   timeline's and pool menus.
+* Undo walks the plug-in's own state line, since the VST3 spec hands a plug-in
+  no undo of its own, so it only reaches what the plug-in changed and what it
+  can still hold. What the plug-in already sent to the host is not rewound:
+  undoing a note at or behind the playhead changes the song but shows nothing
+  until the transport runs over that row again, which is why the effect reads
+  as nothing mid-song and as a change ahead of the playhead. The pattern
+  clipboard, the selection, the cursor and both playheads stay where they are,
+  so undoing changes what the song holds without moving where the user is
+  working in it, and a state the host hands back starts a fresh line, so there
+  is no undoing across a reload. The depth comes from Settings but a 32 MB
+  budget also drops the oldest states, so a pattern wide or long enough keeps
+  fewer of them than the row asks for.
 * Note entry assumes a US keyboard layout.
 
 ## Licensing
@@ -486,6 +554,22 @@ Plugin playhead is host-driven only: removed user playhead dragging; timer alway
 Playhead follow is position-change driven (commit 02c0ca3): the editor only copies host PPQ into the edit playhead when that position actually changed (or the host is playing), so a playhead parked by a timeline click stays put while the host is stopped.
 allNotesOff now emits explicit note-offs for active notes before CC123/CC120 panic messages.
 Volume column always drives its controller (commit cd3fc2c): an explicit volume/pan cell sends CC7/CC10 by default, the Settings tab names either column's CC (0-127, serialized with the state), and a volume on a row that also has a note additionally sets the note-on velocity, so the column is not velocity-only any more. Field widths derive from a new TrackerComponent::fieldGlyphs (widest text a field can show: note 4, inst 1 + maxDigits, vol/pan maxDigits, cmd cmdNum + cmdVal) instead of fixed character counts, so a decimal volume of 0-127 keeps three digits and the drawn values use the same digit count (right-aligned, space-padded like pan). Column visibility became one byte per channel column (Pattern::vis, bits 1 inst / 2 vol / 4 pan / 8 cmd, default kVisAll) read by showColumn and written by setColumn/toggleColumn, kept grow-only up to channelCapacity() like the cell columns, serialized as base64 bytes in a new "vis" property, and older saves' whole-pattern showInst/showVol/showPan/showCmd are applied to every column as a fallback so previous states keep their display. The chips above a channel toggle that channel only, the pool's duplicate action copies the flags, and hiding the field the cursor sits in parks the cursor on that channel's note column.
+Undo and redo are the plug-in's own (commit 6e51af9): the states every model
+change reached are kept on the processor rather than in the editor, because a
+host such as Reaper destroys the floating window and asks for a brand new
+editor that has to find the same points; a state is the song's own ValueTree
+XML, so one step back restores exactly what a reload of that state would have
+and covers everything the song holds rather than only cell edits; the fields a
+saved state does not carry (the pattern clipboard, the edit playhead, the
+mirrored host position) are kept rather than reverted, so undoing rewinds the
+song without moving where the user is working in it; undoing while the
+transport runs goes through syncPlaybackModel with no engine.reset(), because
+resetting would clear the engine's everPlayed stuck-note guard; redo is asked
+for as Ctrl+Y and as Ctrl+Shift+Z and as the tracker menu's Undo / Redo pair;
+Ctrl+Z closes a half-typed numeric buffer first, which makes one press one
+effect; and the depth is the Settings tab's undoSteps row (default 50) with a
+32 MB byte valve dropping the oldest states on top of it, so a huge pattern
+holds fewer steps than the row asks for.
 Work State
 Completed
 Repo init, JUCE 8.0.9 vendored/committed; CMakeLists.txt for VST3 MIDI effect.
@@ -554,6 +638,86 @@ wider 908x52 crop shows channel 1 keeping its shown chips beside them. The menu
 structure is interactive-only in this environment (a popup is not part of the
 component tree --dump prints and showMenuAsync needs a desktop), so the grouping
 is for confirming in a host.
+Undo and redo walk the plug-in's own state line (commit 6e51af9): the VST3
+spec hands a plug-in no undo of its own, so every model change appends the
+state it reached to a line the Re.TrektorAudioProcessor holds rather than the
+editor, because a host such as Reaper closes a floating window by destroying
+the view and asks for a brand new editor when the GUI is opened again and the
+points the user stepped through have to be where that editor finds them too.
+A state is song.toValueTree().toXmlString(), the same text a host's state
+block carries, so restoring one goes through juce::ValueTree::fromXml and
+song.fromValueTree, the path a reload takes, which is why one step back
+retracts everything the song holds - a cell written, a clip dropped or
+sliced, a pattern resized, a setting moved - instead of only the cell kinds
+someone chose to record. What the tree does not carry is kept on purpose: the
+pattern clipboard, song.editPlayheadBeats and song.transportMirrorBeats
+survive a step, so undoing reads as a rewind of the song rather than as a
+jump of where the user is working in it, and a state the host hands back
+starts a fresh line because walking through states from before a reload would
+mean nothing. Undoing follows the path a cell edit follows, syncPlaybackModel
+with no engine.reset(), so it works while the transport runs and the rows
+ahead of the playhead play what the restored song holds, while what the
+plug-in already sent to the host cannot be taken back; the engine is not
+reset because that would also clear its everPlayed stuck-note guard.
+Settings gained undoSteps = 50 (kMaxUndoSteps = 200, clamped both ways with
+the rest of the SETTINGS block) and trimUndoLine drops the oldest states at
+that count and at a 32 MB budget counted as their UTF-8 size, never the state
+the model is in and never one a redo would walk forward to, so lowering the
+row takes effect at the next step and a pattern whose states do not fit that
+comfortably keeps fewer of them; undoSteps 0 re-anchors the line, which is
+what makes turning undoing off also stop the plug-in from holding states.
+pushUndoPoint records nothing for an action that left the model as it was, so
+a paste whose cells did not fit or a transpose that reached no cell leaves the
+depth alone, and it forgets whatever the cursor had already walked back over,
+which is what keeps Ctrl+Y retracing only the undone steps. Every model change
+now ends in one funnel, PluginEditor::commitEdit(), which records the point
+before refreshing, so the timeline, tracker, pool, tools, macros and settings
+onModelChanged callbacks that used to call refreshAll() are rewired to it,
+while the bottom bar's OCT / STEP / CHANNELS onValueChange handlers and
+selectPattern() change the model without a callback and record their own
+point. performUndo / performRedo step without recording one and also refresh
+the Settings panel, whose rows hold their own values rather than reading them
+off the model, so an undo that moved a setting pushes its row back. The line
+itself is undoStates with undoCursor and undoBytes counted in UTF-8 bytes,
+private to the processor, with anchorUndoLine, trimUndoLine, stepUndoHistory,
+serialiseSong and recountUndoBytes as its helpers, undo() and redo() walking
+behind the model lock and getUndoDepth / getUndoRedoCount naming what is still
+walkable so the tracker's menu can grey its pair out: the menu's Undo and Redo
+are ids 14 and 15, after the paste submenu's leaves since one callback answers
+them by number alone, and they reach the editor through injected undoStep /
+redoStep std::function members rather than the processor, so the menu walks the
+same line the keys walk and refreshes every panel instead of only the grid.
+cancelPendingEdit, public on the tracker, reports whether a numeric buffer was
+half typed and closes it the way Esc does, which both the Ctrl+Z branch and the
+menu's Undo consult before stepping, so one press stays one effect; Ctrl+Shift+Z
+is tested before Ctrl+Z in PluginEditor::keyPressed, where the tracker's own
+handler answers a key held by Ctrl with false and so leaves the shortcuts to the
+editor. UiTest + 45
+checks (209 total, PASS): a note entered at the cursor undone and redone with
+the cursor left where it was, redo inert at the line's newest state in both
+spellings, the line walked back to its oldest point and forward again with
+both redo spellings on real steps, a clip placed from the pool undone
+structurally and put back, a cell paste undone while the cell clipboard stays
+alone, a transpose that reached nothing leaving the depth alone, the Settings
+tab's Undo steps row capping the depth at 2 with a third Ctrl+Z inert and 0
+turning undoing off, the bottom bar's CHANNELS slider widening the pattern on
+the line, Ctrl+Z closing a pending digit buffer on the first press and
+stepping on the second, and undoing while the mock transport runs leaving the
+row it crosses without the note it played while a redo puts it back. That
+last check failed on the first pass because it counted rows: the tracker had
+scrolled to follow the cursor, so the row the click was meant to land on was
+never written and the note it wanted was never in the pattern, so the check
+now reads the row and channel back from the cursor and raises the record
+octave to one the rest of the test never uses, which lets it name a single
+note-on rather than compare event lists. EditorShot gained --undo=N /
+--redo=N, which walk the line before the shot is rendered: --select=0,0,6,1
+--paste-at=18,0 prints "undo/redo walked 1 of 1 steps, undo depth 0 redo 1"
+with --undo=1 and a 300x220 crop at +176+500 over the tracker shows C-4 at
+row 18, D#4 at 20, G-4 at 22 and D#4 at 24 in the plain shot against the same
+rows empty next to it. CoreTest 185 and Smoke 13 come back unchanged, the
+plugin rebuilt clean apart from the pre-existing warnings; the undo line
+itself is what the user asked for, so the depth control, the key pair and the
+menu pair still need a host to confirm.
 Active
 None.
 Blocked
@@ -567,6 +731,7 @@ Further command kinds: dedicated pitch bend CC105/CC106 pair command, tempo and 
 Grid preview currently always starts at row 0 (no preview scrolling yet).
 Confirm in the DAW that Ctrl+C and the cell menu's "Copy selection" copy the selected cells, that Ctrl+V and the menu's "Paste" submenu land them at the cursor starting at its row and channel, that the submenu's items filter to one field (and that "Command" moves the number while "Command Value" moves the argument), that a paste at the last channel or near the pattern's end drops what does not fit rather than growing it, and that Ctrl+Shift+C / Ctrl+Shift+V still reach the pattern clipboard.
 Confirm in the DAW that the tracker menu now shows Clear / Copy selection / Paste at its top level, that the Clear submenu's leaves are Selection / Cell / Channel / Pattern and do what the old four items did, and that a hidden field's chip now reads as a filled plate with the letter cut out of it while a shown one keeps its dark plate, so the state of every chip is readable at a glance.
+Confirm in the DAW that Ctrl+Z takes back the last thing the plug-in changed (a cell written, a clip dropped or sliced, a pattern resized, a setting moved) and that Ctrl+Y or Ctrl+Shift+Z puts it again, that the tracker menu's Undo / Redo pair walks the same line and greys out at its ends, that the Settings tab's Undo steps row caps how far the walk reaches and that 0 turns undoing off, that undoing while the transport runs changes what the rows ahead of the playhead play while what was already sent to the host stays, that undoing a note at or behind the playhead only shows when the transport runs over that row again, and that the cursor, the selection, the clipboards and the playheads stay where they were across an undo.
 Confirm in the DAW that the volume column now emits CC7 (CC10 for pan), that a note-off row (`===`) with an explicit volume/pan still applies both controllers, that the Settings tab's Volume column CC / Pan column CC sliders repoint them, and that a channel's column chips hide only that channel's field.
 Confirm interactively that dragging a pattern from the pool floats only that item (its grid preview when expanded, semi-transparent) under the pointer, that the grabbed spot stays under the cursor, and that the clip still lands at the drop position.
 Confirm in the DAW that Remap moves only the instrument named in the source dropdown, that the dim carried rows follow it, and that All in the source box covers every instrument in the scope.
@@ -579,20 +744,20 @@ Confirm that the pinned bundle loads in Bitwig Studio 6.1.4, whose Flatpak root 
 Confirm in the DAW that typing a number into the transpose amount field and clicking only a direction button moves the notes by that many semitones, that an amount past an octave still behaves, and that the two direction buttons draw as up and down arrows rather than boxes in Bitwig and Reaper.
 Relevant Files
 /media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
-/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate taking a std::function<bool (int row, int ch)> mask so the selection can be any shape and a cell outside the mask ends the anchor run), and the cell clipboard (CellClipboard holding one {row, ch, Cell} entry per copied cell with its offset inside the copied rectangle, the kPasteNote/kPasteInst/kPasteVol/kPastePan/kPasteCmd/kPasteCmdVal bits and kPasteAll naming which fields reach, Pattern::pasteCells writing them at an anchor, clearing a field the copied cell left empty and skipping a target past length or channels so a paste never grows the pattern).
+/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate taking a std::function<bool (int row, int ch)> mask so the selection can be any shape and a cell outside the mask ends the anchor run), and the cell clipboard (CellClipboard holding one {row, ch, Cell} entry per copied cell with its offset inside the copied rectangle, the kPasteNote/kPasteInst/kPasteVol/kPastePan/kPasteCmd/kPasteCmdVal bits and kPasteAll naming which fields reach, Pattern::pasteCells writing them at an anchor, clearing a field the copied cell left empty and skipping a target past length or channels so a paste never grows the pattern), and the Undo steps setting (Settings::undoSteps, default 50 with kMaxUndoSteps = 200 as the cap, written and read back clamped with the rest of the SETTINGS block so the depth a host reloads belongs to the song).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h / PlaybackEngine.cpp: host-synced MIDI generation, carry/duplicate logic, explicit note-off panic, volume/pan driven by the Settings CC numbers, a value-only row using the command number carried in the column.
-/media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock, the size of the last GUI shown.
-/media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size, wiring the tools panel's isCellSelected hook to the tracker's selection, and the shortcuts where Ctrl+C/V name the cell clipboard (copySelectionToClipboard / pasteClipboardAtCursor) while the pattern clipboard's pair moved to Ctrl+Shift+C / Ctrl+Shift+V.
+/media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock, the size of the last GUI shown, and the undo line (undoStates holding the saved song XML with undoCursor and undoBytes counted in UTF-8 bytes, pushUndoPoint appending what a model change reached and skipping one that changed nothing, undo() / redo() stepping and refreshing the snapshot, resetUndoHistory anchoring a fresh line for a state the host hands back, getUndoDepth / getUndoRedoCount naming what is left to walk, trimUndoLine dropping the oldest states against the Settings depth and a 32 MB budget while never dropping the state the model is in or one ahead of the cursor, and stepUndoHistory keeping the pattern clipboard, the edit playhead and the mirrored transport position a saved state does not carry).
+/media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size, wiring the tools panel's isCellSelected hook to the tracker's selection, and the shortcuts where Ctrl+C/V name the cell clipboard (copySelectionToClipboard / pasteClipboardAtCursor) while the pattern clipboard's pair moved to Ctrl+Shift+C / Ctrl+Shift+V, the undo funnel commitEdit() (record the point the model reached, then refresh, so every component's onModelChanged ends in it while the bottom bar's OCT / STEP / CHANNELS handlers and selectPattern() record their own), performUndo / performRedo stepping the plug-in's line and refreshing the Settings panel as well because its rows hold their own values, and the Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z shortcuts that reach the editor rather than the tracker.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom, ruler (bar numbers only, no transport readout).
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber), cell selection (selBits one bit per (row, channel) in kSelWords = 2 uint64 words per row, applyCellRect unioning/subtracting/replacing word masks, gestureOp reading the held modifiers, channelAtX and channelBoundsFor naming a cell, per-cell painting and a hidden chip inverting its plate (theme::text plate, letter cut out in theme::panelLight) instead of dimming) and the cell clipboard (cellClipboard of CellClipboard type, copySelectionToClipboard putting the selected cells on it with their offsets inside the copied rectangle counted from the top-left selected cell and doing nothing while nothing is selected, pasteClipboardAtCursor writing at the cursor and only marking the model changed when it wrote something, hasCellClipboard greying out the menu's paste, and the cell menu's three top-level items - a "Clear" submenu whose leaves keep the old ids so the callback still answers them by id (4 Selection / 1 Cell / 2 Channel / 3 Pattern), "Copy selection", and a "Paste" submenu whose Everything / Note / Instrument / Volume / Pan / Command / Command Value leaves map onto the paste bits).
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber), cell selection (selBits one bit per (row, channel) in kSelWords = 2 uint64 words per row, applyCellRect unioning/subtracting/replacing word masks, gestureOp reading the held modifiers, channelAtX and channelBoundsFor naming a cell, per-cell painting and a hidden chip inverting its plate (theme::text plate, letter cut out in theme::panelLight) instead of dimming) and the cell clipboard (cellClipboard of CellClipboard type, copySelectionToClipboard putting the selected cells on it with their offsets inside the copied rectangle counted from the top-left selected cell and doing nothing while nothing is selected, pasteClipboardAtCursor writing at the cursor and only marking the model changed when it wrote something, hasCellClipboard greying out the menu's paste, and the cell menu's three top-level items - a "Clear" submenu whose leaves keep the old ids so the callback still answers them by id (4 Selection / 1 Cell / 2 Channel / 3 Pattern), "Copy selection", and a "Paste" submenu whose Everything / Note / Instrument / Volume / Pan / Command / Command Value leaves map onto the paste bits), and the undo pair (undoStep / redoStep std::function members the editor injects so the menu's Undo and Redo, ids 14 and 15 after the paste submenu's leaves and greyed out by the plug-in's own counts, walk the same line Ctrl+Z and Ctrl+Y walk and refresh every panel rather than only the grid, and cancelPendingEdit reporting whether a numeric buffer was half typed and closing it the way Esc does, which the Ctrl+Z branch and the menu's Undo consult before stepping so one press is one effect).
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source (the drag image is the item's cell), grid preview, rename.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose as one semitone amount field (IncDecButtons slider with an editable text box, whole semitones 1-48 opening at 12) plus arrow direction buttons whose labels arrowUpGlyph/arrowDownGlyph build as explicit UTF-8, remap (source dropdown All/-0..-F -> target dropdown -0..-F), cell scope (cellInScope answers whether a cell is in reach and applyToCells walks the cells, so the wider scopes name whole patterns and only the "Selection only" scope consults the tracker through the isCellSelected hook), interpolation with its single field dropdown (Note/Instrument/Volume/Pan/CC number/CC value, ids following the InterpField enumerators, the mask being the selection so there is no channel dropdown any more), the getCursorChannel hook still wired but unread, and the scope box defaulting to "Selection only".
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls, including the Volume column CC and Pan column CC sliders.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls, including the Volume column CC and Pan column CC sliders and the Undo steps row (undoStepsSlider, 0-200 defaulting to 50, sitting with the input prefs ahead of the CC pair and pushed back by refresh() so an undo that moved the depth shows in the row).
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: macro editor (definitions; executed in playback via command 128-143).
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel.
 /media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp: the sqrtf and atan2f defined inside the plug-in so its libm requirement stays portable, aliased hidden in assembly and built without LTO.
 /media/data2/GameDev/Plugins/ReTrektor/tests/CMakeLists.txt: smoke/core/editor-shot test targets.
-/media/data2/GameDev/Plugins/ReTrektor/tests/CoreTest.cpp, UiTest.cpp, SmokeTest.cpp, EditorShot.cpp: automated verification harnesses (CoreTest drives the interpolation predicate directly with rectangle masks and a holed mask and pastes a cell clipboard built the way the tracker builds it, UiTest drives the selection gestures and the cell clipboard through juce::ModifierKeys-carrying mouse events and the editor's keyPressed for Ctrl+C, Ctrl+V and the Shift pair, EditorShot can hold a selection with --select=r0,c0,r1,c1 and paste it at a cursor with --paste-at=row,ch).
+/media/data2/GameDev/Plugins/ReTrektor/tests/CoreTest.cpp, UiTest.cpp, SmokeTest.cpp, EditorShot.cpp: automated verification harnesses (CoreTest drives the interpolation predicate directly with rectangle masks and a holed mask and pastes a cell clipboard built the way the tracker builds it, UiTest drives the selection gestures and the cell clipboard through juce::ModifierKeys-carrying mouse events and the editor's keyPressed for Ctrl+C, Ctrl+V and the Shift pair, EditorShot can hold a selection with --select=r0,c0,r1,c1 and paste it at a cursor with --paste-at=row,ch, and can walk the undo line with --undo=N / --redo=N before it renders, so a shot shows what an earlier action left behind retracted).
 /media/data2/GameDev/Plugins/ReTrektor/JUCE: vendored framework.
 Important Context
 Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) (build dir currently configured and passing).
@@ -600,7 +765,7 @@ Portability check: readelf -VW <Re.Trektor.so inside the bundle> | grep -oE "GLI
 Tests: cmake -S tests -B tests/build -DCMAKE_BUILD_TYPE=Release then build targets ReTrektorSmoke, ReTrektorCoreTest, ReTrektorEditorShot.
 Smoke run: DISPLAY=:0 tests/build/ReTrektorSmoke_artefacts/Release/ReTrektorSmoke <bundle> [--screenshot=path].
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git (newest first): 15e2513 group the tracker's four clears into one Clear submenu and let a hidden chip invert its plate instead of dimming; d103ccf copy the selected cells and paste them at the cursor with a field filter, the paste filter's submenu living in the cell menu and the pattern clipboard's pair moving under Shift; 292ff37 selection holds cells rather than rows so the tools stop hitting every channel; e8f3049 document that transpose reads a semitone amount and a direction; 410b1fe transpose is an editable semitone amount plus a direction button instead of four fixed steps; ef3417f document that the plug-in binary is pinned so an older libm can load it; c3e2f36 document the interpolation tool, its dropdowns and its default scope; ee29e69 pin the two float routines the plug-in takes through libm's newest symbol versions so a host with an older libm loads the binary; 2e67b16 interpolation fills the blanks between the values that already exist, with field and channel dropdowns and the panel opening on the selection-only scope; 40345cc document that a command argument uses the carried command number; 76115ec a command argument without a command number uses the command carried in the column; 205cfe1 document that the timeline ruler keeps only bar numbers; d2f672e the timeline ruler drops the transport readout; 8d077f7 document that a reopened editor keeps the window size; c12431b a reopened editor comes back at the size the closed one had; ece35e2 document that a pool drag floats one item, not the pool panel; df03559 a pool drag floats only the item's cell at the cursor; 3f14d6f volume/pan controllers precede the note-off branch; cd3fc2c volume column drives CC7, Settings name the volume/pan CC numbers, chips hide one field of one channel; f9acf12 instrument remap reads a source and a target dropdown; 08af633 anchor right-click menus at the cursor; 32499ef document that a timeline click parks the playhead; 02c0ca3 jump the playhead to a timeline click; 117744f document pool copy actions and the removed redundant clip menu item; ce6422d drop the redundant "Copy pattern data (unique)" clip menu action; ae95cac scrollbar + --scroll docs; 97f50ea tracker horizontal scrollbar; 93dd668 channel/limit docs; 0716702 hidden channel columns + constant 127 channel cap; 121ecd0 pattern resize preserves hidden rows; 9ffaaa4 EditorShot
+Git (newest first): 6e51af9 undo and redo walk the states the model changes made, the depth capped by the Settings tab's Undo steps row plus a 32 MB budget, the pair also in the tracker menu and the undo line living on the plug-in so a reopened editor finds the same points; 15e2513 group the tracker's four clears into one Clear submenu and let a hidden chip invert its plate instead of dimming; d103ccf copy the selected cells and paste them at the cursor with a field filter, the paste filter's submenu living in the cell menu and the pattern clipboard's pair moving under Shift; 292ff37 selection holds cells rather than rows so the tools stop hitting every channel; e8f3049 document that transpose reads a semitone amount and a direction; 410b1fe transpose is an editable semitone amount plus a direction button instead of four fixed steps; ef3417f document that the plug-in binary is pinned so an older libm can load it; c3e2f36 document the interpolation tool, its dropdowns and its default scope; ee29e69 pin the two float routines the plug-in takes through libm's newest symbol versions so a host with an older libm loads the binary; 2e67b16 interpolation fills the blanks between the values that already exist, with field and channel dropdowns and the panel opening on the selection-only scope; 40345cc document that a command argument uses the carried command number; 76115ec a command argument without a command number uses the command carried in the column; 205cfe1 document that the timeline ruler keeps only bar numbers; d2f672e the timeline ruler drops the transport readout; 8d077f7 document that a reopened editor keeps the window size; c12431b a reopened editor comes back at the size the closed one had; ece35e2 document that a pool drag floats one item, not the pool panel; df03559 a pool drag floats only the item's cell at the cursor; 3f14d6f volume/pan controllers precede the note-off branch; cd3fc2c volume column drives CC7, Settings name the volume/pan CC numbers, chips hide one field of one channel; f9acf12 instrument remap reads a source and a target dropdown; 08af633 anchor right-click menus at the cursor; 32499ef document that a timeline click parks the playhead; 02c0ca3 jump the playhead to a timeline click; 117744f document pool copy actions and the removed redundant clip menu item; ce6422d drop the redundant "Copy pattern data (unique)" clip menu action; ae95cac scrollbar + --scroll docs; 97f50ea tracker horizontal scrollbar; 93dd668 channel/limit docs; 0716702 hidden channel columns + constant 127 channel cap; 121ecd0 pattern resize preserves hidden rows; 9ffaaa4 EditorShot
 --channels=N flag; a5e6e2d bottom-bar/settings channel docs; b02e52a CHANNELS slider direct edit; 1173682 stuck-note docs; b1725b1 stuck-note fix for hosts that skip MIDI-effect calls while stopped; de11909 pool grid preview; c4a8422 README macro-playback update; 49ec706 macro playback wiring; c36c6c7 ReTtrektor typo fix; 4263853 instrument fallback option; f89454e headless UI interaction test; c168e8b panels fit minimum window; a2ec7c9 Re.Trektor sources; ccc50f2 vendored JUCE 8.0.9.
 DISPLAY=:0 / wayland-0 available; no Reaper; /usr/bin/carla exists.
 Missing xcb-util-devel/xcb-util-wm-devel were installed via sudo dnf earlier (leftover from iPlug2 attempt, harmless).
