@@ -74,6 +74,7 @@ juce::MouseEvent makeEvent (juce::Component& c, juce::Point<float> pos)
 
 constexpr int kShiftMod = juce::ModifierKeys::shiftModifier;
 constexpr int kCtrlMod = juce::ModifierKeys::ctrlModifier;
+constexpr int kAltMod = juce::ModifierKeys::altModifier;
 
 template <typename T>
 T* findChild (juce::Component& root)
@@ -1499,6 +1500,103 @@ int main()
             pressUndo();
             check (proc.getUndoDepth() == depthBefore - 1,
                    "the next one steps, which is what makes the pair one press one effect");
+        }
+
+        //== the Alt spellings of the same pair =========================
+        {
+            // hosts such as Bitwig and Reaper bind Ctrl+Z, Ctrl+Shift+Z and
+            // Ctrl+Y to their own undo and never hand the plug-in the event,
+            // so Alt+Z / Alt+Y walk the same line for them, and the letter is
+            // read back from the key code or the printed character because a
+            // key held by Alt arrives as the character that press produced
+            auto pressUndoAlt = [&]
+            { return editor->keyPressed (juce::KeyPress ('Z', juce::ModifierKeys (kAltMod), 'Z')); };
+            auto pressRedoAlt = [&]
+            { return editor->keyPressed (juce::KeyPress ('Y', juce::ModifierKeys (kAltMod), 'Y')); };
+            auto pressRedoAltShift = [&]
+            { return editor->keyPressed (juce::KeyPress ('Z', juce::ModifierKeys (kShiftMod | kAltMod), 'Z')); };
+
+            // an octave no other row around here uses, so the note this entry
+            // writes is one the checks below can name on its own
+            song.settings.recordOctave = 8;
+
+            clickRow (30);
+            const int altRow = tracker->getCursorRow();
+            const int altCh = tracker->getCursorChannel();
+            const juce::String beforeAltSig = sigAt (altRow, altCh);
+
+            check (! tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys (kAltMod), 'z')),
+                   "the tracker lets a letter held with Alt through to the editor");
+            check (sigAt (altRow, altCh) == beforeAltSig,
+                   "so the Alt spelling enters no note of its own");
+
+            tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys(), 'z'));
+            const juce::String enteredAltSig = sigAt (altRow, altCh);
+            check (enteredAltSig != beforeAltSig,
+                   "the same letter without Alt still enters a note there");
+
+            const int altDepth = proc.getUndoDepth();
+
+            check (pressUndoAlt(), "the editor takes Alt+Z");
+            check (proc.getUndoDepth() == altDepth - 1, "Alt+Z steps the same line back one point");
+            check (sigAt (altRow, altCh) == beforeAltSig, "Alt+Z takes the entered note back");
+
+            check (pressRedoAlt(), "the editor takes Alt+Y");
+            check (proc.getUndoDepth() == altDepth && sigAt (altRow, altCh) == enteredAltSig,
+                   "Alt+Y walks the same point forward again");
+
+            check (pressUndoAlt(), "Alt+Z steps back a second time");
+            check (pressRedoAltShift(), "Alt+Shift+Z is the other spelling of that redo");
+            check (proc.getUndoDepth() == altDepth && sigAt (altRow, altCh) == enteredAltSig,
+                   "and it reaches the same state the plain spelling does");
+
+            pressRedoAlt();
+            check (proc.getUndoDepth() == altDepth && sigAt (altRow, altCh) == enteredAltSig,
+                   "a redo over the newest state is inert in the Alt spelling too");
+
+            // X11 hands a key held with Alt as the character that press
+            // produced, whose case follows the keyboard's level rather than the
+            // bare code, so the lowercase spellings are matched as well
+            auto pressUndoAltLower = [&]
+            { return editor->keyPressed (juce::KeyPress ('z', juce::ModifierKeys (kAltMod), 'z')); };
+            auto pressRedoAltLower = [&]
+            { return editor->keyPressed (juce::KeyPress ('y', juce::ModifierKeys (kAltMod), 'y')); };
+
+            const int lowerDepth = proc.getUndoDepth();
+            check (pressUndoAltLower(), "the editor takes the lowercase Alt+Z spelling the way X11 hands it");
+            check (proc.getUndoDepth() == lowerDepth - 1, "and that spelling steps the same line back");
+            check (pressRedoAltLower(), "the lowercase Alt+Y spelling walks it forward again");
+            check (proc.getUndoDepth() == lowerDepth && sigAt (altRow, altCh) == enteredAltSig,
+                   "and reaches the state the uppercase spelling does");
+
+            // the half-typed buffer is closed by either spelling first, which
+            // is what keeps one press one effect whichever pair was used
+            //
+            // the Alt walking above moved the hex display along with the rest
+            // of the song, and how many digits a field wants follows that flag,
+            // so the display is fixed here rather than assumed: a digit still
+            // in its buffer behaves the same in either spelling
+            song.settings.hexDisplay = false;
+
+            for (int i = 0; i < 8
+                     && tracker->getCursorField() != rtr::TrackerComponent::Field::inst; ++i)
+                tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+
+            const int altBufferRow = tracker->getCursorRow();
+            const int altBufferCh = tracker->getCursorChannel();
+            const juce::String altInstBefore = sigAt (altBufferRow, altBufferCh);
+            const int altBufferDepth = proc.getUndoDepth();
+
+            tracker->keyPressed (juce::KeyPress ('5', juce::ModifierKeys(), '5'));
+            check (proc.getUndoDepth() == altBufferDepth,
+                   "the pending digit the Alt pair starts from changes no model");
+
+            pressUndoAlt();
+            check (proc.getUndoDepth() == altBufferDepth && sigAt (altBufferRow, altBufferCh) == altInstBefore,
+                   "Alt+Z closes that buffer rather than walking back");
+
+            pressUndoAlt();
+            check (proc.getUndoDepth() == altBufferDepth - 1, "and the next Alt+Z steps");
         }
 
         //== the depth the Settings tab asks for ============================

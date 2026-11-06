@@ -1548,9 +1548,13 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
     const auto text = key.getTextCharacter();
     const bool shift = key.getModifiers().isShiftDown();
     const bool cmdCtrl = key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown();
+    const bool alt = key.getModifiers().isAltDown();
 
-    if (cmdCtrl)
-        return false; // let the editor handle clipboard shortcuts
+    // the tracker knows no Alt combination of its own, and a letter held with
+    // Alt would otherwise be typed as a note before the editor got the event,
+    // which is what the Alt spellings of undo and redo need left free
+    if (cmdCtrl || alt)
+        return false; // let the editor handle the clipboard and undo shortcuts
 
     auto& p = pattern();
 
