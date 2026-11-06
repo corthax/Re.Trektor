@@ -455,7 +455,11 @@ void TrackerComponent::drawHeader (juce::Graphics& g, juce::Rectangle<int> heade
                     noteRect.getX(), headerTop, noteRect.getWidth(), 14,
                     juce::Justification::centred, false);
 
-        // Column visibility chips, always shown so a hidden column can be restored.
+        // Column visibility chips, always shown so a hidden column can be
+        // restored. Hiding one inverts the chip instead of dimming it: the letter
+        // is cut out of a plate in the letter's own colour, so a hidden chip is
+        // exactly as legible as a shown one and only its fill says which state
+        // the field is in.
         const char* labels[4] = { "I", "V", "P", "C" };
         const bool states[4] = { p.showColumn (ch, 0), p.showColumn (ch, 1),
                                  p.showColumn (ch, 2), p.showColumn (ch, 3) };
@@ -467,11 +471,15 @@ void TrackerComponent::drawHeader (juce::Graphics& g, juce::Rectangle<int> heade
             if (btn.isEmpty())
                 continue;
 
-            g.setColour (states[i] ? theme::panelLight : theme::background);
+            const bool shown = states[i];
+            const auto plate = shown ? theme::panelLight : theme::text;
+            const auto ink = shown ? theme::text : theme::panelLight;
+
+            g.setColour (plate);
             g.fillRoundedRectangle (btn.toFloat(), 2.0f);
-            g.setColour (states[i] ? theme::textDim : theme::outline);
+            g.setColour (theme::textDim);
             g.drawRoundedRectangle (btn.toFloat(), 2.0f, 1.0f);
-            g.setColour (states[i] ? theme::text : theme::outline);
+            g.setColour (ink);
             g.setFont (theme::monoFont (8.5f));
             g.drawText (labels[i], btn, juce::Justification::centred, false);
         }
@@ -987,11 +995,18 @@ void TrackerComponent::mouseDoubleClick (const juce::MouseEvent& e)
 //==============================================================================
 void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
 {
+    // the four clears share one submenu so the top level stays about what the
+    // cursor is on: the ids do not change, only where the items are presented,
+    // and the callback below still answers 1..4 by them
     juce::PopupMenu menu;
-    menu.addItem (1, "Clear cell");
-    menu.addItem (2, "Clear channel");
-    menu.addItem (3, "Clear pattern");
-    menu.addItem (4, "Clear selection", hasSelection());
+
+    juce::PopupMenu clearMenu;
+    clearMenu.addItem (4, "Selection", hasSelection());
+    clearMenu.addItem (1, "Cell");
+    clearMenu.addItem (2, "Channel");
+    clearMenu.addItem (3, "Pattern");
+    menu.addSubMenu ("Clear", clearMenu);
+
     menu.addItem (5, "Copy selection", hasSelection());
 
     juce::PopupMenu pasteMenu;
@@ -1009,6 +1024,8 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                         {
                             auto& p = pattern();
 
+                            // 1..4 are the "Clear" submenu's leaves, 5 is the
+                            // top-level copy and 7..13 the "Paste" submenu's
                             if (result == 1)
                             {
                                 clearCurrentField();
