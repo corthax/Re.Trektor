@@ -1513,7 +1513,7 @@ int main()
             { return editor->keyPressed (juce::KeyPress ('Z', juce::ModifierKeys (kAltMod), 'Z')); };
             auto pressRedoAlt = [&]
             { return editor->keyPressed (juce::KeyPress ('Y', juce::ModifierKeys (kAltMod), 'Y')); };
-            auto pressRedoAltShift = [&]
+            auto pressAltShiftZ = [&]
             { return editor->keyPressed (juce::KeyPress ('Z', juce::ModifierKeys (kShiftMod | kAltMod), 'Z')); };
 
             // an octave no other row around here uses, so the note this entry
@@ -1546,13 +1546,22 @@ int main()
                    "Alt+Y walks the same point forward again");
 
             check (pressUndoAlt(), "Alt+Z steps back a second time");
-            check (pressRedoAltShift(), "Alt+Shift+Z is the other spelling of that redo");
+            check (pressRedoAlt(), "Alt+Y reaches that state again");
             check (proc.getUndoDepth() == altDepth && sigAt (altRow, altCh) == enteredAltSig,
-                   "and it reaches the same state the plain spelling does");
+                   "and both Alt spellings land on the same point of the line");
 
             pressRedoAlt();
             check (proc.getUndoDepth() == altDepth && sigAt (altRow, altCh) == enteredAltSig,
                    "a redo over the newest state is inert in the Alt spelling too");
+
+            // the Alt+Shift spellings are left to the host rather than spent on
+            // a redo alias: the hosts swallow Alt+Shift+Z before the plug-in is
+            // offered it, so claiming it would give a key the user aims at the
+            // redo the opposite meaning wherever it does arrive
+            const int depthAltShift = proc.getUndoDepth();
+            check (! pressAltShiftZ(), "the editor leaves an Alt+Shift combination to the host");
+            check (proc.getUndoDepth() == depthAltShift && sigAt (altRow, altCh) == enteredAltSig,
+                   "so neither the undo nor the redo steps on that press");
 
             // X11 hands a key held with Alt as the character that press
             // produced, whose case follows the keyboard's level rather than the

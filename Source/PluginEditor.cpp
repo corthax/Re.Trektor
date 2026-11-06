@@ -615,23 +615,21 @@ bool ReTrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
     // Alt+Z and Alt+Y are the same two steps for the hosts that take the Ctrl
     // pair for their own undo: Bitwig and Reaper answer Ctrl+Z, Ctrl+Shift+Z
     // and Ctrl+Y themselves, so the plug-in is never handed those events and
-    // only the tracker's menu pair is left reachable. The letter is matched
-    // over both the key code and the printed character because a key held by
-    // Alt arrives as the character that press produced rather than as a bare
-    // code, and Shift hands the uppercase one, so the Shift spelling of redo
-    // is tested before the plain Alt pair below it would answer it
-    if (key.getModifiers().isAltDown() && ! ctrl)
+    // only the tracker's menu pair is left reachable. Alt is what those hosts
+    // leave free, and the letter is matched over both the key code and the
+    // printed character because a key held by Alt arrives as the character that
+    // press produced rather than as a bare code. The Alt+Shift spellings are
+    // left alone rather than spent on a redo alias, which is what the check in
+    // the hosts found: Alt+Shift+Z is swallowed on the way to both of them, so
+    // answering it with an undo would give a key the user aims at the redo the
+    // opposite meaning
+    if (key.getModifiers().isAltDown() && ! ctrl
+        && ! key.getModifiers().isShiftDown())
     {
         const int code = key.getKeyCode();
         const auto printed = key.getTextCharacter();
         const bool keyZ = code == 'Z' || code == 'z' || printed == 'Z' || printed == 'z';
         const bool keyY = code == 'Y' || code == 'y' || printed == 'Y' || printed == 'y';
-
-        if (keyZ && key.getModifiers().isShiftDown())
-        {
-            performRedo();
-            return true;
-        }
 
         if (keyZ)
         {
