@@ -64,6 +64,41 @@ enum class InterpField
 };
 
 //==============================================================================
+/** Paste filter bits (Pattern::pasteCells): which fields of the copied cells
+    reach the pattern. The tracker's Ctrl+V is kPasteAll, while the right-click
+    paste submenu offers one option per bit. The command pair splits because
+    "Command" names the number the column carries and "Command Value" its
+    argument. A clipboard field that was empty clears the target's field, so
+    a pasted cell goes back to carrying whatever the column carried above it. */
+constexpr int kPasteNote = 1;
+constexpr int kPasteInst = 2;
+constexpr int kPasteVol = 4;
+constexpr int kPastePan = 8;
+constexpr int kPasteCmd = 16;    // command number
+constexpr int kPasteCmdVal = 32; // command argument
+constexpr int kPasteAll = 63;
+
+/** Cell clipboard content: every copied cell with its offset inside the copied
+    rectangle, measured from its top-left cell. A Ctrl-drag hole stays a hole
+    here, since only selected cells are stored, so a paste never writes through
+    it. The clipboard is UI state (the tracker view holds one), not part of the
+    saved song, but it survives a pattern switch so a copy can paste elsewhere. */
+struct CellClipboard
+{
+    struct Entry
+    {
+        int row = 0; // offset within the copied rectangle
+        int ch = 0;
+        Cell cell;
+    };
+
+    std::vector<Entry> entries;
+
+    bool empty() const noexcept { return entries.empty(); }
+    void clear() { entries.clear(); }
+};
+
+//==============================================================================
 struct Pattern
 {
     int id = 0;
@@ -265,6 +300,17 @@ struct Pattern
         is skipped without ending the run. Returns the number of cells written. */
     int interpolate (InterpField field,
                      const std::function<bool (int row, int ch)>& inCell) noexcept;
+
+    /** Pastes a cell clipboard anchored at (anchorRow, anchorChannel): the
+        copied cell at rectangle offset (0, 0) lands on the anchor, and every
+        other keeps its place relative to it. Targets outside the pattern's
+        visible length or channel count are simply discarded, so a paste never
+        grows the pattern. `fieldMask` is the paste filter (kPaste* bits):
+        kPasteAll rewrites every field of the cell, a single-field choice
+        touches only its own column, and a clipboard field that was empty
+        clears the target's field. Returns the number of cells written. */
+    int pasteCells (const CellClipboard& clip, int anchorRow, int anchorChannel,
+                    int fieldMask) noexcept;
 };
 
 //==============================================================================

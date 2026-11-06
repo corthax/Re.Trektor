@@ -493,15 +493,31 @@ bool ReTrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
 {
     const bool ctrl = key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown();
 
-    if (ctrl && key.getKeyCode() == 'C')
+    // Ctrl+C and Ctrl+V are now the cell clipboard: they copy the selected
+    // cells and paste them at the tracker cursor with everything. The pattern
+    // clipboard keeps both reachable under Shift (and through the timeline's
+    // context menus), which is where the plain shortcuts used to sit
+    if (ctrl && key.getModifiers().isShiftDown() && key.getKeyCode() == 'C')
     {
         doCopy();
         return true;
     }
 
+    if (ctrl && key.getKeyCode() == 'C')
+    {
+        tracker.copySelectionToClipboard();
+        return true;
+    }
+
+    if (ctrl && key.getModifiers().isShiftDown() && key.getKeyCode() == 'V')
+    {
+        doPaste (true);
+        return true;
+    }
+
     if (ctrl && key.getKeyCode() == 'V')
     {
-        doPaste (key.getModifiers().isShiftDown());
+        tracker.pasteClipboardAtCursor (kPasteAll);
         return true;
     }
 

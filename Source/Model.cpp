@@ -190,6 +190,51 @@ int Pattern::interpolate (InterpField field,
 }
 
 //==============================================================================
+int Pattern::pasteCells (const CellClipboard& clip, int anchorRow,
+                         int anchorChannel, int fieldMask) noexcept
+{
+    if (clip.entries.empty() || fieldMask == 0 || anchorRow < 0 || anchorChannel < 0)
+        return 0;
+
+    int written = 0;
+
+    for (const auto& entry : clip.entries)
+    {
+        const int row = anchorRow + entry.row;
+        const int ch = anchorChannel + entry.ch;
+
+        // what does not fit inside the pattern's visible size is discarded,
+        // so a paste never grows the pattern in rows or channels
+        if (row >= length || ch >= channels)
+            continue;
+
+        // a jagged row simply has no cell past its end
+        if (row >= (int) rows.size() || ch >= (int) rows[(size_t) row].size())
+            continue;
+
+        auto& dst = rows[(size_t) row][(size_t) ch];
+        const Cell& src = entry.cell;
+
+        if ((fieldMask & kPasteNote) != 0)
+            dst.note = src.note;
+        if ((fieldMask & kPasteInst) != 0)
+            dst.inst = src.inst;
+        if ((fieldMask & kPasteVol) != 0)
+            dst.vol = src.vol;
+        if ((fieldMask & kPastePan) != 0)
+            dst.pan = src.pan;
+        if ((fieldMask & kPasteCmd) != 0)
+            dst.cmd = src.cmd;
+        if ((fieldMask & kPasteCmdVal) != 0)
+            dst.cmdVal = src.cmdVal;
+
+        ++written;
+    }
+
+    return written;
+}
+
+//==============================================================================
 Song::Song()
 {
     reset();

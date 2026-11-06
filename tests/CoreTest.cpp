@@ -1029,6 +1029,138 @@ int main()
                "the selection still never reaches outside itself");
     }
 
+    //== Cell clipboard paste ================================================
+    {
+        std::cout << "Cell clipboard paste\n";
+        Song a;
+        const int pdId = a.addPattern ("Paste", 24, 2).id;
+        const int wdId = a.addPattern ("Wide", 24, 3).id;
+        auto* p = a.findPattern (pdId);
+        auto* w = a.findPattern (wdId);
+
+        // the tracker copies the selection into the clipboard: each entry keeps
+        // its offset inside the copied rectangle, measured from the top-left
+        // selected cell, and the cells left out of the selection (a Ctrl-drag
+        // hole) never enter it
+        auto clipOf = [] (const Pattern& pat, auto pred)
+        {
+            CellClipboard clip;
+            int minR = kMaxRows;
+            int minC = kMaxTrackerChannels;
+
+            for (int r = 0; r < pat.length; ++r)
+                for (int c = 0; c < pat.channels; ++c)
+                    if (pred (r, c))
+                    {
+                        minR = juce::jmin (minR, r);
+                        minC = juce::jmin (minC, c);
+                    }
+
+            if (minR == kMaxRows)
+                return clip;
+
+            for (int r = 0; r < pat.length; ++r)
+                for (int c = 0; c < pat.channels; ++c)
+                    if (pred (r, c))
+                        clip.entries.push_back ({ r - minR, c - minC, pat.cell (r, c) });
+
+            return clip;
+        };
+
+        p->cell (10, 0).note = 60;
+        p->cell (10, 0).vol = 11;
+        p->cell (10, 0).inst = 2;
+        p->cell (10, 0).cmd = 17;
+        p->cell (10, 0).cmdVal = 8;
+        p->cell (12, 0).note = 62;
+        p->cell (12, 0).pan = 44;
+        // row 11 of channel 0 stays out of the selection: it is the hole a
+        // Ctrl-drag leaves and the clipboard must not write through it
+        auto holed = [] (int row, int ch) noexcept
+        {
+            return ch == 0 && row >= 10 && row <= 12 && row != 11;
+        };
+
+        CellClipboard clip = clipOf (*p, holed);
+        check (clip.entries.size() == 2, "the clipboard holds one entry per selected cell");
+
+        p->cell (2, 1).note = 70;
+        p->cell (2, 1).pan = 50;
+        p->cell (3, 1).vol = 99;
+
+        const int written = p->pasteCells (clip, 2, 1, kPasteAll);
+        check (written == 2, "the paste writes one cell per clipboard entry");
+        check (p->cell (2, 1).note == 60 && p->cell (2, 1).vol == 11
+                       && p->cell (2, 1).inst == 2,
+                   "Everything rewrites every field the clipboard cell named");
+        check (p->cell (2, 1).cmd == 17 && p->cell (2, 1).cmdVal == 8,
+                   "Everything pastes the command number and its argument too");
+        check (p->cell (2, 1).pan == kEmpty,
+                   "a field the clipboard cell left empty clears the target, which carries again");
+        check (p->cell (3, 1).vol == 99 && p->cell (3, 1).note == kEmpty,
+                   "the hole inside the clipboard pastes nothing at all");
+        check (p->cell (4, 1).note == 62 && p->cell (4, 1).pan == 44,
+                   "every other entry keeps its place relative to the anchor");
+
+        CellClipboard empty;
+        check (p->pasteCells (empty, 0, 0, kPasteAll) == 0,
+               "an empty clipboard pastes nothing");
+
+        p->cell (14, 1).vol = 55;
+        const int notesOnly = p->pasteCells (clip, 14, 1, kPasteNote);
+        check (notesOnly == 2, "a single-field paste visits every entry");
+        check (p->cell (14, 1).note == 60 && p->cell (14, 1).vol == 55,
+               "a note paste overwrites only notes and leaves the target's volume its own");
+        check (p->cell (16, 1).note == 62 && p->cell (16, 1).pan == kEmpty,
+               "the pan of the lower entry is not pasted, so the target keeps its blank");
+
+        p->cell (18, 1).cmd = 3;
+        p->cell (18, 1).cmdVal = 42;
+        p->pasteCells (clip, 18, 1, kPasteCmd);
+        check (p->cell (18, 1).cmd == 17 && p->cell (18, 1).cmdVal == 42,
+               "the Command option pastes the number and leaves the target's argument alone");
+
+        // the same paste also reached the lower offset cell, so that one gets a
+        // command of its own again before the argument-only paste is checked
+        p->cell (20, 1).cmd = 9;
+        p->cell (20, 1).cmdVal = 90;
+        p->pasteCells (clip, 20, 1, kPasteCmdVal);
+        check (p->cell (20, 1).cmd == 9 && p->cell (20, 1).cmdVal == 8,
+               "the Command Value option pastes the argument and keeps the target's number");
+
+        // --- the wider block: two columns wide, and the last channel is at the
+        // pattern's edge, so half the block does not fit ---
+        w->cell (4, 1).note = 61;
+        w->cell (4, 1).vol = 9;
+        w->cell (4, 2).note = 63;
+        w->cell (7, 2).note = 80;
+        w->cell (7, 2).vol = 33;
+
+        auto twoWide = [] (int row, int ch) noexcept
+        {
+            return (row == 4 || row == 5) && ch >= 1 && ch <= 2;
+        };
+
+        CellClipboard block = clipOf (*w, twoWide);
+        check (block.entries.size() == 4, "selected cells that are empty go into the clipboard too");
+
+        const int dropped = w->pasteCells (block, 6, 2, kPasteAll);
+        check (dropped == 2, "the column that would stick out past the last channel is discarded");
+        check (w->cell (6, 2).note == 61 && w->cell (6, 2).vol == 9,
+               "the block's first column lands on the pattern's last channel");
+        check (w->cell (7, 2).note == kEmpty && w->cell (7, 2).vol == kEmpty,
+               "pasting an all-empty clipboard cell clears the target it lands on");
+        check (w->channelCapacity() == 3, "a paste never widens the pattern");
+
+        // --- pasting across the new end of a shortened pattern ---
+        w->setLength (8);
+        const int shortened = w->pasteCells (block, 7, 2, kPasteAll);
+        check (shortened == 1, "rows past the shortened pattern's end are discarded");
+        check (w->length == 8, "a paste never grows the pattern back");
+        check (w->cell (7, 2).note == 61 && w->cell (7, 2).vol == 9,
+               "the part that still fits lands at the anchor");
+    }
+
     std::cout << (failures == 0 ? "PASS" : "FAILED") << " (" << failures << " failures)\n";
     return failures == 0 ? 0 : 1;
 }

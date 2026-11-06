@@ -992,6 +992,17 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
     menu.addItem (2, "Clear channel");
     menu.addItem (3, "Clear pattern");
     menu.addItem (4, "Clear selection", hasSelection());
+    menu.addItem (5, "Copy selection", hasSelection());
+
+    juce::PopupMenu pasteMenu;
+    pasteMenu.addItem (7, "Everything");
+    pasteMenu.addItem (8, "Note");
+    pasteMenu.addItem (9, "Instrument");
+    pasteMenu.addItem (10, "Volume");
+    pasteMenu.addItem (11, "Pan");
+    pasteMenu.addItem (12, "Command");
+    pasteMenu.addItem (13, "Command Value");
+    menu.addSubMenu ("Paste", pasteMenu, hasCellClipboard());
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition (),
                         [this] (int result)
@@ -1027,6 +1038,20 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                                             p.cell (r, c).clear();
 
                                 markChanged();
+                            }
+                            else if (result == 5 && hasSelection())
+                            {
+                                copySelectionToClipboard();
+                            }
+                            else if (result >= 7 && result <= 13 && hasCellClipboard())
+                            {
+                                // the submenu items map to the paste filter bits:
+                                // 7 is Everything, 8..13 name one field each
+                                static const int pasteMasks[] = { kPasteAll, kPasteNote,
+                                                                  kPasteInst, kPasteVol,
+                                                                  kPastePan, kPasteCmd,
+                                                                  kPasteCmdVal };
+                                pasteClipboardAtCursor (pasteMasks[result - 7]);
                             }
 
                             repaint();
@@ -1202,6 +1227,53 @@ void TrackerComponent::clearSelection()
         words = kNoCells;
 
     repaint();
+}
+
+//==============================================================================
+//== Cell clipboard ===========================================================
+/** Ctrl+C / "Copy selection": the selected cells become clipboard entries that
+    keep their offsets inside the copied rectangle measured from the top-left
+    selected cell, so the paste anchored at the cursor lays them out around it
+    again — and a Ctrl-drag hole stays a hole between entries, which means a
+    paste never writes through it. Copying with nothing selected leaves the
+    clipboard from before alone. */
+void TrackerComponent::copySelectionToClipboard()
+{
+    if (! hasSelection())
+        return;
+
+    auto& p = pattern();
+    cellClipboard.entries.clear();
+
+    int minRow = p.length;
+    int minCh = p.channels;
+
+    for (int r = 0; r < p.length; ++r)
+        for (int c = 0; c < p.channels; ++c)
+        {
+            if (! isCellSelected (r, c))
+                continue;
+
+            minRow = juce::jmin (minRow, r);
+            minCh = juce::jmin (minCh, c);
+        }
+
+    for (int r = minRow; r < p.length; ++r)
+        for (int c = minCh; c < p.channels; ++c)
+            if (isCellSelected (r, c))
+                cellClipboard.entries.push_back ({ r - minRow, c - minCh, p.cell (r, c) });
+}
+
+/** Ctrl+V / the paste submenu: writes the clipboard at the cursor, filtered by
+    the kPaste* bits, and only touches the model when something was written. */
+int TrackerComponent::pasteClipboardAtCursor (int fieldMask)
+{
+    const int written = pattern().pasteCells (cellClipboard, cursorRow, cursorChannel, fieldMask);
+
+    if (written > 0)
+        markChanged();
+
+    return written;
 }
 
 void TrackerComponent::setCursorRow (int row)

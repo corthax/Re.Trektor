@@ -10,6 +10,9 @@
       - selection interpolation in the tools panel
       - cell selection: a click selects one cell, a drag a rectangle of cells,
         Shift unions another rectangle into it and Ctrl takes one away
+      - the cell clipboard: Ctrl+C copies the selection, Ctrl+V pastes it at the
+        cursor with everything, the paste submenu filters one field, a clipboard
+        hole pastes nothing, and what does not fit inside the pattern is dropped
       - timeline drag-and-drop from the pool
       - pool double-click placement with snapping
       - settings toggles
@@ -837,6 +840,171 @@ int main()
                 scope->setSelectedId (1); // back to the scope a fresh panel opens on
                 fieldBox->setSelectedId (1);
             }
+        }
+    }
+
+    //== Tracker cell clipboard copy and paste ================================
+    {
+        auto* p = song.activePattern();
+        check (p != nullptr, "an active pattern exists for the clipboard checks");
+
+        if (p != nullptr)
+        {
+            // a fresh fixture: two columns of rows 4..6, written after clearing
+            // so nothing an earlier block left in these rows reaches inside
+            for (int r = 4; r <= 6; ++r)
+                for (int c = 0; c < 2; ++c)
+                    p->cell (r, c).clear();
+
+            p->cell (4, 1).note = 60;
+            p->cell (4, 1).vol = 11;
+            p->cell (4, 1).pan = 44;
+            p->cell (5, 1).note = 61;
+            p->cell (6, 1).note = 62;
+            p->cell (6, 1).pan = 55;
+            p->cell (4, 0).note = 70;
+            p->cell (4, 0).pan = 100;
+            p->cell (5, 0).note = 71;
+            p->cell (6, 0).note = 72;
+            p->cell (6, 0).inst = 6;
+
+            tracker->refresh();
+            const float chZero = (float) tracker->channelBoundsFor (0).getCentreX();
+            const float chOne = (float) tracker->channelBoundsFor (1).getCentreX();
+
+            // drag one column and Ctrl takes a row out of it, leaving a hole
+            tracker->mouseDown (makeEvent (*tracker, { chOne, 131.5f })); // row 4
+            tracker->mouseDrag (makeEvent (*tracker, { chOne, 169.5f })); // row 6
+            tracker->mouseUp (makeEvent (*tracker, { chOne, 169.5f }));
+            tracker->mouseDown (makeEvent (*tracker, { chOne, 150.5f }, kCtrlMod)); // row 5
+            tracker->mouseUp (makeEvent (*tracker, { chOne, 150.5f }, kCtrlMod));
+
+            check (tracker->isCellSelected (4, 1) && tracker->isCellSelected (6, 1)
+                       && ! tracker->isCellSelected (5, 1),
+                   "the drag paints a column and the Ctrl click leaves a hole in it");
+
+            // Ctrl+C copies the selection, hole included
+            editor->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kCtrlMod), 'C'));
+            check (tracker->hasCellClipboard(), "Ctrl+C copies the selected cells");
+            check (tracker->isCellSelected (4, 1) && tracker->isCellSelected (6, 1),
+                   "copying leaves the selection in place");
+
+            // Ctrl+V lands the block at a clicked cursor: rows 18..20 of channel 0
+            head->playing = false;
+            for (int r = 18; r <= 20; ++r)
+                p->cell (r, 0).clear();
+
+            p->cell (18, 0).vol = 99;
+            p->cell (18, 0).pan = 98;
+            p->cell (19, 0).vol = 97;
+
+            tracker->refresh();
+            tracker->mouseDown (makeEvent (*tracker, { chZero, 392.5f })); // row 18
+            tracker->mouseUp (makeEvent (*tracker, { chZero, 392.5f }));
+            check (tracker->getCursorRow() == 18 && tracker->getCursorChannel() == 0,
+                   "the click parks the cursor at the paste's corner cell");
+
+            editor->keyPressed (juce::KeyPress ('V', juce::ModifierKeys (kCtrlMod), 'V'));
+
+            check (p->cell (18, 0).note == 60 && p->cell (18, 0).vol == 11
+                       && p->cell (18, 0).pan == 44,
+                   "Ctrl+V writes the first copied cell over the cursor cell");
+            check (p->cell (18, 0).inst == rtr::kEmpty && p->cell (18, 0).cmd == rtr::kEmpty
+                       && p->cell (18, 0).cmdVal == rtr::kEmpty,
+                   "pasting everything clears the fields the clipboard cell left empty");
+            check (p->cell (19, 0).note == rtr::kEmpty && p->cell (19, 0).vol == 97
+                       && p->cell (19, 0).pan == rtr::kEmpty,
+                   "the hole inside the clipboard pastes nothing: the target keeps its own");
+            check (p->cell (20, 0).note == 62 && p->cell (20, 0).pan == 55
+                       && p->cell (20, 0).vol == rtr::kEmpty,
+                   "the last copied cell lands at its offset below the anchor");
+
+            // a filtered paste: only the note column moves
+            for (int r = 21; r <= 23; r += 2)
+                p->cell (r, 0).clear();
+
+            p->cell (21, 0).note = 77;
+            p->cell (21, 0).vol = 55;
+            p->cell (23, 0).pan = 66;
+
+            tracker->refresh();
+            tracker->mouseDown (makeEvent (*tracker, { chZero, 449.5f })); // row 21
+            tracker->mouseUp (makeEvent (*tracker, { chZero, 449.5f }));
+
+            tracker->pasteClipboardAtCursor (rtr::kPasteNote);
+
+            check (p->cell (21, 0).note == 60 && p->cell (21, 0).vol == 55,
+                   "the Note filter overwrites notes only and leaves the volume its own");
+            check (p->cell (23, 0).note == 62 && p->cell (23, 0).pan == 66,
+                   "the offset cell lands and still keeps its other fields");
+
+            // a full 2x3 block: a plain gesture draws channel 0 and Shift unions
+            // the other column into it
+            tracker->refresh();
+            tracker->mouseDown (makeEvent (*tracker, { chZero, 131.5f }));
+            tracker->mouseDrag (makeEvent (*tracker, { chZero, 169.5f }, kShiftMod));
+            tracker->mouseUp (makeEvent (*tracker, { chZero, 169.5f }, kShiftMod));
+            tracker->mouseDown (makeEvent (*tracker, { chOne, 131.5f }, kShiftMod));
+            tracker->mouseDrag (makeEvent (*tracker, { chOne, 169.5f }, kShiftMod));
+            tracker->mouseUp (makeEvent (*tracker, { chOne, 169.5f }, kShiftMod));
+
+            editor->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kCtrlMod), 'C'));
+
+            // and the paste at the last channel keeps only its first column
+            for (int r = 22; r <= 24; ++r)
+                p->cell (r, 1).clear();
+
+            p->cell (22, 1).note = 77;
+            p->cell (22, 1).vol = 22;
+
+            tracker->refresh();
+            tracker->mouseDown (makeEvent (*tracker, { chOne, 468.5f })); // row 22
+            tracker->mouseUp (makeEvent (*tracker, { chOne, 468.5f }));
+
+            editor->keyPressed (juce::KeyPress ('V', juce::ModifierKeys (kCtrlMod), 'V'));
+
+            check (p->cell (22, 1).note == 70 && p->cell (22, 1).pan == 100,
+                   "the block starts over the cursor cell with its first column");
+            check (p->cell (22, 1).vol == rtr::kEmpty && p->cell (22, 1).inst == rtr::kEmpty,
+                   "the whole copied cell is written, empty fields included");
+            check (p->cell (23, 1).note == 71, "the row between follows, column and all");
+            check (p->rows.size() == 64 && p->cell (24, 1).note == 72
+                       && p->cell (24, 1).inst == 6,
+                   "the block's last row keeps its offset below the anchor");
+
+            // the block that does not fit is dropped: shorten the pattern and
+            // paste at the edge again
+            p->setLength (24);
+            tracker->refresh();
+            tracker->setCursorRow (23); // channel stays 1: the last channel
+
+            editor->keyPressed (juce::KeyPress ('V', juce::ModifierKeys (kCtrlMod), 'V'));
+
+            check (p->cell (23, 1).note == 70 && p->cell (23, 1).pan == 100,
+                   "the part that still fits lands at the anchor below the shortening");
+            check (p->rows.size() == 25 && p->rows[24][1].note == 72
+                       && p->rows[24][1].inst == 6,
+                   "rows past the new end keep what the earlier paste left there");
+
+            // copying an empty selection leaves the clipboard of before alone
+            tracker->clearSelection();
+            editor->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kCtrlMod), 'C'));
+            check (! tracker->hasSelection() && tracker->hasCellClipboard(),
+                   "copying nothing selected leaves the previous clipboard in place");
+
+            // the pattern clipboard keeps its operations under Shift
+            const int clipsBefore = (int) song.clips.size();
+            editor->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kShiftMod | kCtrlMod), 'C'));
+            check (song.clipboard.valid, "Ctrl+Shift+C copies the active pattern to the pattern clipboard");
+
+            head->playing = false;
+            editor->keyPressed (juce::KeyPress ('V', juce::ModifierKeys (kShiftMod | kCtrlMod), 'V'));
+            check ((int) song.clips.size() == clipsBefore,
+                   "Ctrl+Shift+V is the pattern paste: it lands at the playhead and overlaps block it");
+
+            p->setLength (64); // grown back: hidden rows and their data return
+            tracker->refresh();
+            tracker->clearSelection();
         }
     }
 

@@ -53,6 +53,18 @@ public:
         with the modifiers, which union or subtract the rectangle they sweep. */
     void addCellsToSelection (int row0, int ch0, int row1, int ch1);
 
+    //== Cell clipboard =======================================================
+    /** The cells Ctrl+C and the tracker's "Copy selection" menu item have
+        copied, and that Ctrl+V and the paste submenu write back. The copied
+        cells keep their offsets inside the copied rectangle, so the paste
+        anchored at the cursor lays them out around it again and never writes
+        through a Ctrl-drag hole. Like the selection this lives in the tracker
+        view rather than in the saved song, and it survives a pattern switch. */
+    CellClipboard cellClipboard;
+    void copySelectionToClipboard();
+    int pasteClipboardAtCursor (int fieldMask);
+    bool hasCellClipboard() const noexcept { return ! cellClipboard.empty(); }
+
     /** The command number the column resolves to above the given row (the one
         an implicit cell on that row carries), or -1 when the column never named
         a command yet. */

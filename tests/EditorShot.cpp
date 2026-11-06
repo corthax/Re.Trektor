@@ -5,7 +5,7 @@
     Usage: ReTrektorEditorShot /path/out.png [width height] [--dump]
            [tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
            [--click-timeline=PCT] [--hide=0v1c] [--expand-pool] [--hex]
-           [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1]
+           [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
 
     --hide= takes channel/letter pairs (i instrument, v volume, p pan, c
     command), so --hide=0v1c hides the volume of channel 0 and the command of
@@ -14,6 +14,10 @@
     --select= holds a rectangle of cells selected for the shot, given as row0,
     channel0,row1,channel1 and inclusive at both ends, so --select=6,1,7,1
     paints only channel 1's rows 6 and 7 rather than a band across the pattern.
+
+    --paste-at= goes with --select=: the selected cells take the copy Ctrl+C
+    makes and then land at ROW,CH with everything, so the shot shows the pasted
+    block at the cursor and what does not fit inside the pattern dropped.
 
     --drag-preview= composites the image JUCE floats at the cursor while pool
     item IDX is dragged out of the pool, so the shot can show that only that
@@ -196,6 +200,16 @@ int main (int argc, char** argv)
         if (args[i].startsWith ("--select="))
         {
             shotSelect = args[i].fromFirstOccurrenceOf ("=", false, false);
+            args.remove (i);
+        }
+
+    // paste anchor: row and channel, so --paste-at=12,0 lands the selection
+    // copied by --select= starting at that cell, everything pasted
+    juce::String shotPasteAt;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--paste-at="))
+        {
+            shotPasteAt = args[i].fromFirstOccurrenceOf ("=", false, false);
             args.remove (i);
         }
 
@@ -395,6 +409,44 @@ int main (int argc, char** argv)
         else
         {
             std::cerr << "no tracker child for --select\n";
+        }
+    }
+
+    if (! shotPasteAt.isEmpty())
+    {
+        // the selection copied by --select= goes to the clipboard through the
+        // Ctrl+C path and then lands at the clicked cursor with everything, so
+        // the shot shows the pasted block where the tools write it
+        if (auto* tr = findChild<rtr::TrackerComponent> (*editor))
+        {
+            tr->refresh();
+            tr->copySelectionToClipboard();
+
+            if (! tr->hasCellClipboard())
+            {
+                std::cerr << "cell clipboard empty for --paste-at: pair it with --select=\n";
+            }
+            else
+            {
+                const auto parts = juce::StringArray::fromTokens (shotPasteAt, ",", {});
+                const int row = parts.size() > 0 ? parts[0].getIntValue() : 0;
+                const int ch = parts.size() > 1 ? parts[1].getIntValue() : 0;
+
+                tr->refresh(); // the anchor click reads the channel columns
+                const float x = (float) tr->channelBoundsFor (ch).getCentreX();
+                const float y = 46.0f + 19.0f * (float) row + 9.5f; // header plus half a row
+
+                tr->mouseDown (makeEvent (*tr, { x, y }));
+                tr->mouseUp (makeEvent (*tr, { x, y }));
+
+                std::cout << "paste wrote " << tr->pasteClipboardAtCursor (rtr::kPasteAll)
+                          << " cells at (" << row << "," << ch << ")\n";
+                tr->repaint();
+            }
+        }
+        else
+        {
+            std::cerr << "no tracker child for --paste-at\n";
         }
     }
 
