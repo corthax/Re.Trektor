@@ -1,5 +1,6 @@
 #include "SettingsPanel.h"
 #include "Theme.h"
+#include "UndoRedoKeys.h"
 
 namespace rtr
 {
@@ -166,6 +167,16 @@ juce::Slider* SettingsPanel::addSlider (const juce::String& label, const juce::S
     owned.push_back (std::move (slider));
     rows.push_back ({ label, hint, nullptr, raw });
     return raw;
+}
+
+bool SettingsPanel::keyPressed (const juce::KeyPress& key)
+{
+    // the settings panel answers the Alt pair rather than handing it up, because
+    // a key press goes to the modal component and only walks up from there:
+    // while a pattern's context menu was opened over this panel, this panel is
+    // what that press is routed to, so a pair the editor alone owned would be
+    // swallowed there
+    return answerUndoRedoKey (key, undoStep, redoStep);
 }
 
 void SettingsPanel::refresh()

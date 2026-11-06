@@ -1,5 +1,6 @@
 #include "MacrosPanel.h"
 #include "Theme.h"
+#include "UndoRedoKeys.h"
 
 namespace rtr
 {
@@ -142,6 +143,15 @@ void MacrosPanel::syncValues()
         r.p1->setValue ((double) m.param1, juce::dontSendNotification);
         r.p2->setValue ((double) m.param2, juce::dontSendNotification);
     }
+}
+
+bool MacrosPanel::keyPressed (const juce::KeyPress& key)
+{
+    // the macros panel answers the Alt pair rather than handing it up, because a
+    // key press goes to the modal component and only walks up from there: while
+    // the macros panel's own context menu is open, this panel is what that press
+    // is routed to, so a pair the editor alone owned would be swallowed there
+    return answerUndoRedoKey (key, undoStep, redoStep);
 }
 
 void MacrosPanel::refresh()

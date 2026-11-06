@@ -1,5 +1,6 @@
 #include "PoolComponent.h"
 #include "Theme.h"
+#include "UndoRedoKeys.h"
 #include <algorithm>
 
 namespace rtr
@@ -14,6 +15,18 @@ PoolComponent::PoolComponent (ReTrektorAudioProcessor& processor)
     setOpaque (true);
     setWantsKeyboardFocus (false);
     startTimerHz (12);
+}
+
+bool PoolComponent::keyPressed (const juce::KeyPress& key)
+{
+    // the pool answers the Alt pair rather than handing it up, and this is the
+    // panel the pool's own drag is attached to: a pattern dragged from it onto
+    // the timeline is held by the DragAndDropContainer, which makes that drag
+    // modal, so a key press during it is answered here and the editor is never
+    // consulted. The pair is answered while that drag is still in flight as
+    // well, rather than only after it drops, which is what lets the press land
+    // straight away
+    return answerUndoRedoKey (key, undoStep, redoStep);
 }
 
 void PoolComponent::refresh()

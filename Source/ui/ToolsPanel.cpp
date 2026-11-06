@@ -1,5 +1,6 @@
 #include "ToolsPanel.h"
 #include "Theme.h"
+#include "UndoRedoKeys.h"
 
 namespace rtr
 {
@@ -94,6 +95,16 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
 
     remapApply.onClick = [this] { applyRemap(); };
     interpolateButton.onClick = [this] { applyInterpolate(); };
+}
+
+bool ToolsPanel::keyPressed (const juce::KeyPress& key)
+{
+    // the tools panel answers the Alt pair rather than handing it up, because a
+    // key press goes to the modal component and only walks up from there: while
+    // a macro or pattern context menu was opened over this panel, this panel is
+    // what that press is routed to, so a pair the editor alone owned would be
+    // swallowed there
+    return answerUndoRedoKey (key, undoStep, redoStep);
 }
 
 //==============================================================================

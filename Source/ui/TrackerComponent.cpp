@@ -1,5 +1,6 @@
 #include "TrackerComponent.h"
 #include "Theme.h"
+#include "UndoRedoKeys.h"
 
 namespace rtr
 {
@@ -1550,9 +1551,17 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
     const bool cmdCtrl = key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown();
     const bool alt = key.getModifiers().isAltDown();
 
-    // the tracker knows no Alt combination of its own, and a letter held with
-    // Alt would otherwise be typed as a note before the editor got the event,
-    // which is what the Alt spellings of undo and redo need left free
+    // the tracker answers the Alt pair itself rather than handing it up, because
+    // a key press is sent to the modal component and only walks up from there:
+    // while the cell menu is open the press is answered here and the editor is
+    // never consulted, so a pair the editor alone owned would be swallowed
+    if (answerUndoRedoKey (key, undoStep, redoStep,
+                           [this] { return cancelPendingEdit(); }))
+        return true;
+
+    // any other letter held with Alt stays out of the tracker's own key entry,
+    // which would otherwise type it as a note before the editor got the event,
+    // and the Ctrl pair is left for the editor as the clipboard shortcuts need
     if (cmdCtrl || alt)
         return false; // let the editor handle the clipboard and undo shortcuts
 

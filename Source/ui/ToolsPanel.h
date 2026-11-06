@@ -21,6 +21,7 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    bool keyPressed (const juce::KeyPress&) override;
 
     /** The tracker's selection: which cells it is holding. The scope dropdown
         decides what the tools reach, and the selection scope asks this cell by
@@ -29,6 +30,11 @@ public:
     // the channel the tracker's cursor sits in, or -1
     std::function<int()> getCursorChannel;
     std::function<void()> onModelChanged;
+
+    // the Alt pair is answered here as well as in the editor, so a press aimed
+    // at undo reaches whichever panel the host routed it to
+    std::function<bool()> undoStep;
+    std::function<bool()> redoStep;
 
 private:
     void applyTranspose (int semitones);

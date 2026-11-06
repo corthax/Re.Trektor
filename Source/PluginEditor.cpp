@@ -134,11 +134,28 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
 
     macros.onModelChanged = [this] { commitEdit(); };
 
-    // the tracker's Undo / Redo menu items go through the editor rather than
-    // calling the plug-in directly, so the step refreshes the whole view and,
-    // unlike a model change, records no point of its own
-    tracker.undoStep = [this] { return performUndo(); };
-    tracker.redoStep = [this] { return performRedo(); };
+    // every panel answers the Alt pair of undo and redo with the editor's own
+    // two steps rather than with a copy of its own: a key press is sent to the
+    // modal component and only walks up from there, so while a right-click menu
+    // is open or a pattern is being dragged from the pool, the press is answered
+    // by the panel the menu or drag belongs to and the editor is never
+    // consulted. A pair the editor alone owned was swallowed on those paths, and
+    // which panel holds the press is not something the plug-in can predict. The
+    // same pair is what the tracker's Undo / Redo menu items go through rather
+    // than calling the plug-in directly, so the step refreshes the whole view
+    // and, unlike a model change, records no point of its own
+    auto wireUndoRedo = [this] (auto& panel)
+    {
+        panel.undoStep = [this] { return performUndo(); };
+        panel.redoStep = [this] { return performRedo(); };
+    };
+
+    wireUndoRedo (tracker);
+    wireUndoRedo (timeline);
+    wireUndoRedo (pool);
+    wireUndoRedo (tools);
+    wireUndoRedo (settings);
+    wireUndoRedo (macros);
 
     //== bottom bar ===========================================================
     auto setupBottomSlider = [this] (juce::Slider& s, juce::Label& label, const juce::String& text,

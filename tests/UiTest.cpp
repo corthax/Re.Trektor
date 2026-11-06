@@ -236,13 +236,14 @@ int main()
     auto* tracker = findChild<rtr::TrackerComponent> (*editor);
     auto* tools = findChild<rtr::ToolsPanel> (*editor);
     auto* settings = findChild<rtr::SettingsPanel> (*editor);
+    auto* macros = findChild<rtr::MacrosPanel> (*editor);
 
     check (pool != nullptr && timeline != nullptr && tracker != nullptr
-               && tools != nullptr && settings != nullptr,
-           "editor exposes pool, timeline, tracker, tools and settings");
+               && tools != nullptr && settings != nullptr && macros != nullptr,
+           "editor exposes pool, timeline, tracker, tools, settings and macros");
 
     if (pool == nullptr || timeline == nullptr || tracker == nullptr
-        || tools == nullptr || settings == nullptr)
+        || tools == nullptr || settings == nullptr || macros == nullptr)
         return 1;
 
     auto& song = proc.getSong();
@@ -1525,15 +1526,45 @@ int main()
             const int altCh = tracker->getCursorChannel();
             const juce::String beforeAltSig = sigAt (altRow, altCh);
 
-            check (! tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys (kAltMod), 'z')),
-                   "the tracker lets a letter held with Alt through to the editor");
-            check (sigAt (altRow, altCh) == beforeAltSig,
-                   "so the Alt spelling enters no note of its own");
-
+            // the Alt pair belongs to every panel rather than only to the
+            // editor, because JUCE sends a key press to the modal component and
+            // walks up only from there: while a right-click menu is open or a
+            // pattern is being dragged from the pool, the editor is never
+            // consulted at all, so the panel the press was routed to has to
+            // spend it on the undo line itself. The tracker is one of those
+            // panels, and it is the one the cell menu is attached to
             tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys(), 'z'));
             const juce::String enteredAltSig = sigAt (altRow, altCh);
             check (enteredAltSig != beforeAltSig,
                    "the same letter without Alt still enters a note there");
+
+            const int depthEnteredAlt = proc.getUndoDepth();
+
+            check (tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys (kAltMod), 'z')),
+                   "the tracker answers Alt+Z of its own rather than letting it through to the editor");
+            check (proc.getUndoDepth() == depthEnteredAlt - 1,
+                   "and the answer spends the press on the undo line instead of dropping it");
+            check (sigAt (altRow, altCh) == beforeAltSig,
+                   "so the Alt spelling still enters no note of its own");
+
+            check (tracker->keyPressed (juce::KeyPress ('y', juce::ModifierKeys (kAltMod), 'y')),
+                   "the tracker answers Alt+Y too");
+            check (proc.getUndoDepth() == depthEnteredAlt && sigAt (altRow, altCh) == enteredAltSig,
+                   "and that answer walks the same point of the line forward again");
+
+            // a letter the pair does not name stays out of the tracker's own key
+            // entry as well, and Alt held with Shift is left alone rather than
+            // spent on a redo alias, which is what the hosts found they swallow
+            check (! tracker->keyPressed (juce::KeyPress ('q', juce::ModifierKeys (kAltMod), 'q')),
+                   "a letter the pair does not name is still left for the editor to handle");
+            check (proc.getUndoDepth() == depthEnteredAlt && sigAt (altRow, altCh) == enteredAltSig,
+                   "and that letter neither steps the line nor types a note there");
+
+            const int depthLeftAlt = proc.getUndoDepth();
+            check (! tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys (kShiftMod | kAltMod), 'z')),
+                   "the tracker leaves an Alt+Shift combination alone rather than answering it");
+            check (proc.getUndoDepth() == depthLeftAlt && sigAt (altRow, altCh) == enteredAltSig,
+                   "so that press neither types a note nor steps the line");
 
             const int altDepth = proc.getUndoDepth();
 
@@ -1606,6 +1637,67 @@ int main()
 
             pressUndoAlt();
             check (proc.getUndoDepth() == altBufferDepth - 1, "and the next Alt+Z steps");
+        }
+
+        //== the same pair answered by every panel =========================
+        {
+            // the undo line belongs to the editor, so what each panel answers
+            // with is the editor's own step rather than a copy of it: one press
+            // walks one point no matter which panel the host routed it to, which
+            // is what the right-click menu actions and the pool's drag of a
+            // pattern onto the timeline need, where JUCE answers the press with
+            // the menu's or the drag's panel and never reaches the editor
+            auto pressUndoOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('Z', juce::ModifierKeys (kAltMod), 'Z')); };
+            auto pressRedoOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('Y', juce::ModifierKeys (kAltMod), 'Y')); };
+            auto pressAltShiftOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('Z', juce::ModifierKeys (kShiftMod | kAltMod), 'Z')); };
+
+            // one entered note so the line has a point ahead of the cursor that
+            // every panel below can be offered a step for, and one the checks
+            // after this section can name on its own
+            clickRow (31);
+            const int panelRow = tracker->getCursorRow();
+            const int panelCh = tracker->getCursorChannel();
+            const juce::String panelSigBefore = sigAt (panelRow, panelCh);
+
+            tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys(), 'z'));
+            const juce::String panelSigEntered = sigAt (panelRow, panelCh);
+            check (panelSigEntered != panelSigBefore,
+                   "one entered note gives the line a point to walk back");
+
+            const int panelDepth = proc.getUndoDepth();
+            check (panelDepth >= 1, "the entered note leaves a point behind the cursor");
+
+            auto walkPairOn = [&] (auto* panel, const juce::String& name)
+            {
+                const int depthHere = proc.getUndoDepth();
+
+                check (pressUndoOn (panel),
+                       name + " answers Alt+Z with a step of its own");
+                check (proc.getUndoDepth() == depthHere - 1,
+                       name + " spends the press on the editor's line rather than on one of its own");
+                check (pressRedoOn (panel),
+                       name + " answers Alt+Y too");
+                check (proc.getUndoDepth() == depthHere && sigAt (panelRow, panelCh) == panelSigEntered,
+                       name + " walks that same point forward again, for one step per press");
+
+                const int depthShift = proc.getUndoDepth();
+                check (! pressAltShiftOn (panel),
+                       name + " leaves an Alt+Shift combination to the host");
+                check (proc.getUndoDepth() == depthShift,
+                       name + " neither steps nor redoes on that press");
+            };
+
+            walkPairOn (timeline, "the timeline");
+            walkPairOn (pool, "the pool");
+            walkPairOn (settings, "the settings panel");
+            walkPairOn (tools, "the tools panel");
+            walkPairOn (macros, "the macros panel");
+
+            check (proc.getUndoDepth() == panelDepth && sigAt (panelRow, panelCh) == panelSigEntered,
+                   "and answering the pair in five panels walks the line back and forth without net effect");
         }
 
         //== the depth the Settings tab asks for ============================

@@ -21,11 +21,18 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
     void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+    bool keyPressed (const juce::KeyPress&) override;
 
     void refresh();
 
     std::function<void (int)> onPatternSelected;
     std::function<void()> onModelChanged;
+
+    // the Alt pair is answered here as well as in the editor, and the pool is
+    // what a pattern dragged from it is attached to, which is where a key press
+    // goes while that drag is still modal
+    std::function<bool()> undoStep;
+    std::function<bool()> redoStep;
 
     /** Optional snap function supplied by the editor (uses the timeline grid). */
     std::function<double (double)> snapBeat;

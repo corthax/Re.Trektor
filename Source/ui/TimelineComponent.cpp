@@ -1,5 +1,6 @@
 #include "TimelineComponent.h"
 #include "Theme.h"
+#include "UndoRedoKeys.h"
 
 namespace rtr
 {
@@ -29,6 +30,16 @@ void TimelineComponent::jumpPlayheadToClickedX (int x)
         return;
 
     song.editPlayheadBeats = song.snapBeats (beatAtX ((float) x), pixelsPerBeat);
+}
+
+bool TimelineComponent::keyPressed (const juce::KeyPress& key)
+{
+    // the timeline answers the Alt pair rather than handing it up, because a key
+    // press goes to the modal component and only walks up from there: while a
+    // pattern is being dragged over the timeline from the pool, or while a clip's
+    // context menu is open, this panel is what that press is routed to, so a pair
+    // the editor alone owned would be swallowed there
+    return answerUndoRedoKey (key, undoStep, redoStep);
 }
 
 void TimelineComponent::refresh()

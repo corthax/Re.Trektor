@@ -23,6 +23,7 @@ public:
     void mouseMove (const juce::MouseEvent&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void mouseDoubleClick (const juce::MouseEvent&) override;
+    bool keyPressed (const juce::KeyPress&) override;
 
     bool isInterestedInDragSource (const SourceDetails&) override;
     void itemDragEnter (const SourceDetails&) override;
@@ -46,6 +47,13 @@ public:
 
     std::function<void()> onModelChanged;
     std::function<void (int)> onPatternSelected;
+
+    // the Alt pair is answered here as well as in the editor, so a press aimed
+    // at undo reaches the panel the host routed it to; these are the editor's
+    // two steps, injected rather than called directly so the whole view
+    // refreshes and no extra point of the undo line is recorded
+    std::function<bool()> undoStep;
+    std::function<bool()> redoStep;
 
     bool playbackLocked() const;
 

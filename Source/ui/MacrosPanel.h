@@ -16,10 +16,16 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    bool keyPressed (const juce::KeyPress&) override;
 
     void refresh();
 
     std::function<void()> onModelChanged;
+
+    // the Alt pair is answered here as well as in the editor, so a press aimed
+    // at undo reaches whichever panel the host routed it to
+    std::function<bool()> undoStep;
+    std::function<bool()> redoStep;
 
 private:
     static constexpr int kMaxRows = 16;
