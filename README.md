@@ -60,7 +60,18 @@ cmake --build tests/build -j"$(nproc)"
 * `ReTrektorCoreTest` – model, sequencing, snapping, macro expansion, slicing,
   paste, state, including that an older saved state which still carries a property
   the current build no longer reads reloads its other settings, keeps its pattern
-  and clip counts and does not carry the property on, the volume/pan columns' controller numbers, per-channel column
+  and clip counts and does not carry the property on, a transport re-arm putting
+  every channel's all-notes-off ahead of the note-ons queued for that same block
+  sample rather than after them, so the note whose row sits exactly at a start or
+  exactly at a loop start is not released the moment it is struck, sending no
+  All Sound Off there at all, playing the row a wrapped pass's block boundary
+  landed inside once at that block's first sample with the stuck-key guard's
+  note-off ahead of it and nothing closing it again inside that block, re-arming
+  that row exactly once over the 50 blocks after it rather than twice, playing a
+  row once at the first sample when the reported start sits a hair past it rather
+  than a whole block inside it and playing it once only there, and
+  keeping a fresh start inside a row and a seek forward into it honouring the
+  mid-row setting while the wrap ignores it, the volume/pan columns' controller numbers, per-channel column
   visibility (and that hidden columns still play), interpolation of one column
   between the values that already exist (the tool is handed a predicate over
   (row, channel) rather than a row and channel range, so the checks drive it with
@@ -588,13 +599,33 @@ accepts `0`–`143`: `128`–`143` (hex `80`–`8F`) call macros `M0`–`M15`.
   MIDI channel (survives transport re-arms), always precedes a later note-on
   of such a pitch with a matching note-off, and closes clip ends with a
   tolerance for hosts that report block bounds slightly short.
+* Transport re-arm: a fresh start or a transport jump releases what the synth
+  may still be holding from the position the transport left, at that block's
+  first sample, and those releases are ordered ahead of the note-ons queued for
+  that same sample — all-notes-off sorts before a note-off, which sorts before a
+  note-on — so a note whose row sits exactly at a playback start or exactly at a
+  looped region's start survives the re-arm that follows it rather than being
+  released the moment it is struck. Only CC 123 leaves the live paths: it is
+  Bitwig that honours it, which is where the cut note at a start and the note
+  missing at a loop's repeat came from, while Reaper's receivers ignore it. No
+  All Sound Off (CC 120) is sent there, since nothing turns a channel that reads
+  it back on and it would silence the volume and pan columns' output and the
+  macros on the new pass; CC 120 goes out only with the editor's own "all notes
+  off".
 * There is no audio processing; the plug-in outputs MIDI and passes incoming
   MIDI through.
 
 ## Settings
 
 * Hex or decimal value display
-* Ignore mid-row transport start (default on)
+* Ignore mid-row transport start (default on): with it on, a fresh playback start
+  inside a row, or a seek that comes in from behind it, does not play that row,
+  since the transport is only moving and the row is not being repeated; a
+  transport that came back to an earlier position, which is a loop wrap or a
+  scrub, plays the row its block boundary fell inside whatever this says, because
+  the host meant that position and the row it fell inside belongs to the new pass
+  — which is what lets a loop whose block boundary landed a little past its start
+  still play the note sitting exactly on that start
 * Subticks per row (default 6)
 * Rows per beat (default 4, i.e. one row per 16th note)
 * New pattern length in rows (default 64, maximum 1024) — resizing an existing
@@ -1338,8 +1369,51 @@ shows the panel exposing no toggle under that name and the current song's saved 
 no such property, and Smoke unchanged at 13 against the same bundle, its sha256 unchanged at
 89808362688396eb234910f08e374e465d567bba5bf7e6aba2efdda1082ff530, since the drop is what that
 bundle was built from.
+the Bitwig-only transport re-arm cut fixed on the engine (commit 6056397), which is what a
+note sitting exactly at a playback start being cut shortly and the note sitting exactly at a
+looped region's start being skipped outright on its repeat both came down to, Reaper showing
+neither because its MIDI receivers do not act on what the plug-in puts at those positions: at
+a justStarted or jumped block the channel-wide release the engine queues and the note sitting
+at that same sample go into the same buffer and are sorted by (offset, order), and the release
+had been given order 1000 and 1001 while a note-on is order 1, so it reached the host after the
+note-on it belonged ahead of and a host honouring an all-notes-off, which Bitwig does while
+Reaper's receivers ignore it, released the note the moment it was struck. all-notes-off is now
+order -2 and all-sound-off -1, ahead of the note-offs' 0, the note-ons' 1 and the volume and pan
+columns' 2, and all-sound-off is emitted only where the whole channel is meant to go silent for
+good, which is the editor's panic and no live path, since CC 120 has no companion message turning
+a channel back on and would take the volume and pan columns' output, the pitch wheel and the
+macros of a pass the transport is only moving into; the flag is a defaulted parameter, so the
+transport-stop flush and the re-arm read as before and only panic passes it. the row sitting at
+the start was being dropped as well: the row-boundary guard only let a row behind a block start
+through when the run was near-continuous, which a jump is not, so the row the host left its block
+boundary inside fell between that guard and the re-arm branch, which only owns a row strictly
+behind the start; the guard now splits by continuity, a continuous run keeping the drift dedup
+unchanged, which is what keeps a row from being played by two neighbouring blocks, and a
+transport that is not continuous taking a row within the new named kRowAlignEps of its start as
+the row the host meant and playing it at offset 0 rather than dropping it. the re-arm branch's
+gate went from any jump to jumpedBack, a jump whose start is below the position the engine last
+saw, so a fresh start and a forward seek into a row still honour the Settings row about a mid-row
+start while a loop wrap or a scrub plays the row its boundary landed inside whatever that says,
+which is what lets a loop whose boundary fell past its start play the note sitting on it on every
+repeat; narrowing it that way was required rather than chosen, since the UiTest's playRow
+fixtures park their transport a hair before a row, which is a forward jump, and letting those
+re-arm the row they sit inside made two of its instrument and volume checks stop answering.
+CoreTest 215 checks, +18 through a raw event recorder the harness already collects at, which
+reads one block's events in the order the host is handed them so the checks name the ordering
+and the wrap arithmetic at the layer below rather than what a host does with them, and it also
+shows a start a hair past the row playing it once only and a seek forward into the row still
+honouring the setting; UiTest unchanged at 530, which is the answer the narrowing had to keep,
+and Smoke unchanged at 13 with its serialised state still 2405 bytes against the refreshed
+bundle, sha256 b00c12f53451a63fc3ced750720a26aab97267e56c08d7a3fec73064dcd08f45, which still
+tops out at GLIBC_2.38 with GLIBCXX_3.4.32 and names no sqrtf or atan2f relocation.
 Active
-None.
+The loop fix's residual: the re-arm recovers the row a wrapped transport's block start fell
+inside, so a wrap whose boundary landed more than one row past its start can still leave the
+row sitting exactly at the start unplayed, and Bitwig was reported leaving its boundary inside
+the first row, which is the case that now plays; a wider miss would need the re-arm to reach
+back over every row the wrap skipped rather than over the one the start fell inside. Whether a
+mid-row start reached by a forward seek should play the row as a wrap does is the user's to
+settle, and the current build keeps that case honouring the Settings row.
 Blocked
 No Reaper installed; VST3 host testing limited to JUCE smoke test + Carla
 availability. The modal routing that made the Alt pair inert cannot be
@@ -1368,8 +1442,22 @@ is the one question that no longer needs the hosts or a headless popup: UiTest
 shows the panel exposing no toggle under that name and the saved settings block
 carrying no such property, so what is still unknown about the Settings tab is
 only what a host spends the keyboard spells it swallows before the plug-in sees
-them.
+them. The transport re-arm is the same shape of cover rather than a stronger one: CoreTest names
+the ordering of the channel-wide releases against the note-ons queued for the same block sample,
+that no CC 120 leaves the live paths, the row a wrapped pass's block boundary landed inside being
+played once at that block's first sample and the wrap's arithmetic over the blocks after it, but
+what Bitwig does with an all-notes-off it receives and where it leaves a loop's block boundary
+inside a row are known from its behaviour and the user's reports rather than from a host the
+tests can drive.
 Next Move
+Confirm on the refreshed bundle in Bitwig that the note sitting exactly at a looped region's
+start plays in full on every repeat rather than being skipped outright, that a note whose row
+sits exactly at a manual transport start or at a seek plays in full rather than being cut
+shortly, that notes still close at clip ends and nothing stacks up on a seek so Reaper's
+stuck-note answer is intact, that a note a row or more past a start still plays normally on a
+fresh start and on a wrap, and whether a mid-row start reached by a forward seek should also
+play the row, since the current build keeps that case honouring the Settings row rather than
+re-arming it the way a wrap does.
 Confirm in the DAW that Alt+X cuts what the tracker holds selected in Bitwig and Reaper,
 heard straight after a menu action or a pool drop and at every tab rather than only over
 the grid, one press doing it once: the data the selection held going onto the cell
@@ -1439,7 +1527,15 @@ Confirm in the DAW that typing a number into the transpose amount field and clic
 Relevant Files
 /media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
 /media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate taking a std::function<bool (int row, int ch)> mask so the selection can be any shape and a cell outside the mask ends the anchor run), and the cell clipboard (CellClipboard holding one {row, ch, Cell} entry per copied cell with its offset inside the copied rectangle, the kPasteNote/kPasteInst/kPasteVol/kPastePan/kPasteCmd/kPasteCmdVal bits and kPasteAll naming which fields reach plus kPasteAdditive = 64 as a mode bit added to a filter rather than one more field, Pattern::pasteCells writing them at an anchor and, when that bit is set, masking each copied cell's own non-empty fields under the working mask so an empty field of the buffer leaves the target's value in place and a cell carrying nothing at all writes nothing, still skipping a target past length or channels so a paste never grows the pattern), and the Undo steps setting (Settings::undoSteps, default 50 with kMaxUndoSteps = 200 as the cap, written and read back clamped with the rest of the SETTINGS block so the depth a host reloads belongs to the song, the same block having lost the pattern paste's default property on both the write and the read back along with its Settings member, which leaves a song saved before the drop reloading with nothing to read there).
-/media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h / PlaybackEngine.cpp: host-synced MIDI generation, carry/duplicate logic, explicit note-off panic, volume/pan driven by the Settings CC numbers, a value-only row using the command number carried in the column.
+/media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h / PlaybackEngine.cpp: host-synced MIDI generation, carry/duplicate logic, explicit note-off panic, volume/pan driven by the Settings CC numbers, a value-only row using the command number carried in the column, and the transport re-arm: its
+channel-wide releases are ordered ahead of everything queued at that same sample (all-notes-off
+at order -2 and all-sound-off at -1, against the note-offs' 0, the note-ons' 1 and the volume and
+pan columns' 2), the sound-off half only asked for by panic since CC 120 has nothing turning a
+channel back on, the row-boundary guard split by continuity so a continuous run keeps its drift
+dedup while a transport that is not one takes a row within the named kRowAlignEps of its start at
+offset 0 instead of dropping it, and the branch that plays the row a start fell inside is gated
+on jumpedBack rather than on any jump, so a fresh start and a forward seek still read the
+mid-row setting and only a transport that came back to an earlier position ignores it.
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock, the size of the last GUI shown, and the undo line (undoStates holding the saved song XML with undoCursor and undoBytes counted in UTF-8 bytes, pushUndoPoint appending what a model change reached and skipping one that changed nothing, undo() / redo() stepping and refreshing the snapshot, resetUndoHistory anchoring a fresh line for a state the host hands back, getUndoDepth / getUndoRedoCount naming what is left to walk, trimUndoLine dropping the oldest states against the Settings depth and a 32 MB budget while never dropping the state the model is in or one ahead of the cursor, and stepUndoHistory keeping the pattern clipboard, the edit playhead and the mirrored transport position a saved state does not carry).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size, wiring the tools panel's isCellSelected hook to the tracker's selection, and the shortcuts where Ctrl+C/V name the cell clipboard (copySelectionToClipboard / pasteClipboardAtCursor) while the pattern clipboard's Ctrl+Shift+C / Ctrl+Shift+V pair is refused rather than answered, its two doCopy() / doPaste (bool forceUnique) members and its Ctrl+X slice branch gone altogether with that pair, the undo funnel commitEdit() (record the point the model reached, then refresh, so every component's onModelChanged ends in it while the bottom bar's OCT / STEP / CHANNELS handlers and selectPattern() record their own), performUndo / performRedo stepping the plug-in's line and refreshing the Settings panel as well because its rows hold their own values, and the Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z shortcuts with the Alt+Z / Alt+Y spellings the hosts leave free answering the same two steps, one each since the whole Alt+Shift family is refused rather than spent on a redo alias the hosts swallow, the Alt branches matching the letter over the key code and the printed character, all of them reaching the editor while every panel answers the Alt pair as well through one wireUndoRedo lambda that injects performUndo / performRedo into the tracker, timeline, pool, settings, tools and macros panels, so whichever panel the host routed the press to walks one point of the same line rather than one the panel owns, and one wireFocusRescue lambda injecting the same shape's focusRescue member into the tracker, timeline and pool so the panel that closed a menu, an alert or a drag hands keyboard focus back to the tracker (and to itself where the tracker is hidden), which is what makes the whole keyboard heard again rather than only the editor's own shortcuts, and one wireClipboard lambda injecting the cell clipboard's Alt steps as copyStep / pasteStep / cutStep members into all six panels with the tracker's own copySelectionToClipboard, pasteClipboardAtCursor (kPasteAll) and cutSelectionToClipboard, and one wireSlice lambda injecting the editor's own doSlice as a sliceStep member into all six of them beside those clipboard steps, so an Alt+C / Alt+V / Alt+X reaches one cell clipboard and an Alt+S reaches one clip slice at one snapped beat whichever panel the host routed the press to, and one press of either leaves one point of the undo line rather than two, the editor's own keyPressed answering those steps through the shared matchClipboardKey and answerSliceKey next to a Ctrl+C / Ctrl+V pair that refuses Shift so the hosts keep their own Ctrl+Shift+C / Ctrl+Shift+V meaning and no Ctrl+X branch left to it at all, and its first lines including the renamed header so no panel and the editor can disagree about what the Alt letters name.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom, ruler (bar numbers only, no transport readout), and the Alt pair of undo and redo answered in its keyPressed, which is where a press aimed at undo has to be heard while the timeline's own clip menu is open or while a pattern is being dropped onto it, and a focusRescue member it calls at the end of both context menus and ahead of the playback guard in its drop, since both the popup and the dragged item are parentless desktop windows that take the keyboard focus with them when they close, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, chained through the 4-argument answerClipboardKey so an Alt+C / Alt+V / Alt+X pressed while this panel routes the press reaches the tracker's cell clipboard rather than the host's, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape, so an Alt+S heard while this panel holds the press splits the clip under the playhead that the timeline's own "Slice at playhead" menu item reaches rather than leaving the Ctrl+X spelling the host already spent on its own cut.
@@ -1460,7 +1556,34 @@ Portability check: readelf -VW <Re.Trektor.so inside the bundle> | grep -oE "GLI
 Tests: cmake -S tests -B tests/build -DCMAKE_BUILD_TYPE=Release then build targets ReTrektorSmoke, ReTrektorCoreTest, ReTrektorEditorShot.
 Smoke run: DISPLAY=:0 tests/build/ReTrektorSmoke_artefacts/Release/ReTrektorSmoke <bundle> [--screenshot=path].
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git (newest first): ef04bf5 an older saved state that still carries the property the dropped
+Git (newest first): 6056397 a transport that re-arms no longer cutting the note that sits at its
+new start, the Bitwig-only half of the symptom the user reported, a note whose row sits exactly at
+a playback start being cut shortly and the note sitting exactly at a looped region's start being
+skipped outright when the region repeats while Reaper shows neither since its receivers ignore the
+release: the channel-wide all-notes-off queued at a justStarted or jumped block had been given
+order 1000 and 1001 while a note-on is order 1 and the pending events are sorted by (offset, order),
+so it reached the host after the note-on it belonged ahead of and a host honouring it released the
+note the moment it was struck, and on the other half the row sitting at the start was being dropped
+by the row-boundary guard, which only let a row behind a block start through when the run was
+near-continuous and a jump never is, leaving it out of reach of the re-arm branch that owns only a
+row strictly behind the start; the release is now order -2 with all-sound-off at -1 and only where
+panic asks for it, since CC 120 has no companion message turning a channel back on and would take
+the volume and pan columns, the pitch wheel and the macros of a pass the transport is only moving
+into, the guard is split by continuity so a continuous run keeps its drift dedup while a transport
+that is not one snaps a row within the newly named kRowAlignEps of its start to offset 0 rather
+than dropping it, and the branch that plays the row a start fell inside is gated on jumpedBack, a
+jump whose start is below the position the engine last saw, rather than on any jump, so a fresh
+start and a forward seek into a row still honour the Settings row about a mid-row start while a
+loop wrap or a scrub plays the row its block boundary landed inside whatever that setting says,
+which is what lets a loop whose boundary fell past its start play the note sitting on that start
+on every repeat, the narrowing to backwards jumps not a nicety but the answer the UiTest's playRow
+fixtures, which park their transport a hair before a row and so are forward jumps, forced to keep;
+CoreTest 215 checks, +18 through a raw event recorder the harness now fills from the same loop that
+collects its typed events so a check can name the order a host is handed them in, UiTest unchanged
+at 530, which is that answer it had to keep, and Smoke unchanged at 13 with its serialised state
+still 2405 bytes against the refreshed bundle, sha256 b00c12f53451a63fc3ced750720a26aab97267e56c08d7a3fec73064dcd08f45,
+which still tops out at GLIBC_2.38 with GLIBCXX_3.4.32 and names no sqrtf or atan2f relocation;
+ef04bf5 an older saved state that still carries the property the dropped
 Settings row used to have reloads cleanly, which is the half of that drop the plug-in cannot see
 from its own side, a song saved while the row still existed holding a SETTINGS property nothing
 reads any more and being exactly the state a host hands back on a reload: CoreTest takes the state
