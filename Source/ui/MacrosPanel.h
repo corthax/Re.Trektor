@@ -34,6 +34,12 @@ public:
     std::function<void()> pasteStep;
     std::function<void()> cutStep;
 
+    // the clip slice at the playhead, Alt+S, with the editor's slice injected so
+    // the one spelling still splits the timeline; its old Ctrl+X spelling was
+    // answered by the host rather than by the plug-in, so the Alt letter is what
+    // every panel answers
+    std::function<void()> sliceStep;
+
 private:
     static constexpr int kMaxRows = 16;
 

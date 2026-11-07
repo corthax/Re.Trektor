@@ -193,8 +193,27 @@ int Pattern::interpolate (InterpField field,
 int Pattern::pasteCells (const CellClipboard& clip, int anchorRow,
                          int anchorChannel, int fieldMask) noexcept
 {
+    // the additive spelling is a mode, not a column: strip it from the working
+    // mask and let it instead trim what each of the buffer's cells carries
+    const bool additive = (fieldMask & kPasteAdditive) != 0;
+    fieldMask &= ~kPasteAdditive;
+
     if (clip.entries.empty() || fieldMask == 0 || anchorRow < 0 || anchorChannel < 0)
         return 0;
+
+    // which fields of the copied cell are worth writing at all, that is not
+    // empty inside the buffer; an all-empty cell carries none of them
+    const auto carrying = [](const Cell& src) noexcept
+    {
+        int bits = 0;
+        if (src.note != kEmpty) bits |= kPasteNote;
+        if (src.inst != kEmpty) bits |= kPasteInst;
+        if (src.vol != kEmpty) bits |= kPasteVol;
+        if (src.pan != kEmpty) bits |= kPastePan;
+        if (src.cmd != kEmpty) bits |= kPasteCmd;
+        if (src.cmdVal != kEmpty) bits |= kPasteCmdVal;
+        return bits;
+    };
 
     int written = 0;
 
@@ -215,17 +234,27 @@ int Pattern::pasteCells (const CellClipboard& clip, int anchorRow,
         auto& dst = rows[(size_t) row][(size_t) ch];
         const Cell& src = entry.cell;
 
-        if ((fieldMask & kPasteNote) != 0)
+        int mask = fieldMask;
+        if (additive)
+        {
+            // only the buffer's own values reach: the empty ones stay out, so
+            // the target keeps whatever it carried under them
+            mask &= carrying (src);
+            if (mask == 0)
+                continue;
+        }
+
+        if ((mask & kPasteNote) != 0)
             dst.note = src.note;
-        if ((fieldMask & kPasteInst) != 0)
+        if ((mask & kPasteInst) != 0)
             dst.inst = src.inst;
-        if ((fieldMask & kPasteVol) != 0)
+        if ((mask & kPasteVol) != 0)
             dst.vol = src.vol;
-        if ((fieldMask & kPastePan) != 0)
+        if ((mask & kPastePan) != 0)
             dst.pan = src.pan;
-        if ((fieldMask & kPasteCmd) != 0)
+        if ((mask & kPasteCmd) != 0)
             dst.cmd = src.cmd;
-        if ((fieldMask & kPasteCmdVal) != 0)
+        if ((mask & kPasteCmdVal) != 0)
             dst.cmdVal = src.cmdVal;
 
         ++written;

@@ -947,6 +947,64 @@ int main()
             check (p->cell (23, 0).note == 62 && p->cell (23, 0).pan == 66,
                    "the offset cell lands and still keeps its other fields");
 
+            // the paste submenu's "Additive (everything)" leaf, reached through
+            // the same paste call the callback makes: the buffer's empty fields
+            // leave the target's own values in place rather than clearing them,
+            // which is what the plain Everything above just did to them
+            for (int r = 25; r <= 27; ++r)
+            {
+                p->cell (r, 0).clear();
+                p->cell (r, 0).cmd = 12;
+                p->cell (r, 0).inst = 7;
+            }
+
+            tracker->refresh();
+            tracker->mouseDown (makeEvent (*tracker, { chZero, 525.5f })); // row 25
+            tracker->mouseUp (makeEvent (*tracker, { chZero, 525.5f }));
+            check (tracker->getCursorRow() == 25 && tracker->getCursorChannel() == 0,
+                   "the click parks the cursor over the additive paste's corner cell");
+
+            const int depthAdditive = proc.getUndoDepth();
+
+            tracker->pasteClipboardAtCursor (rtr::kPasteAll | rtr::kPasteAdditive);
+
+            check (p->cell (25, 0).note == 60 && p->cell (25, 0).vol == 11
+                           && p->cell (25, 0).pan == 44,
+                   "the additive paste lands the fields the buffer carries on top of what the target had");
+            check (p->cell (25, 0).inst == 7 && p->cell (25, 0).cmd == 12
+                           && p->cell (25, 0).cmdVal == rtr::kEmpty,
+                   "the fields the buffer left empty keep the target's own value, where the plain Everything cleared them");
+            check (p->cell (27, 0).note == 62 && p->cell (27, 0).pan == 55,
+                   "the offset cell lands below the anchor and its pan goes on top");
+            check (p->cell (27, 0).inst == 7 && p->cell (27, 0).cmd == 12,
+                   "and the target's command and instrument survive under an empty buffer field");
+            check (p->cell (26, 0).inst == 7 && p->cell (26, 0).cmd == 12,
+                   "the hole of the clipboard is skipped as before, so that row never gets pasted");
+            check (proc.getUndoDepth() == depthAdditive + 1,
+                   "a paste that did write something still records its one point of the undo line");
+
+            // an all-empty clipboard cell additively writes nothing at all, so
+            // nothing about the song changes and the undo line stays alone, the
+            // way the plain spelling above clears the cell it lands on
+            rtr::Cell nothing;
+            tracker->cellClipboard.entries = { { 0, 0, nothing } };
+            tracker->setCursorRow (21);
+            check (p->cell (21, 0).note == 60 && p->cell (21, 0).vol == 55,
+                   "the cell the additive paste is about to skip still carries what the earlier paste left");
+
+            const int depthSkipped = proc.getUndoDepth();
+            tracker->pasteClipboardAtCursor (rtr::kPasteAll | rtr::kPasteAdditive);
+            check (proc.getUndoDepth() == depthSkipped && p->cell (21, 0).note == 60
+                           && p->cell (21, 0).vol == 55,
+                   "an all-empty clipboard cell additively writes nothing, which leaves no change and no point of the line");
+
+            // the fixture's rows go back to empty so the blocks below keep seeing
+            // the pattern they had: hidden rows past a shortened end are kept
+            // only while they hold something, and these just got given a command
+            // and an instrument of their own
+            for (int r = 25; r <= 27; ++r)
+                p->cell (r, 0).clear();
+
             // a full 2x3 block: a plain gesture draws channel 0 and Shift unions
             // the other column into it
             tracker->refresh();
@@ -1001,15 +1059,24 @@ int main()
             check (! tracker->hasSelection() && tracker->hasCellClipboard(),
                    "copying nothing selected leaves the previous clipboard in place");
 
-            // the pattern clipboard keeps its operations under Shift
+            // the pattern clipboard keeps no keyboard spelling of its own: the
+            // Ctrl+Shift pair was found swallowed on the way to both hosts the way
+            // the plain Ctrl pair is, so it was dropped completely rather than
+            // moved to another letter, and copying or pasting a whole pattern is
+            // only what the timeline's clip menu, its empty-area menu and the
+            // pool's menu do
             const int clipsBefore = (int) song.clips.size();
-            editor->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kShiftMod | kCtrlMod), 'C'));
-            check (song.clipboard.valid, "Ctrl+Shift+C copies the active pattern to the pattern clipboard");
+            const bool clipboardBefore = song.clipboard.valid;
 
-            head->playing = false;
-            editor->keyPressed (juce::KeyPress ('V', juce::ModifierKeys (kShiftMod | kCtrlMod), 'V'));
-            check ((int) song.clips.size() == clipsBefore,
-                   "Ctrl+Shift+V is the pattern paste: it lands at the playhead and overlaps block it");
+            check (! editor->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kShiftMod | kCtrlMod), 'C')),
+                   "Ctrl+Shift+C is not answered any more, since the pair was dropped completely");
+            check (song.clipboard.valid == clipboardBefore
+                       && (int) song.clips.size() == clipsBefore,
+                   "and the press copies nothing, so the pattern clipboard stays exactly as the menus left it");
+            check (! editor->keyPressed (juce::KeyPress ('V', juce::ModifierKeys (kShiftMod | kCtrlMod), 'V')),
+                   "Ctrl+Shift+V is not answered either");
+            check ((int) song.clips.size() == clipsBefore && song.clipboard.valid == clipboardBefore,
+                   "and no pattern is pasted at the playhead, so the clip count never moved");
 
             p->setLength (64); // grown back: hidden rows and their data return
             tracker->refresh();
@@ -2100,7 +2167,7 @@ int main()
                     check (proc.getUndoDepth() == depthPasted,
                            name + ": that press copies, pastes or cuts nothing of the cells");
                     check (! pressCtrlCutOn (panel),
-                           name + " leaves the Ctrl x spelling to the editor too, where it still means the clip slice at the playhead rather than a cut of the cells");
+                           name + " leaves the Ctrl x spelling to the host rather than spending it, since the clip slice moved to the Alt+S letter below");
                     check (proc.getUndoDepth() == depthPasted && tracker->hasCellClipboard(),
                            name + ": no panel spends the Ctrl x spelling, so the cells and the clipboard stay exactly as the cut left them");
                 };
@@ -2173,6 +2240,191 @@ int main()
                            "and the Ctrl pair still copies the same cells and records nothing of its own");
                 }
             }
+        }
+    }
+
+    //== The clip slice's Alt+S spelling ==================================
+    {
+        // the timeline answered the slice with Ctrl+X, but that letter is the
+        // host's own cut: the user's check found Alt+Shift+X and Ctrl+X changed
+        // nothing about the plug-in in either host, so the shortcut moved to
+        // Alt+S, the free letter, and it has one spelling shared by every panel
+        // rather than a Ctrl letter per host. The letter is one the tracker's
+        // note entry types as C sharp, so a panel holding the slice has to claim
+        // the press before its own key entry can leave a note at the cursor
+        auto pressSliceOn = [&] (auto* panel)
+        { return panel->keyPressed (juce::KeyPress ('S', juce::ModifierKeys (kAltMod), 'S')); };
+        auto pressSliceAltShiftOn = [&] (auto* panel)
+        { return panel->keyPressed (juce::KeyPress ('S', juce::ModifierKeys (kShiftMod | kAltMod), 'S')); };
+        auto pressCtrlSliceOn = [&] (auto* panel)
+        { return panel->keyPressed (juce::KeyPress ('X', juce::ModifierKeys (kCtrlMod), 'X')); };
+
+        check (tracker->sliceStep != nullptr && timeline->sliceStep != nullptr
+               && pool->sliceStep != nullptr && settings->sliceStep != nullptr
+               && tools->sliceStep != nullptr && macros->sliceStep != nullptr,
+               "all six panels were given the slice step the editor injects");
+
+        // the slice belongs to the timeline's edits, so it is refused while the
+        // transport runs and needs the grid on; the fixture places a fresh clip
+        // of a fresh pattern per press, starts it on a beat the zoom's grid can
+        // never snap off, and splits it at its own middle row, which stays clear
+        // of both ends however coarse the grid is
+        head->playing = false;
+
+        // the transport snapshot the slice's lock reads only refreshes through a
+        // block, and an earlier section left the host running, so the press below
+        // is offered the state the transport is really in
+        juce::AudioBuffer<float> parkedAudio (2, 64);
+        juce::MidiBuffer parkedMidi;
+        proc.processBlock (parkedAudio, parkedMidi);
+
+        song.settings.snapEnabled = true;
+        song.settings.adaptiveGrid = false;
+        song.settings.fixedGridRows = 4;
+
+        const float chCentre = (float) tracker->channelBoundsFor (0).getCentreX();
+        int sliceFixture = 0;
+
+        auto sliceOneOn = [&] (auto* panel, const juce::String& name, const auto& pressOn)
+        {
+            const double startBeats = 4000.0 + (double) (sliceFixture++) * 32.0;
+            const int patternId = song.addPattern (name + " fixture", 64, 1).id;
+
+            check (song.addClip (patternId, startBeats) != nullptr,
+                   name + ": the fixture has a clip placed for the slice to split");
+
+            // the cursor is parked in the view so the check below can read the
+            // very cell the tracker's note entry would have taken this s for,
+            // which is a C sharp
+            tracker->refresh();
+            tracker->mouseDown (makeEvent (*tracker, { chCentre, 55.5f }));
+            tracker->mouseUp (makeEvent (*tracker, { chCentre, 55.5f }));
+            const int cursorRow = tracker->getCursorRow();
+            const int cursorCh = tracker->getCursorChannel();
+
+            const int heldId = song.activePatternId;
+            auto* heldBefore = song.findPattern (heldId);
+            const rtr::Cell cellBefore = heldBefore != nullptr
+                                            ? heldBefore->cell (cursorRow, cursorCh)
+                                            : rtr::Cell();
+
+            song.editPlayheadBeats = startBeats + 32.0 * song.beatsPerRow();
+
+            const int clipsBefore = (int) song.clips.size();
+            const int patternsBefore = (int) song.patterns.size();
+            const int depthBefore = proc.getUndoDepth();
+
+            check (pressOn (panel),
+                   name + " claims the Alt+S spelling with the clip slice");
+            check ((int) song.clips.size() == clipsBefore + 1,
+                   name + ": one clip becomes two");
+            check ((int) song.patterns.size() == patternsBefore + 2,
+                   name + ": and the pattern gets its two new copies to hold the halves");
+            check (proc.getUndoDepth() == depthBefore + 1,
+                   name + ": and the slice records exactly one point of the undo line, however far the press was routed");
+
+            // the Alt held letter stays out of the tracker's note entry, which
+            // would otherwise type this very s as a C sharp at the cursor: the
+            // pattern the tracker was holding is still in the pool, the slice
+            // only copies out of it, so its own cell reads back the same way
+            auto* heldAfter = song.findPattern (heldId);
+            const rtr::Cell cellAfter = heldAfter != nullptr
+                                            ? heldAfter->cell (cursorRow, cursorCh)
+                                            : rtr::Cell();
+            check (cellAfter.note == cellBefore.note && cellAfter.inst == cellBefore.inst
+                       && cellAfter.vol == cellBefore.vol && cellAfter.pan == cellBefore.pan
+                       && cellAfter.cmd == cellBefore.cmd && cellAfter.cmdVal == cellBefore.cmdVal,
+                   name + ": and the Alt held s types no C sharp at the cell the cursor sits on");
+        };
+
+        sliceOneOn (tracker, "the tracker", pressSliceOn);
+        sliceOneOn (timeline, "the timeline", pressSliceOn);
+        sliceOneOn (pool, "the pool", pressSliceOn);
+        sliceOneOn (settings, "the settings panel", pressSliceOn);
+        sliceOneOn (tools, "the tools panel", pressSliceOn);
+        sliceOneOn (macros, "the macros panel", pressSliceOn);
+
+        // X11 hands a key held with Alt over as the character that press printed,
+        // so the slice is matched over that letter too, which is how the
+        // lowercase spelling a host sends is heard
+        {
+            const double startBeats = 4000.0 + (double) (sliceFixture++) * 32.0;
+            const int patternId = song.addPattern ("lowercase fixture", 64, 1).id;
+
+            check (song.addClip (patternId, startBeats) != nullptr,
+                   "the lowercase fixture has a clip of its own to split");
+            song.editPlayheadBeats = startBeats + 32.0 * song.beatsPerRow();
+
+            const int clipsBefore = (int) song.clips.size();
+            const int depthBefore = proc.getUndoDepth();
+
+            check (tracker->keyPressed (juce::KeyPress ('s', juce::ModifierKeys (kAltMod), 's')),
+                   "the tracker takes the lowercase Alt+s spelling the way X11 hands it");
+            check ((int) song.clips.size() == clipsBefore + 1 && proc.getUndoDepth() == depthBefore + 1,
+                   "and it splits the same way and leaves its one point of the line");
+        }
+
+        // the letters the Alt family refuses rather than spending: Alt+Shift
+        // belongs whole to the host and Ctrl+X is the host's own cut, so neither
+        // is answered here, and the plug-in no longer owns a Ctrl spelling of the
+        // slice at all
+        {
+            const int clipsBefore = (int) song.clips.size();
+            const int patternsBefore = (int) song.patterns.size();
+            const int depthBefore = proc.getUndoDepth();
+
+            check (! pressSliceAltShiftOn (tracker),
+                   "the tracker leaves an Alt+Shift s to the host rather than slicing, the whole Alt+Shift family's meaning");
+            check (! pressCtrlSliceOn (tracker),
+                   "and no panel spends the Ctrl x spelling, which belongs to the host's cut");
+            check ((int) song.clips.size() == clipsBefore && (int) song.patterns.size() == patternsBefore
+                       && proc.getUndoDepth() == depthBefore,
+                   "and neither press splits anything, so the clips and the undo line stay as they were");
+        }
+
+        // the Ctrl spellings the plug-in no longer answers at all: Ctrl+X used to
+        // be the slice and Ctrl+Shift+C / Ctrl+Shift+V were the pattern
+        // clipboard's pair, and all three of them belong to the host, so a host
+        // that forwards them finds the plug-in silent rather than a meaning that
+        // changed per host
+        {
+            const int clipsBefore = (int) song.clips.size();
+            const int patternsBefore = (int) song.patterns.size();
+            const int depthBefore = proc.getUndoDepth();
+            const bool clipboardBefore = song.clipboard.valid;
+
+            check (! editor->keyPressed (juce::KeyPress ('X', juce::ModifierKeys (kCtrlMod), 'X')),
+                   "the editor no longer answers the Ctrl+X slice, since that letter is the host's cut");
+            check (! editor->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kShiftMod | kCtrlMod), 'C')),
+                   "and the pattern clipboard's Ctrl+Shift+C is not answered at all, the pair's own half");
+            check (! editor->keyPressed (juce::KeyPress ('V', juce::ModifierKeys (kShiftMod | kCtrlMod), 'V')),
+                   "nor its Ctrl+Shift+V, so a whole pattern only moves through the timeline's and the pool's menus");
+            check (song.clipboard.valid == clipboardBefore
+                       && (int) song.clips.size() == clipsBefore
+                       && (int) song.patterns.size() == patternsBefore
+                       && proc.getUndoDepth() == depthBefore,
+                   "and none of the three presses copies, pastes or splits anything, so the pattern clipboard, the clips and the undo line all stay exactly as the menus left them");
+        }
+
+        // the slice stays refused while the transport runs, the way every other
+        // timeline edit is locked, and the press is still claimed rather than
+        // walked over to a note entered at the cursor
+        {
+            juce::AudioBuffer<float> audio (2, 64);
+            juce::MidiBuffer midi;
+
+            head->playing = true;
+            proc.processBlock (audio, midi);
+
+            const int clipsBefore = (int) song.clips.size();
+            const int depthBefore = proc.getUndoDepth();
+
+            check (pressSliceOn (timeline),
+                   "the timeline still claims the Alt+S press while the transport runs");
+            check ((int) song.clips.size() == clipsBefore && proc.getUndoDepth() == depthBefore,
+                   "and that press splits nothing, since a clip cannot be cut while its rows are playing");
+
+            head->playing = false;
         }
     }
 

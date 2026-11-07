@@ -14,12 +14,13 @@ namespace rtr
 // the editor alone owned was swallowed on those paths. Hosts such as Bitwig and
 // Reaper also answer the Ctrl spellings with their own undo and clipboard before
 // the plug-in is offered the event, so the Alt pair is the spelling they leave
-// free. Both pairs read the letter over the key code and over the character the
-// press printed, since a key held by Alt arrives over X11 as that character rather
-// than as a bare code, and no Alt+Shift spelling is claimed at all: Alt+Shift+Z
-// was found swallowed on the way to both hosts, so answering it would give a key
-// the user aims at the redo the opposite meaning wherever it does arrive, and the
-// whole Alt+Shift family is left to the host rather than claimed by any panel.
+// free. Both pairs and the clip slice read the letter over the key code and over
+// the character the press printed, since a key held by Alt arrives over X11 as
+// that character rather than as a bare code, and no Alt+Shift spelling is claimed
+// at all: Alt+Shift+Z was found swallowed on the way to both hosts, so answering
+// it would give a key the user aims at the redo the opposite meaning wherever it
+// does arrive, and the whole Alt+Shift family is left to the host rather than
+// claimed by any panel.
 
 enum class UndoRedoKey { none = 0, undo, redo };
 
@@ -136,6 +137,38 @@ inline bool answerClipboardKey (const juce::KeyPress& key,
     }
 
     return false;
+}
+
+// the clip slice at the playhead, which the timeline used to answer with Ctrl+X:
+// that letter is the host's own cut, found to change nothing about the plug-in's
+// cells in either host, so the shortcut moved to Alt+S, the free letter. there is
+// one spelling of it shared by every panel rather than a Ctrl letter per host,
+// because a clip slice has no per-host meaning to keep. the letter is one the
+// note entry uses for C sharp, so a panel holding the step has to claim the press
+// before its own key entry can type it, and a press is claimed whenever the panel
+// holds the step even when the slice itself refuses, which is what keeps an Alt
+// held letter from falling through as a note
+inline bool matchSliceKey (const juce::KeyPress& key)
+{
+    if (! key.getModifiers().isAltDown()
+        || key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown()
+        || key.getModifiers().isShiftDown())
+        return false;
+
+    const int code = key.getKeyCode();
+    const auto printed = key.getTextCharacter();
+
+    return code == 'S' || code == 's' || printed == 'S' || printed == 's';
+}
+
+inline bool answerSliceKey (const juce::KeyPress& key,
+                            const std::function<void()>& slice)
+{
+    if (! matchSliceKey (key) || slice == nullptr)
+        return false;
+
+    slice();
+    return true;
 }
 
 } // namespace rtr

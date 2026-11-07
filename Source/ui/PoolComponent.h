@@ -42,6 +42,12 @@ public:
     std::function<void()> pasteStep;
     std::function<void()> cutStep;
 
+    // the clip slice at the playhead, Alt+S, with the editor's slice injected:
+    // the Ctrl+X spelling the timeline used answered for the host instead of the
+    // plug-in, so the Alt letter is what every panel answers, including while the
+    // pool is still mid-drag and the editor is never consulted at all
+    std::function<void()> sliceStep;
+
     // the panel hands keyboard focus back when its own menu or the rename alert
     // has closed and when a drag it started is released, since a popup and a
     // dragged item are both windows with no parent component and closing one

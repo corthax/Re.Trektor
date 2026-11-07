@@ -1013,6 +1013,12 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
 
     juce::PopupMenu pasteMenu;
     pasteMenu.addItem (7, "Everything");
+    // its additive twin sits right below so the two all-field choices read
+    // together: everything the buffer carries lands on top of what the target
+    // already has, and only its non-empty fields reach, the empty ones leaving
+    // the target's own value instead of clearing it. its id stays out of the
+    // 7..13 run the masks below map by, so it is answered on its own
+    pasteMenu.addItem (16, "Additive (everything)");
     pasteMenu.addItem (8, "Note");
     pasteMenu.addItem (9, "Instrument");
     pasteMenu.addItem (10, "Volume");
@@ -1034,7 +1040,7 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                             auto& p = pattern();
 
                             // 1..4 are the "Clear" submenu's leaves, 5 and 6 are
-                            // the top-level copy and cut, 7..13 the "Paste"
+                            // the top-level copy and cut, 7..13 plus 16 the "Paste"
                             // submenu's and 14/15 the top-level undo pair
                             if (result == 1)
                             {
@@ -1082,6 +1088,16 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                                                                   kPastePan, kPasteCmd,
                                                                   kPasteCmdVal };
                                 pasteClipboardAtCursor (pasteMasks[result - 7]);
+                            }
+                            else if (result == 16 && hasCellClipboard())
+                            {
+                                // the whole-buffer paste that never clears: the
+                                // mode bit makes pasteCells drop the empty fields
+                                // of each copied cell, so the target keeps its own
+                                // value wherever the buffer held nothing, and an
+                                // all-empty cell writes nothing at all, which
+                                // leaves no undo point behind
+                                pasteClipboardAtCursor (kPasteAll | kPasteAdditive);
                             }
                             else if (result == 14)
                             {
@@ -1614,6 +1630,13 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
     // what is selected, which is that copy followed by emptying exactly the cells
     // it took. All three letters are notes this panel types
     if (answerClipboardKey (key, copyStep, pasteStep, cutStep))
+        return true;
+
+    // the clip slice at the playhead is answered here as well, and before the
+    // Alt-held letters are kept out of the panel's own key entry, since this
+    // panel's note entry types s as C sharp: the press has to be claimed first
+    // or the cursor cell gets a note the user never meant to leave there
+    if (answerSliceKey (key, sliceStep))
         return true;
 
     // any other letter held with Alt stays out of the tracker's own key entry,

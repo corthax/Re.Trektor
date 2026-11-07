@@ -43,6 +43,12 @@ public:
     std::function<void()> pasteStep;
     std::function<void()> cutStep;
 
+    // the clip slice at the playhead, Alt+S, injected from the editor: its old
+    // Ctrl+X spelling was answered by the host rather than by the plug-in, so the
+    // Alt letter is the one spelling every panel hears, and the pattern
+    // clipboard's keyboard pair is gone from the editor altogether
+    std::function<void()> sliceStep;
+
 private:
     void applyTranspose (int semitones);
     void applyRemap();

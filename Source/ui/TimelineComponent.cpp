@@ -46,7 +46,13 @@ bool TimelineComponent::keyPressed (const juce::KeyPress& key)
     // press whenever this panel holds the step rather than only when the step
     // does something, which is what keeps an Alt held letter from walking up to
     // become a note entered at the cursor: c, v and x are all notes
-    return answerClipboardKey (key, copyStep, pasteStep, cutStep);
+    if (answerClipboardKey (key, copyStep, pasteStep, cutStep))
+        return true;
+
+    // the clip slice at the playhead, Alt+S, is answered the same way: its old
+    // Ctrl+X spelling was spent by the host rather than by the plug-in, and the
+    // timeline's own "Slice at playhead" menu item stays the other route to it
+    return answerSliceKey (key, sliceStep);
 }
 
 void TimelineComponent::refresh()

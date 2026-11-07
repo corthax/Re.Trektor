@@ -35,8 +35,6 @@ private:
 
     void timerCallback() override;
     void setTab (Tab tab);
-    void doCopy();
-    void doPaste (bool forceUnique);
     void doSlice();
     void syncBottomBar();
     void syncGridControls();

@@ -98,6 +98,14 @@ public:
     std::function<void()> pasteStep;
     std::function<void()> cutStep;
 
+    /** The clip slice at the playhead, which the timeline used to answer with
+        Ctrl+X: that letter is the host's own cut, found in both hosts to change
+        nothing about the plug-in, so the shortcut moved to Alt+S and every panel
+        answers it, with the editor's own slice injected rather than reached here
+        so the one spelling still splits the timeline and refreshes all of it.
+        There is no Ctrl spelling of it left to keep for a host. */
+    std::function<void()> sliceStep;
+
     /** Closes a half-typed numeric buffer the way Esc does and reports whether
         one was there, which is what makes Ctrl+Z or the menu's Undo one press
         one effect: a press either forgets the digits or walks back. */

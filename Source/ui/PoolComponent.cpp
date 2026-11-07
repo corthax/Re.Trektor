@@ -34,7 +34,14 @@ bool PoolComponent::keyPressed (const juce::KeyPress& key)
     // the host as well: the pool's drag routes the press here, and the host
     // answers the Ctrl spelling with its own clipboard before the plug-in is
     // offered it
-    return answerClipboardKey (key, copyStep, pasteStep, cutStep);
+    if (answerClipboardKey (key, copyStep, pasteStep, cutStep))
+        return true;
+
+    // the clip slice at the playhead, Alt+S, is answered the same way, since the
+    // Ctrl+X spelling that used to be the timeline's belonged to the host's own
+    // cut instead, and while the pool's drag is modal the editor is never offered
+    // the press at all
+    return answerSliceKey (key, sliceStep);
 }
 
 void PoolComponent::refresh()

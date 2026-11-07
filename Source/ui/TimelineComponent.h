@@ -63,6 +63,12 @@ public:
     std::function<void()> pasteStep;
     std::function<void()> cutStep;
 
+    // the clip slice at the playhead, Alt+S: the timeline's own Ctrl+X spelling
+    // belonged to the host rather than to the plug-in, so the step is answered
+    // through the Alt letter everywhere and the editor's slice is injected here,
+    // which keeps the timeline's own menu the only other way of reaching it
+    std::function<void()> sliceStep;
+
     // the panel hands keyboard focus back when its context menus close and when
     // a pattern dragged out of the pool is dropped onto it, because both the
     // popup and the dragged item are windows with no parent component and

@@ -79,6 +79,13 @@ constexpr int kPasteCmd = 16;    // command number
 constexpr int kPasteCmdVal = 32; // command argument
 constexpr int kPasteAll = 63;
 
+/** Not a field bit but a mode bit to add to the filter (kPasteAll | kPasteAdditive
+    means everything, additively): only the buffer's non-empty fields land, so an
+    empty clipboard field leaves the target's own value in place rather than
+    clearing it. A cell whose every field is empty writes nothing at all, and a
+    paste that writes nothing at all leaves no undo point behind. */
+constexpr int kPasteAdditive = 64;
+
 /** Cell clipboard content: every copied cell with its offset inside the copied
     rectangle, measured from its top-left cell. A Ctrl-drag hole stays a hole
     here, since only selected cells are stored, so a paste never writes through
@@ -309,7 +316,11 @@ struct Pattern
         grows the pattern. `fieldMask` is the paste filter (kPaste* bits):
         kPasteAll rewrites every field of the cell, a single-field choice
         touches only its own column, and a clipboard field that was empty
-        clears the target's field. Returns the number of cells written. */
+        clears the target's field. Adding the kPasteAdditive mode bit instead
+        keeps the target's own value under every empty field of the buffer, so
+        only what the clipboard really carries lands on top. Returns the
+        number of cells written, which is zero when the additive paste found
+        nothing to write. */
     int pasteCells (const CellClipboard& clip, int anchorRow, int anchorChannel,
                     int fieldMask) noexcept;
 };

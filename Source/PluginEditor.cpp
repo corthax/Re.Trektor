@@ -185,6 +185,25 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     wireClipboard (settings);
     wireClipboard (macros);
 
+    // the Alt slice at the playhead, injected into every panel the way the undo
+    // pair and the clipboard's steps are: a press during a menu or a pool drag
+    // belongs to that panel and never reaches the editor, and its Ctrl+X spelling
+    // was spent by the host rather than by the plug-in, so the Alt letter is the
+    // one route the slice has besides the timeline's own menu. The step is the
+    // editor's rather than the timeline's so the slice still commits through the
+    // one funnel that records the undo point and refreshes all six views
+    auto wireSlice = [this] (auto& panel)
+    {
+        panel.sliceStep = [this] { doSlice(); };
+    };
+
+    wireSlice (tracker);
+    wireSlice (timeline);
+    wireSlice (pool);
+    wireSlice (tools);
+    wireSlice (settings);
+    wireSlice (macros);
+
     // the other half of what those paths leave behind: a context menu's popup
     // and a pattern the pool started dragging are windows with no parent
     // component of their own, and closing one takes the keyboard focus with it,
@@ -626,37 +645,23 @@ bool ReTrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
 {
     const bool ctrl = key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown();
 
-    // Ctrl+C and Ctrl+V are now the cell clipboard: they copy the selected
-    // cells and paste them at the tracker cursor with everything. The pattern
-    // clipboard keeps both reachable under Shift (and through the timeline's
-    // context menus), which is where the plain shortcuts used to sit
-    if (ctrl && key.getModifiers().isShiftDown() && key.getKeyCode() == 'C')
-    {
-        doCopy();
-        return true;
-    }
-
-    if (ctrl && key.getKeyCode() == 'C')
+    // Ctrl+C and Ctrl+V are the cell clipboard: they copy the selected cells and
+    // paste them at the tracker cursor with everything. The pattern clipboard has
+    // no keyboard spelling of its own any more, since the Ctrl+Shift pair spent on
+    // it was found unreachable in the hosts the same way the plain Ctrl trio is.
+    // That pair is refused rather than left to read as the plain one, so a host
+    // that spends Ctrl+Shift+C or Ctrl+Shift+V on its own duplication keeps its
+    // meaning, and copying or pasting a whole pattern is only what the timeline's
+    // and the pool's menus do
+    if (ctrl && ! key.getModifiers().isShiftDown() && key.getKeyCode() == 'C')
     {
         tracker.copySelectionToClipboard();
         return true;
     }
 
-    if (ctrl && key.getModifiers().isShiftDown() && key.getKeyCode() == 'V')
-    {
-        doPaste (true);
-        return true;
-    }
-
-    if (ctrl && key.getKeyCode() == 'V')
+    if (ctrl && ! key.getModifiers().isShiftDown() && key.getKeyCode() == 'V')
     {
         tracker.pasteClipboardAtCursor (kPasteAll);
-        return true;
-    }
-
-    if (ctrl && key.getKeyCode() == 'X')
-    {
-        doSlice();
         return true;
     }
 
@@ -731,8 +736,10 @@ bool ReTrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
     // everything, the plain spelling's meaning, and Alt+X cuts, which is that
     // copy followed by emptying exactly the cells it took. These are the same
     // steps every panel was given, so a press the tracker answered there and one
-    // that walked up to here do the same thing, and the Ctrl spellings above, the
-    // clip slice among them, keep their meaning
+    // that walked up to here do the same thing. The Ctrl spellings of the copy and
+    // paste above keep their meaning, while neither the Ctrl+Shift pair nor the
+    // Ctrl+X slice is answered any more: all three belonged to the host rather
+    // than to the plug-in, and the slice now reads the Alt+S spelling below
     if (const auto step = matchClipboardKey (key); step != ClipboardKey::none)
     {
         if (step == ClipboardKey::copy)
@@ -745,6 +752,15 @@ bool ReTrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
         return true;
     }
 
+    // the clip slice at the playhead, Alt+S, answered by the shared matcher so no
+    // panel and the editor can disagree about it either: it is the only spelling
+    // of the slice left, since Ctrl+X belongs to the host's cut, and it reaches
+    // the same doSlice the panels were given, so a press answered here and one
+    // answered by a panel split the same clip at the same beat and left the same
+    // single point of the undo line behind
+    if (answerSliceKey (key, [this] { doSlice(); }))
+        return true;
+
     if (key.getKeyCode() == juce::KeyPress::F5Key)
     {
         setTab (Tab::tracker);
@@ -752,33 +768,6 @@ bool ReTrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
     }
 
     return false;
-}
-
-void ReTrektorAudioProcessorEditor::doCopy()
-{
-    if (auto* p = song.activePattern())
-    {
-        song.copyPattern (p->id);
-        pool.refresh();
-    }
-}
-
-void ReTrektorAudioProcessorEditor::doPaste (bool forceUnique)
-{
-    if (proc.getTransport().playing)
-        return;
-
-    if (! song.clipboard.valid)
-        return;
-
-    const bool unique = forceUnique || song.settings.pasteAsUnique;
-    const double beat = song.snapBeats (song.editPlayheadBeats, timeline.getPixelsPerBeat());
-
-    if (auto* clip = song.pasteAt (beat, unique))
-    {
-        song.activePatternId = clip->patternId;
-        commitEdit();
-    }
 }
 
 void ReTrektorAudioProcessorEditor::doSlice()

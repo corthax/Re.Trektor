@@ -1128,6 +1128,47 @@ int main()
         check (p->cell (20, 1).cmd == 9 && p->cell (20, 1).cmdVal == 8,
                "the Command Value option pastes the argument and keeps the target's number");
 
+        // --- the same clipboard additively: the mode bit drops the buffer's
+        // empty fields from the mask per entry, so the target keeps whatever it
+        // carried under them and an all-empty cell writes nothing at all ---
+        p->cell (8, 1).note = 71;
+        p->cell (8, 1).vol = 66;
+        p->cell (8, 1).inst = 5;
+        p->cell (8, 1).pan = 77;
+        p->cell (8, 1).cmd = 21;
+        p->cell (8, 1).cmdVal = 61;
+
+        const int addAll = p->pasteCells (clip, 8, 1, kPasteAll | kPasteAdditive);
+        check (addAll == 2, "an additive paste visits the entries that carry something, both of them");
+        check (p->cell (8, 1).note == 60 && p->cell (8, 1).vol == 11 && p->cell (8, 1).inst == 2
+                       && p->cell (8, 1).cmd == 17 && p->cell (8, 1).cmdVal == 8,
+                   "the buffer's own values land on top of what the target already carried");
+        check (p->cell (8, 1).pan == 77,
+               "the field the clipboard cell left empty keeps the target's value rather than clearing, the additive spelling's whole meaning");
+        check (p->cell (10, 1).note == 62 && p->cell (10, 1).pan == 44,
+               "the lower entry keeps its offset and lands its own pan where the target was blank");
+
+        // additively through a one-field filter, an entry whose cell does not
+        // carry that field at all is skipped rather than written blank
+        p->cell (8, 1).pan = 105;
+        check (p->pasteCells (clip, 8, 1, kPastePan | kPasteAdditive) == 1,
+               "a one-field additive paste only counts the entry that really carries that field");
+        check (p->cell (8, 1).pan == 105 && p->cell (10, 1).pan == 44,
+               "the entry that carries it lands and the one that does not leaves the target's own value in place");
+
+        // an all-empty clipboard cell additively writes nothing, which is what
+        // leaves the model unchanged and so leaves no point of the undo line
+        CellClipboard onlyBlank;
+        onlyBlank.entries = { { 0, 0, Cell() } };
+        p->cell (6, 1).note = 73;
+        p->cell (6, 1).pan = 91;
+        check (p->pasteCells (onlyBlank, 6, 1, kPasteAll | kPasteAdditive) == 0,
+               "an all-empty clipboard cell additively reports nothing written");
+        check (p->cell (6, 1).note == 73 && p->cell (6, 1).pan == 91,
+               "and the target keeps every value it carried, so nothing about the song changed");
+        check (p->pasteCells (onlyBlank, 6, 1, kPasteAll) == 1,
+               "the plain spelling still writes that one all-empty cell, which is the clearing the additive mode does without");
+
         // --- the wider block: two columns wide, and the last channel is at the
         // pattern's edge, so half the block does not fit ---
         w->cell (4, 1).note = 61;

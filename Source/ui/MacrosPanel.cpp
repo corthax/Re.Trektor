@@ -158,7 +158,14 @@ bool MacrosPanel::keyPressed (const juce::KeyPress& key)
     // reason that made the undo pair unreachable gives the clipboard's steps to
     // the host as well: this panel is what routes the press while its menus are
     // about, and its own fields type no letters for a press to fall into
-    return answerClipboardKey (key, copyStep, pasteStep, cutStep);
+    if (answerClipboardKey (key, copyStep, pasteStep, cutStep))
+        return true;
+
+    // the clip slice at the playhead, Alt+S, is answered the same way, since its
+    // old Ctrl+X spelling was spent by the host's own cut rather than reaching
+    // the plug-in: the Alt letter is claimed by this panel too, so a press during
+    // one of its menus still finds the slice somewhere
+    return answerSliceKey (key, sliceStep);
 }
 
 void MacrosPanel::refresh()
