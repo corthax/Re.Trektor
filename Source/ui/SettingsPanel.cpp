@@ -55,14 +55,6 @@ SettingsPanel::SettingsPanel (ReTrektorAudioProcessor& processor)
                                        refresh();
                                    });
 
-    pasteUniqueToggle = addToggle ("Paste as unique pattern by default", "Ctrl+V creates a copy of the pattern data",
-                                   song.settings.pasteAsUnique,
-                                   [this, refresh] (bool v)
-                                   {
-                                       song.settings.pasteAsUnique = v;
-                                       refresh();
-                                   });
-
     snapToggle = addToggle ("Snap to grid", "Enable snapping of timeline edits and paste",
                             song.settings.snapEnabled,
                             [this, refresh] (bool v)
@@ -202,7 +194,6 @@ void SettingsPanel::refresh()
         subticksSlider->setValue ((double) song.settings.subticksPerRow, juce::dontSendNotification);
         rowsPerBeatSlider->setValue ((double) song.settings.rowsPerBeat, juce::dontSendNotification);
         defaultRowsSlider->setValue ((double) song.settings.defaultPatternRows, juce::dontSendNotification);
-        pasteUniqueToggle->setToggleState (song.settings.pasteAsUnique, juce::dontSendNotification);
         snapToggle->setToggleState (song.settings.snapEnabled, juce::dontSendNotification);
         adaptiveToggle->setToggleState (song.settings.adaptiveGrid, juce::dontSendNotification);
         fixedGridSlider->setValue ((double) song.settings.fixedGridRows, juce::dontSendNotification);

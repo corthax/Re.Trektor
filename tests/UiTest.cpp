@@ -1355,6 +1355,17 @@ int main()
         check (false, "settings panel exposes the hex toggle");
     }
 
+    // the pattern paste's default row is dropped rather than left saved and
+    // shown: its only reader went away with the pattern clipboard's dropped
+    // Ctrl+Shift pair and the timeline's and pool menus name their own
+    // instance or unique choice, so the panel loses the row and the saved
+    // settings block loses the property, an older song that still carries it
+    // simply having nothing to read it into
+    check (findToggle (*settings, "Paste as unique pattern by default") == nullptr,
+           "the Settings panel no longer shows the pattern paste's default row");
+    check (! song.toValueTree().toXmlString().contains ("pasteAsUnique"),
+           "the saved settings block no longer carries the dropped property");
+
     song.settings.defaultPatternRows = 32;
     auto& created = song.addPattern();
     check (created.length == 32, "new patterns use the configured length");

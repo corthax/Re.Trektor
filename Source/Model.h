@@ -358,7 +358,6 @@ struct Settings
     int subticksPerRow = 6;
     int rowsPerBeat = 4;
     int defaultPatternRows = 64;
-    bool pasteAsUnique = false;
     bool snapEnabled = true;
     bool adaptiveGrid = true;
     int fixedGridRows = 4;

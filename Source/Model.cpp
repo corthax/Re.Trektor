@@ -692,7 +692,6 @@ juce::ValueTree Song::toValueTree() const
     st.setProperty ("subticksPerRow", settings.subticksPerRow, nullptr);
     st.setProperty ("rowsPerBeat", settings.rowsPerBeat, nullptr);
     st.setProperty ("defaultPatternRows", settings.defaultPatternRows, nullptr);
-    st.setProperty ("pasteAsUnique", settings.pasteAsUnique, nullptr);
     st.setProperty ("snapEnabled", settings.snapEnabled, nullptr);
     st.setProperty ("adaptiveGrid", settings.adaptiveGrid, nullptr);
     st.setProperty ("fixedGridRows", settings.fixedGridRows, nullptr);
@@ -811,7 +810,6 @@ void Song::fromValueTree (const juce::ValueTree& root)
         settings.subticksPerRow = st.getProperty ("subticksPerRow", 6);
         settings.rowsPerBeat = juce::jmax (1, (int) st.getProperty ("rowsPerBeat", 4));
         settings.defaultPatternRows = juce::jlimit (1, kMaxRows, (int) st.getProperty ("defaultPatternRows", 64));
-        settings.pasteAsUnique = st.getProperty ("pasteAsUnique", false);
         settings.snapEnabled = st.getProperty ("snapEnabled", true);
         settings.adaptiveGrid = st.getProperty ("adaptiveGrid", true);
         settings.fixedGridRows = juce::jmax (1, (int) st.getProperty ("fixedGridRows", 4));

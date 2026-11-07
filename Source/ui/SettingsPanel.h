@@ -65,7 +65,6 @@ private:
     juce::Slider* subticksSlider = nullptr;
     juce::Slider* rowsPerBeatSlider = nullptr;
     juce::Slider* defaultRowsSlider = nullptr;
-    juce::ToggleButton* pasteUniqueToggle = nullptr;
     juce::ToggleButton* snapToggle = nullptr;
     juce::ToggleButton* adaptiveToggle = nullptr;
     juce::Slider* fixedGridSlider = nullptr;
