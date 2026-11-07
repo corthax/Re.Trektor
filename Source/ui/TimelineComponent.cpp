@@ -642,6 +642,14 @@ void TimelineComponent::showContextMenu (const juce::MouseEvent& e, Clip* clip)
                                 if (onModelChanged)
                                     onModelChanged();
 
+                                // the menu closed, so hand keyboard focus back
+                                // before the repaint: the popup was a window with
+                                // no parent component and closing it leaves nothing
+                                // focused, so keys stop reaching the panels until
+                                // the mouse clicks again
+                                if (focusRescue)
+                                    focusRescue();
+
                                 repaint();
                             });
     }
@@ -674,6 +682,12 @@ void TimelineComponent::showContextMenu (const juce::MouseEvent& e, Clip* clip)
 
                                 if (onModelChanged)
                                     onModelChanged();
+
+                                // same rescue as the clip's own menu: the popup
+                                // this menu was is a window with no parent, so
+                                // focus is gone once it closes
+                                if (focusRescue)
+                                    focusRescue();
 
                                 repaint();
                             });
@@ -714,6 +728,15 @@ void TimelineComponent::itemDropped (const SourceDetails& details)
 {
     dropHoverValid = false;
     dropPatternId = -1;
+
+    // the drop ends the drag, whose dragged item was a desktop window holding
+    // keyboard focus, so focus is gone by the time this runs; handing it back
+    // first means a key aimed at undo right after the drop is heard, and it is
+    // done ahead of the playback guard because a drag also happens while the
+    // host plays, where nothing is modelled but the focus still has to be put
+    // back
+    if (focusRescue)
+        focusRescue();
 
     if (playbackLocked())
         return;

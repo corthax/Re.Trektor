@@ -55,6 +55,13 @@ public:
     std::function<bool()> undoStep;
     std::function<bool()> redoStep;
 
+    // the panel hands keyboard focus back when its context menus close and when
+    // a pattern dragged out of the pool is dropped onto it, because both the
+    // popup and the dragged item are windows with no parent component and
+    // closing one leaves nothing focused, which deafens every panel below the
+    // editor until the mouse clicks again
+    std::function<void()> focusRescue;
+
     bool playbackLocked() const;
 
 private:

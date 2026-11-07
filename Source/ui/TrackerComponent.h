@@ -78,6 +78,16 @@ public:
         one effect: a press either forgets the digits or walks back. */
     bool cancelPendingEdit();
 
+    /** Hands keyboard focus back once a menu this panel owns has closed,
+        injected by the editor rather than reached here so the editor decides
+        which component is meant to hear keys. A context menu is a window with
+        no parent component, so closing one leaves no component focused at all
+        and a key press is only answered by the editor's own shortcuts: the
+        note entry, cursor moves and clears this panel owns go unheard until
+        the mouse is used again, which is what the keyboard felt dead after a
+        right-click menu. */
+    std::function<void()> focusRescue;
+
     /** The command number the column resolves to above the given row (the one
         an implicit cell on that row carries), or -1 when the column never named
         a command yet. */

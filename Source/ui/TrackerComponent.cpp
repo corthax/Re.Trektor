@@ -1094,6 +1094,16 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                                 redoStep();
                             }
 
+                            // the menu is closed either way, including when the
+                            // press dismissed it or picked a greyed item, so hand
+                            // keyboard focus back: the popup was a window with no
+                            // parent component and closing it leaves nothing
+                            // focused, so a press is only heard by the editor's
+                            // own shortcuts and the note entry here dies until the
+                            // grid is clicked again
+                            if (focusRescue)
+                                focusRescue();
+
                             repaint();
                         });
 }

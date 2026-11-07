@@ -34,6 +34,12 @@ public:
     std::function<bool()> undoStep;
     std::function<bool()> redoStep;
 
+    // the panel hands keyboard focus back when its own menu or the rename alert
+    // has closed and when a drag it started is released, since a popup and a
+    // dragged item are both windows with no parent component and closing one
+    // leaves nothing focused
+    std::function<void()> focusRescue;
+
     /** Optional snap function supplied by the editor (uses the timeline grid). */
     std::function<double (double)> snapBeat;
 

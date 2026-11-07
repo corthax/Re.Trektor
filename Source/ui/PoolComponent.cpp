@@ -277,6 +277,13 @@ void PoolComponent::mouseDrag (const juce::MouseEvent& e)
 
 void PoolComponent::mouseUp (const juce::MouseEvent&)
 {
+    // releasing the pointer ends a drag the pool started, and the dragged item
+    // was a desktop window that held the keyboard focus while it floated, so
+    // focus is gone whether or not the item landed on a target; handing it back
+    // here is what lets a key aimed at undo be heard straight after a drop
+    if (focusRescue)
+        focusRescue();
+
     dragging = false;
     dragIndex = -1;
 }
@@ -485,6 +492,15 @@ void PoolComponent::showContextMenu (int patternId)
                                             }
 
                                             delete aw;
+
+                                            // the alert closed, cancelled or
+                                            // accepted, and it was a window of
+                                            // its own that took the keyboard
+                                            // focus away, so hand it back before
+                                            // anything else can be typed
+                                            if (focusRescue)
+                                                focusRescue();
+
                                             repaint();
                                         }),
                                         false);
@@ -506,6 +522,14 @@ void PoolComponent::showContextMenu (int patternId)
 
                             if (onModelChanged)
                                 onModelChanged();
+
+                            // the menu is gone, so hand keyboard focus back: its
+                            // popup was a window with no parent component and
+                            // closing it leaves nothing focused, which deafens
+                            // every panel below the editor until the mouse
+                            // clicks again
+                            if (focusRescue)
+                                focusRescue();
 
                             repaint();
                         });

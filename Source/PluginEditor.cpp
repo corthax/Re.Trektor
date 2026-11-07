@@ -157,6 +157,38 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     wireUndoRedo (settings);
     wireUndoRedo (macros);
 
+    // the other half of what those paths leave behind: a context menu's popup
+    // and a pattern the pool started dragging are windows with no parent
+    // component of their own, and closing one takes the keyboard focus with it,
+    // so afterwards nothing is focused at all. JUCE sends a key press to the
+    // focused component and walks up from there, so with nothing focused the
+    // walk starts at the plug-in's top component and only the editor's own
+    // shortcuts are answered, while the note entry, cursor moves and clears the
+    // tracker owns go unheard until the mouse is clicked again. JUCE's own
+    // hand-back after a menu re-grabs focus on whatever still holds it, which is
+    // nothing in that case, so the panels that own a menu, an alert or a drag
+    // hand it back themselves, and to the tracker rather than to themselves,
+    // since focus resting on a panel would leave the tracker, the only note
+    // entry there is, deaf the same way
+    auto wireFocusRescue = [this] (auto& panel)
+    {
+        panel.focusRescue = [this, &panel]
+        {
+            // the tracker is what has to hear keys, so it is the focus to hand
+            // back; where it is hidden, which is the Settings and Macros tabs,
+            // the panel takes it instead so a press still walks up to the
+            // editor rather than stopping at nothing focused at all
+            if (tracker.isShowing())
+                tracker.grabKeyboardFocus();
+            else
+                panel.grabKeyboardFocus();
+        };
+    };
+
+    wireFocusRescue (tracker);
+    wireFocusRescue (timeline);
+    wireFocusRescue (pool);
+
     //== bottom bar ===========================================================
     auto setupBottomSlider = [this] (juce::Slider& s, juce::Label& label, const juce::String& text,
                                      double min, double max, double value)

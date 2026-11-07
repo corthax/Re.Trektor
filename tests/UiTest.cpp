@@ -1700,6 +1700,107 @@ int main()
                    "and answering the pair in five panels walks the line back and forth without net effect");
         }
 
+        //== the keyboard focus a menu or a drag hands back =================
+        {
+            // a context menu's popup and a pattern the pool started dragging are
+            // windows with no parent component, so closing one takes the keyboard
+            // focus with it and afterwards nothing is focused at all: a press is
+            // then answered only as far as the walk up from the plug-in's top
+            // component reaches, which leaves the note entry, the cursor moves
+            // and the clears the tracker owns unheard until the mouse is clicked
+            // again. The panels that own a menu, an alert or a drag hand that
+            // focus back, and to the tracker rather than to themselves, since
+            // focus resting on a panel would leave the tracker deaf the same way.
+            // A modal popup cannot be opened by these tests off a desktop, so what
+            // is pinned here is that the hand-back is wired, that the reachable
+            // sites run it ahead of their guards, and that it spends nothing on
+            // the undo line
+            check (tracker->focusRescue != nullptr && timeline->focusRescue != nullptr
+                       && pool->focusRescue != nullptr,
+                   "the tracker, timeline and pool hand keyboard focus back");
+
+            int rescues = 0;
+            auto countRescue = [&] { ++rescues; };
+
+            tracker->focusRescue = countRescue;
+            timeline->focusRescue = countRescue;
+            pool->focusRescue = countRescue;
+
+            const int depthBeforeDrop = proc.getUndoDepth();
+
+            // a drop of something the timeline is not interested in still ends the
+            // drag, so the hand-back has to run ahead of the guard that ignores
+            // the change rather than only behind it
+            const juce::DragAndDropTarget::SourceDetails unrelated (
+                "other-pattern:7", pool, { 816, 80 });
+
+            timeline->itemDropped (unrelated);
+            check (rescues == 1, "a drop hands keyboard focus back even when nothing is modelled");
+            check (proc.getUndoDepth() == depthBeforeDrop,
+                   "and the hand-back spends no point of the undo line");
+
+            // releasing a drag the pool started ends it wherever the pointer was,
+            // including over the pool itself, where no drop ever happens
+            pool->mouseUp (makeEvent (*pool, { 20.0f, 20.0f }));
+            check (rescues == 2, "releasing a drag hands keyboard focus back too");
+
+            // and the guard that refuses a change while the host plays comes after
+            // the hand-back, since a drag is still possible then
+            auto runBlock = [&]
+            {
+                juce::AudioBuffer<float> audio (2, 64);
+                juce::MidiBuffer midi;
+                proc.processBlock (audio, midi);
+            };
+
+            head->playing = true;
+            head->ppq = 200.0;
+            runBlock();
+            check (proc.getTransport().playing, "the transport reports the host is playing");
+
+            timeline->itemDropped (unrelated);
+            check (rescues == 3, "the hand-back runs ahead of the guard while the host plays");
+            check (proc.getUndoDepth() == depthBeforeDrop,
+                   "and still nothing is modelled or recorded while the host plays");
+
+            head->playing = false;
+            runBlock();
+            check (! proc.getTransport().playing, "the stopped transport leaves the model editable");
+
+            // what the pinned scenario asks for: the pair heard straight after a
+            // pattern was dragged out of the pool and dropped onto the timeline,
+            // with no click in between
+            const int activeBeforeDrop = song.activePatternId;
+            const int dropPatternId = song.patterns.back().id;
+            const int clipsBefore = (int) song.clips.size();
+            const juce::DragAndDropTarget::SourceDetails drop (
+                "rtr-pattern:" + juce::String (dropPatternId), pool, { 60000, 80 });
+
+            timeline->itemDropped (drop);
+            check ((int) song.clips.size() == clipsBefore + 1, "the drop lands a clip");
+            check (proc.getUndoDepth() == depthBeforeDrop + 1,
+                   "and the drop leaves a point the next press can walk back");
+
+            check (tracker->keyPressed (juce::KeyPress ('z', juce::ModifierKeys (kAltMod), 'z')),
+                   "the Alt spelling heard right after the drop takes that clip back");
+            check (proc.getUndoDepth() == depthBeforeDrop && (int) song.clips.size() == clipsBefore,
+                   "one press walks one point of the line");
+
+            check (editor->keyPressed (juce::KeyPress ('y', juce::ModifierKeys (kAltMod), 'y')),
+                   "and the redo heard at the editor puts the dropped clip back");
+            check (proc.getUndoDepth() == depthBeforeDrop + 1
+                       && (int) song.clips.size() == clipsBefore + 1,
+                   "one press at the editor walks that same point forward");
+
+            // the walk is asked for again rather than left mid-line, so the checks
+            // after this section read the model the drop left it in: undoing the
+            // redone drop brings the clip, and the pattern it made active, back
+            pressUndo();
+            check ((int) song.clips.size() == clipsBefore && song.activePatternId == activeBeforeDrop
+                       && proc.getUndoDepth() == depthBeforeDrop,
+                   "undoing the redone drop brings the model and the active pattern back");
+        }
+
         //== the depth the Settings tab asks for ============================
         {
             std::vector<juce::Slider*> rows;
