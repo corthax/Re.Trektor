@@ -58,7 +58,9 @@ cmake --build tests/build -j"$(nproc)"
 ```
 
 * `ReTrektorCoreTest` – model, sequencing, snapping, macro expansion, slicing,
-  paste, state, the volume/pan columns' controller numbers, per-channel column
+  paste, state, including that an older saved state which still carries a property
+  the current build no longer reads reloads its other settings, keeps its pattern
+  and clip counts and does not carry the property on, the volume/pan columns' controller numbers, per-channel column
   visibility (and that hidden columns still play), interpolation of one column
   between the values that already exist (the tool is handed a predicate over
   (row, channel) rather than a row and channel range, so the checks drive it with
@@ -1320,6 +1322,22 @@ through the setting, and Smoke unchanged at 13, its serialised-state check comin
 to 2405 bytes, which is the property that left the saved form; the bundle refreshed by rsync to
 sha256 89808362688396eb234910f08e374e465d567bba5bf7e6aba2efdda1082ff530 matches the built artefact
 and still tops out at GLIBC_2.38 with GLIBCXX_3.4.32 and names no sqrtf or atan2f relocation.
+the older saved state that still carries the dropped property reloads cleanly (commit ef04bf5),
+which is the half of the drop the plug-in cannot see from its own side: a song saved while the row
+still existed carries a SETTINGS property nothing reads any more, and that is the state a host
+hands back on a reload, so the read side of the round trip now has a check rather than a claim.
+CoreTest takes the state the current song serialises, puts the dropped property back into its
+SETTINGS child the way an older song's block holds it, and reads that whole state back: the other
+settings reload, the pattern and clip counts come back the same, and re-serialising the reloaded
+song does not carry the property on, which is what makes an older saved state a one-way read
+rather than a thing the plug-in quietly keeps alive again. it is the same layer the undo line
+restores through, since a step back reads one of these saved strings through song.fromValueTree,
+so an older host block and an older undo point behave alike. CoreTest 197 checks, +3 over the
+state round trip the volume/pan CC checks already build; UiTest unchanged at 530, which already
+shows the panel exposing no toggle under that name and the current song's saved state carrying
+no such property, and Smoke unchanged at 13 against the same bundle, its sha256 unchanged at
+89808362688396eb234910f08e374e465d567bba5bf7e6aba2efdda1082ff530, since the drop is what that
+bundle was built from.
 Active
 None.
 Blocked
@@ -1442,7 +1460,19 @@ Portability check: readelf -VW <Re.Trektor.so inside the bundle> | grep -oE "GLI
 Tests: cmake -S tests -B tests/build -DCMAKE_BUILD_TYPE=Release then build targets ReTrektorSmoke, ReTrektorCoreTest, ReTrektorEditorShot.
 Smoke run: DISPLAY=:0 tests/build/ReTrektorSmoke_artefacts/Release/ReTrektorSmoke <bundle> [--screenshot=path].
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git (newest first): 66606a7 the Settings tab's "Paste as unique pattern by default" row is
+Git (newest first): ef04bf5 an older saved state that still carries the property the dropped
+Settings row used to have reloads cleanly, which is the half of that drop the plug-in cannot see
+from its own side, a song saved while the row still existed holding a SETTINGS property nothing
+reads any more and being exactly the state a host hands back on a reload: CoreTest takes the state
+the current song serialises, puts that property back into its SETTINGS child the way an older
+song's block holds it, and reads the whole state back, showing the other settings reloading, the
+pattern and clip counts coming back the same and re-serialising the reloaded song not carrying the
+property on, which is what makes the older state a one-way read rather than something the plug-in
+quietly keeps alive again, and it is the same layer the undo line restores through, since a step
+back reads one of these saved strings through song.fromValueTree, so an older host block and an
+older undo point behave alike; CoreTest 197 checks, +3 over the state round trip the volume/pan
+CC checks already build, UiTest unchanged at 530 and Smoke unchanged at 13 against the unchanged
+bundle; 66606a7 the Settings tab's "Paste as unique pattern by default" row is
 dropped outright rather than left saved and shown, since the user settled what to do about the
 row its own dropped Ctrl+Shift pattern paste pair had left ownerless: the Settings panel stops
 adding the toggle and stops re-reading it in its refresh, the Settings struct loses the member,
