@@ -73,7 +73,7 @@ inline bool answerUndoRedoKey (const juce::KeyPress& key,
 
 // the cell clipboard's steps, which the same reasoning gives the hosts: Ctrl+C,
 // Ctrl+V and Ctrl+X are the host's own clipboard and cut, so the plug-in is never
-// handed those events and the cells it copies and pastes are unreachable there.
+// handed those events and the cells it copies, pastes and cuts are unreachable there.
 // Alt+C copies the selected cells and Alt+V pastes them at the cursor with
 // everything, the plain spelling's meaning, so a paste of what was copied lands
 // wherever the paste filters would put it rather than one field at a time. Alt+X
@@ -106,8 +106,8 @@ inline ClipboardKey matchClipboardKey (const juce::KeyPress& key)
     return ClipboardKey::none;
 }
 
-// the clipboard pair claims the press whenever the panel holds the step, even when
-// the step itself has nothing to do, which is what keeps an Alt held letter from
+// the clipboard's steps claim the press whenever the panel holds one of them, even when
+// that step has nothing to do, which is what keeps an Alt held letter from
 // falling through and being typed as a note at the cursor: the three letters the
 // steps answer, c, v and x, are all notes this plug-in's key entry types
 inline bool answerClipboardKey (const juce::KeyPress& key,
