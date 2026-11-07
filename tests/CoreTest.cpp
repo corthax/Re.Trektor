@@ -707,6 +707,23 @@ int main()
         back.fromValueTree (tree);
         check (back.settings.volumeCc == 5 && back.settings.panCc == 11,
                "column controller numbers survive a state round trip");
+
+        // an older saved state, one from before the pattern paste's default row
+        // was dropped, still reloads: the property nothing reads any more is
+        // simply ignored, so nothing beside it is lost and the reload does not
+        // carry the property on, which is what makes the older state one-way
+        auto older = tree;
+        if (auto st = older.getChildWithName ("SETTINGS"); st.isValid())
+            st.setProperty ("pasteAsUnique", true, nullptr);
+
+        Song then;
+        then.fromValueTree (older);
+        check (then.settings.volumeCc == 5 && then.settings.panCc == 11,
+               "an older saved state that still carries the dropped property reloads its other settings");
+        check (then.patterns.size() == back.patterns.size() && then.clips.size() == back.clips.size(),
+               "and nothing beside it is lost, the pattern and clip counts unchanged");
+        check (! then.toValueTree().toXmlString().contains ("pasteAsUnique"),
+               "the property does not come back on a reload of it, which leaves the older state a one-way read");
     }
 
     //== A command argument without a command number ===========================
