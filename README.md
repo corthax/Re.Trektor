@@ -517,9 +517,9 @@ records one point of the undo line, and the timeline's "Slice at playhead" menu 
 is the slice's only other route. All four letters are claimed by a panel whenever that
 panel holds the step rather than only when the step did something, since c, v, x and s
 are four of the note-entry letters and an Alt held one that fell through would type a
-C, a D sharp, a G or a C sharp at the cursor beside doing its own work, and s is the
-letter the tracker's key entry is most likely to reach for, so the tracker answers the
-slice before its own entry sees the press. `Ctrl+X`, `Ctrl+Shift+C` and `Ctrl+Shift+V`
+C, a D sharp, a G or a C sharp at the cursor beside doing its own work, so the tracker
+answers the slice ahead of its own note entry, which would otherwise read this very s
+as a C sharp at the cell the cursor sits on. `Ctrl+X`, `Ctrl+Shift+C` and `Ctrl+Shift+V`
 are not answered by the plug-in at all now, so a host that spends them keeps its own
 cut and its own duplication, while `Ctrl+C` and `Ctrl+V` keep the plain cell clipboard
 the Alt letters reach, with the Shift spellings refused rather than left to read as the
