@@ -749,7 +749,11 @@ at a panel and at the editor would walk the undo line twice for one press. The s
 header grew the pair next to the undo one and was renamed UndoRedoKeys.h to AltShortcutKeys.h
 rather than a second header added, since it now names both Alt pairs the hosts leave
 free instead of only the undo one, so the earlier references to that file's name below
-are the same header under its old name.
+are the same header under its old name. Both hosts found the pair works at these spellings
+without anything further: the copy and the paste are heard straight after the actions that
+had deafened the keyboard, at every tab rather than only over the grid, and one press does
+it once, so the per-panel answer plus the claim that keeps an Alt held letter out of the
+note entry and a paste out of landing twice are the whole shape the hosts needed.
 Work State
 Completed
 Repo init, JUCE 8.0.9 vendored/committed; CMakeLists.txt for VST3 MIDI effect.
@@ -1058,7 +1062,14 @@ with Alt arrive as are taken by the tracker too. CoreTest 185 and Smoke 13 are
 unchanged, the plugin rebuilt with only the pre-existing warnings, and the installed
 bundle at /home/corthax/.vst3/Corthax/Re.Trektor.vst3 was refreshed to the new artefact
 (sha256 8419a0a4d49d3a08a01800c2cb6ae98862874535cfeec4a2c94aa6d5c2ad428c), still topping
-out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation.
+out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation. Confirmed
+in both hosts on the refreshed bundle: Alt+C copies what the tracker holds selected and
+Alt+V pastes it at the cursor with everything, heard straight after a menu paste, a clear
+or a slice-pattern and straight after a pattern was dragged out of the pool and dropped
+onto the timeline with no click in between, at every tab rather than only over the grid,
+and one press does it once rather than twice. The Ctrl spellings were left claimed, so in
+those two hosts Ctrl+C and Ctrl+V still belong to the host's own clipboard, which is what
+the Alt spelling works around rather than something the confirmation contradicts.
 Active
 None.
 Blocked
@@ -1080,7 +1091,7 @@ Confirm interactively that the right-click menus now open beside the cursor in t
 Verify pool drag-drop preview and context-menu paste/slice flows interactively in Carla; confirm Reaper compatibility of the MIDI effect (instrument fallback IS_SYNTH build compiles locally but is untested in Reaper).
 Further command kinds: dedicated pitch bend CC105/CC106 pair command, tempo and song position commands.
 Grid preview currently always starts at row 0 (no preview scrolling yet).
-Confirm in the DAW that Alt+C and the cell menu's "Copy selection" copy the selected cells and Alt+V and the menu's "Paste" submenu land them at the cursor starting at its row and channel with everything, heard at every tab rather than only over the grid and straight after a menu action or a pattern dropped onto the timeline with no click in between, that one press copies or pastes once rather than twice, that Ctrl+C and Ctrl+V still reach the plug-in's own clipboard rather than the host's wherever a host does forward them, that the submenu's items filter to one field (and that "Command" moves the number while "Command Value" moves the argument), that a paste at the last channel or near the pattern's end drops what does not fit rather than growing it, and that Ctrl+Shift+C / Ctrl+Shift+V still reach the pattern clipboard.
+Confirmed in Bitwig and Reaper that Alt+C copies what the tracker holds selected and Alt+V pastes it at the cursor with everything, heard straight after a menu paste, a clear or a slice-pattern and straight after a pattern was dragged out of the pool and dropped onto the timeline with no click in between, at every tab rather than only over the grid, with one press doing it once rather than twice. Still to confirm in the DAW for the cell clipboard: that the cell menu's own "Copy selection" and "Paste" items reach the same pair, that the "Paste" submenu's items filter to one field (and that "Command" moves the number the column carries while "Command Value" moves its argument), that a paste at the last channel or near the pattern's end drops what does not fit rather than growing the pattern, that Ctrl+C and Ctrl+V still reach the plug-in's own clipboard in a host that does forward them rather than the host's, and that Ctrl+Shift+C / Ctrl+Shift+V still reach the pattern clipboard.
 Confirm in the DAW that the tracker menu now shows Clear / Copy selection / Paste at its top level, that the Clear submenu's leaves are Selection / Cell / Channel / Pattern and do what the old four items did, and that a hidden field's chip now reads as a filled plate with the letter cut out of it while a shown one keeps its dark plate, so the state of every chip is readable at a glance.
 Confirmed in Bitwig and Reaper (the user's re-test against the refreshed bundle) that
 the keyboard is heard again on its own: a note typed, a cursor moved or a field
