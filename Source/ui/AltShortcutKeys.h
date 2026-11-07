@@ -71,13 +71,16 @@ inline bool answerUndoRedoKey (const juce::KeyPress& key,
     return false;
 }
 
-// the cell clipboard's pair, which the same reasoning gives the hosts: Ctrl+C and
-// Ctrl+V are the host's own clipboard, so the plug-in is never handed them and the
-// cells the plug-in copies and pastes are unreachable there. Alt+C copies the
-// selected cells and Alt+V pastes them at the cursor with everything, the plain
-// spelling's meaning, so a paste of what was copied lands wherever the paste
-// filters would put it rather than one field at a time
-enum class ClipboardKey { none = 0, copy, paste };
+// the cell clipboard's steps, which the same reasoning gives the hosts: Ctrl+C,
+// Ctrl+V and Ctrl+X are the host's own clipboard and cut, so the plug-in is never
+// handed those events and the cells it copies and pastes are unreachable there.
+// Alt+C copies the selected cells and Alt+V pastes them at the cursor with
+// everything, the plain spelling's meaning, so a paste of what was copied lands
+// wherever the paste filters would put it rather than one field at a time. Alt+X
+// is the cut, which takes the same copy and then empties the very cells it took,
+// so the cursor and the painted selection stay where they were and a following
+// Alt+V moves the cut cells rather than repeating them
+enum class ClipboardKey { none = 0, copy, paste, cut };
 
 inline ClipboardKey matchClipboardKey (const juce::KeyPress& key)
 {
@@ -95,15 +98,22 @@ inline ClipboardKey matchClipboardKey (const juce::KeyPress& key)
     if (code == 'V' || code == 'v' || printed == 'V' || printed == 'v')
         return ClipboardKey::paste;
 
+    // the cut is the letter the note entry also uses for D sharp, so a panel
+    // holding it has to claim the press before its own key entry can type it
+    if (code == 'X' || code == 'x' || printed == 'X' || printed == 'x')
+        return ClipboardKey::cut;
+
     return ClipboardKey::none;
 }
 
 // the clipboard pair claims the press whenever the panel holds the step, even when
 // the step itself has nothing to do, which is what keeps an Alt held letter from
-// falling through and being typed as a note at the cursor
+// falling through and being typed as a note at the cursor: the three letters the
+// steps answer, c, v and x, are all notes this plug-in's key entry types
 inline bool answerClipboardKey (const juce::KeyPress& key,
                                 const std::function<void()>& copy,
-                                const std::function<void()>& paste)
+                                const std::function<void()>& paste,
+                                const std::function<void()>& cut)
 {
     const auto step = matchClipboardKey (key);
 
@@ -116,6 +126,12 @@ inline bool answerClipboardKey (const juce::KeyPress& key,
     if (step == ClipboardKey::paste && paste != nullptr)
     {
         paste();
+        return true;
+    }
+
+    if (step == ClipboardKey::cut && cut != nullptr)
+    {
+        cut();
         return true;
     }
 

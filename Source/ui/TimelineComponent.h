@@ -55,12 +55,13 @@ public:
     std::function<bool()> undoStep;
     std::function<bool()> redoStep;
 
-    // the cell clipboard's Alt pair is answered here as well, with the editor's
-    // own copy and paste injected rather than reached here, so the Alt+C / Alt+V
-    // pair lands on the same cell clipboard the Ctrl pair and the cell menu use
-    // and the whole view refreshes rather than only the grid
+    // the cell clipboard's Alt spellings are answered here as well, with the
+    // editor's own copy, paste and cut injected rather than reached here, so the
+    // Alt+C / Alt+V / Alt+X steps land on the same cell clipboard the Ctrl pair
+    // and the cell menu use and the whole view refreshes rather than only the grid
     std::function<void()> copyStep;
     std::function<void()> pasteStep;
+    std::function<void()> cutStep;
 
     // the panel hands keyboard focus back when its context menus close and when
     // a pattern dragged out of the pool is dropped onto it, because both the

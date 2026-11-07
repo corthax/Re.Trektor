@@ -42,11 +42,11 @@ bool TimelineComponent::keyPressed (const juce::KeyPress& key)
     if (answerUndoRedoKey (key, undoStep, redoStep))
         return true;
 
-    // the clipboard pair is answered the same way, and it claims the press
-    // whenever this panel holds the step rather than only when the step does
-    // something, which is what keeps an Alt held letter from walking up to
-    // become a note entered at the cursor
-    return answerClipboardKey (key, copyStep, pasteStep);
+    // the clipboard's Alt spellings are answered the same way, and they claim the
+    // press whenever this panel holds the step rather than only when the step
+    // does something, which is what keeps an Alt held letter from walking up to
+    // become a note entered at the cursor: c, v and x are all notes
+    return answerClipboardKey (key, copyStep, pasteStep, cutStep);
 }
 
 void TimelineComponent::refresh()

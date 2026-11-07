@@ -107,10 +107,11 @@ bool ToolsPanel::keyPressed (const juce::KeyPress& key)
     if (answerUndoRedoKey (key, undoStep, redoStep))
         return true;
 
-    // the clipboard pair is answered the same way, since the same reason that
-    // made the undo pair unreachable gives the clipboard's pair to the host as
-    // well: this panel is what routes the press while its menus are about
-    return answerClipboardKey (key, copyStep, pasteStep);
+    // the clipboard's Alt spellings are answered the same way, since the same
+    // reason that made the undo pair unreachable gives the clipboard's steps to
+    // the host as well: this panel is what routes the press while its menus are
+    // about, and its own fields type no letters for a press to fall into
+    return answerClipboardKey (key, copyStep, pasteStep, cutStep);
 }
 
 //==============================================================================

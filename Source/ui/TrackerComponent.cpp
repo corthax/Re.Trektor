@@ -1009,6 +1009,7 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
     menu.addSubMenu ("Clear", clearMenu);
 
     menu.addItem (5, "Copy selection", hasSelection());
+    menu.addItem (6, "Cut selection", hasSelection());
 
     juce::PopupMenu pasteMenu;
     pasteMenu.addItem (7, "Everything");
@@ -1032,9 +1033,9 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                         {
                             auto& p = pattern();
 
-                            // 1..4 are the "Clear" submenu's leaves, 5 is the
-                            // top-level copy, 7..13 the "Paste" submenu's and
-                            // 14/15 the top-level undo pair
+                            // 1..4 are the "Clear" submenu's leaves, 5 and 6 are
+                            // the top-level copy and cut, 7..13 the "Paste"
+                            // submenu's and 14/15 the top-level undo pair
                             if (result == 1)
                             {
                                 clearCurrentField();
@@ -1058,16 +1059,19 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                                 // only the selected cells lose their contents: a
                                 // cell-level selection means the rows through
                                 // them and the columns beside them stay put
-                                for (int r = 0; r < p.length; ++r)
-                                    for (int c = 0; c < p.channels; ++c)
-                                        if (isCellSelected (r, c))
-                                            p.cell (r, c).clear();
-
+                                clearSelectedCells();
                                 markChanged();
                             }
                             else if (result == 5 && hasSelection())
                             {
                                 copySelectionToClipboard();
+                            }
+                            else if (result == 6 && hasSelection())
+                            {
+                                // the item the Alt+X key answers as well: the
+                                // cells go to the clipboard and the ones it took
+                                // are emptied, so a following paste moves them
+                                cutSelectionToClipboard();
                             }
                             else if (result >= 7 && result <= 13 && hasCellClipboard())
                             {
@@ -1312,6 +1316,39 @@ void TrackerComponent::copySelectionToClipboard()
         for (int c = minCh; c < p.channels; ++c)
             if (isCellSelected (r, c))
                 cellClipboard.entries.push_back ({ r - minRow, c - minCh, p.cell (r, c) });
+}
+
+/** The cell menu's Clear / Selection and the cut below: the selected cells lose
+    their data and nothing else moves. The painting, the cursor, the rows through
+    them and the columns beside them all stay as they were. The callers decide
+    what the change means to the rest of the view: the menu item records its
+    point and repaints on its own, and the cut runs as one step. */
+void TrackerComponent::clearSelectedCells()
+{
+    auto& p = pattern();
+
+    for (int r = 0; r < p.length; ++r)
+        for (int c = 0; c < p.channels; ++c)
+            if (isCellSelected (r, c))
+                p.cell (r, c).clear();
+}
+
+/** Alt+X / "Cut selection": the copy above and then emptying exactly the cells
+    it took, so the cut data is already on the clipboard by the time a following
+    Alt+V or a paste item looks for an anchor, and the cells move to the cursor
+    rather than repeat there. The cursor and the painted selection stay where
+    they were for exactly that reason. Only the wipe is a change to the song, so
+    a cut records one point of the undo line rather than two. */
+void TrackerComponent::cutSelectionToClipboard()
+{
+    if (! hasSelection())
+        return;
+
+    copySelectionToClipboard();
+    clearSelectedCells();
+
+    markChanged();
+    repaint();
 }
 
 /** Ctrl+V / the paste submenu: writes the clipboard at the cursor, filtered by
@@ -1569,12 +1606,14 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
                            [this] { return cancelPendingEdit(); }))
         return true;
 
-    // the clipboard pair is answered here too rather than handed up, for the
-    // same reason the undo pair had to be: the cell menu routes the press to
-    // this panel, and the host answers the Ctrl spelling with its own
+    // the clipboard's Alt spellings are answered here too rather than handed up,
+    // for the same reason the undo pair had to be: the cell menu routes the press
+    // to this panel, and the host answers the Ctrl spelling with its own
     // clipboard. Alt+V pastes with everything, the plain spelling's meaning, so
-    // what was copied lands wherever the paste filters put it
-    if (answerClipboardKey (key, copyStep, pasteStep))
+    // what was copied lands wherever the paste filters put it, and Alt+X cuts
+    // what is selected, which is that copy followed by emptying exactly the cells
+    // it took. All three letters are notes this panel types
+    if (answerClipboardKey (key, copyStep, pasteStep, cutStep))
         return true;
 
     // any other letter held with Alt stays out of the tracker's own key entry,

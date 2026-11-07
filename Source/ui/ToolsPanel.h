@@ -36,11 +36,12 @@ public:
     std::function<bool()> undoStep;
     std::function<bool()> redoStep;
 
-    // the cell clipboard's Alt pair is answered here as well, with the editor's
-    // own copy and paste injected rather than reached here, so the pair walks
-    // the same cell clipboard the Ctrl pair and the tracker's menu use
+    // the cell clipboard's Alt spellings are answered here as well, with the
+    // editor's own copy, paste and cut injected rather than reached here, so the
+    // steps walk the same cell clipboard the Ctrl pair and the tracker's menu use
     std::function<void()> copyStep;
     std::function<void()> pasteStep;
+    std::function<void()> cutStep;
 
 private:
     void applyTranspose (int semitones);

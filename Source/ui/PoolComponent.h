@@ -34,11 +34,13 @@ public:
     std::function<bool()> undoStep;
     std::function<bool()> redoStep;
 
-    // the cell clipboard's Alt pair is answered here as well, with the editor's
-    // own copy and paste injected rather than reached here, so a press aimed at
-    // a copy or a paste is heard while the pool's own drag is still modal
+    // the cell clipboard's Alt spellings are answered here as well, with the
+    // editor's own copy, paste and cut injected rather than reached here, so a
+    // press aimed at any of them is heard while the pool's own drag is still
+    // modal and the steps land on the clipboard the Ctrl pair and the menu use
     std::function<void()> copyStep;
     std::function<void()> pasteStep;
+    std::function<void()> cutStep;
 
     // the panel hands keyboard focus back when its own menu or the rename alert
     // has closed and when a drag it started is released, since a popup and a

@@ -62,6 +62,17 @@ public:
         view rather than in the saved song, and it survives a pattern switch. */
     CellClipboard cellClipboard;
     void copySelectionToClipboard();
+    /** Empties the data of the selected cells and leaves the painting, the cursor
+        and everything beside them alone, which is what the cell menu's Clear /
+        Selection answers and the cut below reuses: one loop, one meaning, shared
+        rather than written twice. */
+    void clearSelectedCells();
+    /** Alt+X / "Cut selection": the copy above, then emptying exactly the cells it
+        took, so the cut's data is already on the clipboard and a following paste
+        moves those cells to the cursor instead of repeating them. The cursor and
+        the painted selection stay where they were, which is where the paste
+        anchors itself. */
+    void cutSelectionToClipboard();
     int pasteClipboardAtCursor (int fieldMask);
     bool hasCellClipboard() const noexcept { return ! cellClipboard.empty(); }
 
@@ -74,16 +85,18 @@ public:
     std::function<bool()> redoStep;
 
     /** The editor's cell-clipboard steps, injected the same way the undo pair is
-        rather than reached through the plug-in, so the Alt+C / Alt+V pair copies
-        and pastes through the same clipboard the Ctrl pair and the cell menu
-        reach and refreshes the whole view. Alt is the spelling Bitwig and Reaper
-        leave free, since those hosts answer Ctrl+C and Ctrl+V with their own
-        clipboard before the plug-in is offered the event, and a press aimed at
-        undo is swallowed on the menu and drag paths for the same reason a pair
-        the editor alone owned was. The paste runs with everything, which is
-        those keys' plain spelling's meaning. */
+        rather than reached through the plug-in, so the Alt+C / Alt+V / Alt+X steps
+        copy, paste and cut through the same clipboard the Ctrl pair and the cell
+        menu reach and refresh the whole view. Alt is the spelling Bitwig and
+        Reaper leave free, since those hosts answer Ctrl+C, Ctrl+V and Ctrl+X with
+        their own clipboard and cut before the plug-in is offered the event, and a
+        press aimed at undo is swallowed on the menu and drag paths for the same
+        reason a pair the editor alone owned was. The paste runs with everything,
+        which is those keys' plain spelling's meaning, and the cut takes the same
+        copy and then empties the cells it took, so cut then paste moves them. */
     std::function<void()> copyStep;
     std::function<void()> pasteStep;
+    std::function<void()> cutStep;
 
     /** Closes a half-typed numeric buffer the way Esc does and reports whether
         one was there, which is what makes Ctrl+Z or the menu's Undo one press

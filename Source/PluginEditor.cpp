@@ -158,21 +158,24 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     wireUndoRedo (settings);
     wireUndoRedo (macros);
 
-    // the cell clipboard's pair needs the same treatment for the same reason:
-    // the hosts answer Ctrl+C and Ctrl+V with their own clipboard the way they
-    // answer the undo trio with their own history, so the plug-in is never
-    // handed those events and the cells it copies and pastes are unreachable
-    // there. Alt is what those hosts leave free, so Alt+C copies what the
-    // tracker is holding selected and Alt+V pastes it at the cursor with
-    // everything, which is the plain spelling's meaning rather than one field
-    // at a time. The steps are injected rather than reached through the panels,
-    // so all six walk the one clipboard the Ctrl pair and the tracker's menu
-    // use, and a paste that wrote anything records its point of the undo line
-    // through the tracker's own change and refreshes the whole view
+    // the cell clipboard's Alt spellings need the same treatment for the same
+    // reason: the hosts answer Ctrl+C, Ctrl+V and Ctrl+X with their own clipboard
+    // and cut the way they answer the undo trio with their own history, so the
+    // plug-in is never handed those events and the cells it copies, pastes and
+    // cuts are unreachable there. Alt is what those hosts leave free, so Alt+C
+    // copies what the tracker is holding selected, Alt+V pastes it at the cursor
+    // with everything, which is the plain spelling's meaning rather than one
+    // field at a time, and Alt+X cuts, which is that copy followed by emptying
+    // exactly the cells it took, so a cut and a following paste move them. The
+    // steps are injected rather than reached through the panels, so all six walk
+    // the one clipboard the Ctrl pair and the tracker's menu use, and a paste or
+    // a cut that changed the model records its point of the undo line through the
+    // tracker's own change and refreshes the whole view
     auto wireClipboard = [this] (auto& panel)
     {
         panel.copyStep = [this] { tracker.copySelectionToClipboard(); };
         panel.pasteStep = [this] { tracker.pasteClipboardAtCursor (kPasteAll); };
+        panel.cutStep = [this] { tracker.cutSelectionToClipboard(); };
     };
 
     wireClipboard (tracker);
@@ -720,18 +723,22 @@ bool ReTrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
         }
     }
 
-    // the cell clipboard's Alt pair, matched by the shared matcher so the
-    // panels and the editor cannot disagree about what the two letters mean:
-    // the hosts answer Ctrl+C and Ctrl+V with their own clipboard before the
-    // plug-in is offered the event, so Alt+C copies what the tracker is holding
-    // selected and Alt+V pastes it at the cursor with everything, the plain
-    // spelling's meaning. These are the same two steps every panel was given,
-    // so a press the tracker answered here and one that walked up to here do
-    // the same thing, and the Ctrl spellings above keep their meaning
+    // the cell clipboard's Alt spellings, matched by the shared matcher so the
+    // panels and the editor cannot disagree about what the three letters mean:
+    // the hosts answer Ctrl+C, Ctrl+V and Ctrl+X with their own clipboard and
+    // cut before the plug-in is offered the event, so Alt+C copies what the
+    // tracker is holding selected, Alt+V pastes it at the cursor with
+    // everything, the plain spelling's meaning, and Alt+X cuts, which is that
+    // copy followed by emptying exactly the cells it took. These are the same
+    // steps every panel was given, so a press the tracker answered there and one
+    // that walked up to here do the same thing, and the Ctrl spellings above, the
+    // clip slice among them, keep their meaning
     if (const auto step = matchClipboardKey (key); step != ClipboardKey::none)
     {
         if (step == ClipboardKey::copy)
             tracker.copySelectionToClipboard();
+        else if (step == ClipboardKey::cut)
+            tracker.cutSelectionToClipboard();
         else
             tracker.pasteClipboardAtCursor (kPasteAll);
 

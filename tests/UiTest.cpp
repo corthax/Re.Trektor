@@ -11,9 +11,11 @@
       - cell selection: a click selects one cell, a drag a rectangle of cells,
         Shift unions another rectangle into it and Ctrl takes one away
       - the cell clipboard: Ctrl+C copies the selection, Ctrl+V pastes it at the
-        cursor with everything, the Alt+C / Alt+V pair the hosts leave free does
-        the same at every panel, the paste submenu filters one field, a clipboard
-        hole pastes nothing, and what does not fit inside the pattern is dropped
+        cursor with everything, the Alt+C / Alt+V / Alt+X steps the hosts leave
+        free do the same at every panel, Alt+X also empties the cells it took so
+        a cut and a following paste move them, the paste submenu filters one
+        field, a clipboard hole pastes nothing, and what does not fit inside the
+        pattern is dropped
       - undo and redo: Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z walk the states the
         model changes append, the Settings tab's Undo steps row caps how far
         back they go, and the walk covers note entry, a cell paste, a clip
@@ -1920,20 +1922,40 @@ int main()
             { return panel->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kAltMod), 'C')); };
             auto pressPasteOn = [&] (auto* panel)
             { return panel->keyPressed (juce::KeyPress ('V', juce::ModifierKeys (kAltMod), 'V')); };
+            auto pressCutOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('X', juce::ModifierKeys (kAltMod), 'X')); };
             auto pressCopyAltShiftOn = [&] (auto* panel)
             { return panel->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kShiftMod | kAltMod), 'C')); };
+            auto pressCutAltShiftOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('X', juce::ModifierKeys (kShiftMod | kAltMod), 'X')); };
             auto pressAltLetterOn = [&] (auto* panel)
             { return panel->keyPressed (juce::KeyPress ('q', juce::ModifierKeys (kAltMod), 'q')); };
             auto pressCtrlCopyOn = [&] (auto* panel)
             { return panel->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kCtrlMod), 'C')); };
+            auto pressCtrlCutOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('X', juce::ModifierKeys (kCtrlMod), 'X')); };
+
+            // the signature a cell that lost every one of its fields reads back as,
+            // which is what a cut leaves the cells it took holding
+            const auto clearedCell = []
+            {
+                juce::String s;
+                const rtr::Cell emptied;
+                s << emptied.note << "/" << emptied.inst << "/" << emptied.vol
+                  << "/" << emptied.pan << "/" << emptied.cmd << "/" << emptied.cmdVal;
+                return s;
+            }();
 
             check (tracker->copyStep != nullptr && timeline->copyStep != nullptr
                    && pool->copyStep != nullptr && settings->copyStep != nullptr
                    && tools->copyStep != nullptr && macros->copyStep != nullptr
                    && tracker->pasteStep != nullptr && timeline->pasteStep != nullptr
                    && pool->pasteStep != nullptr && settings->pasteStep != nullptr
-                   && tools->pasteStep != nullptr && macros->pasteStep != nullptr,
-                   "all six panels were given a copy and a paste step of their own");
+                   && tools->pasteStep != nullptr && macros->pasteStep != nullptr
+                   && tracker->cutStep != nullptr && timeline->cutStep != nullptr
+                   && pool->cutStep != nullptr && settings->cutStep != nullptr
+                   && tools->cutStep != nullptr && macros->cutStep != nullptr,
+                   "all six panels were given a copy, a paste and a cut step of their own");
 
             auto* p = song.activePattern();
             check (p != nullptr, "an active pattern is there for the clipboard's Alt pair");
@@ -1988,14 +2010,33 @@ int main()
                     check (selCount == 2 && selMaxCh == selMinCh && selMaxRow == selMinRow + 1,
                            name + " is offered a two-cell column of one channel to copy");
 
+                    // the data the fixture puts into the selected cells comes
+                    // through the clipboard and a paste rather than a silent write
+                    // into the model, so the undo line has seen it: a cut that
+                    // brings the model back to the state the cursor already sits
+                    // on is deduped and records no point of its own, and here the
+                    // cut has to leave one
+                    rtr::Cell seeded;
+                    seeded.note = 101;
+                    seeded.vol = 41;
+                    seeded.pan = 42;
+
+                    rtr::Cell taken;
+                    taken.inst = 3;
+
+                    tracker->cellClipboard.entries = { { 0, 0, seeded }, { 1, 0, taken } };
+
+                    // the drag left the cursor at its own anchor, which is the
+                    // selection's top-left, so the fixture's paste lands on the
+                    // very two cells the panel is about to cut
+                    check (tracker->getCursorRow() == selMinRow && tracker->getCursorChannel() == selMinCh,
+                           name + ": the fixture's anchor is the selection's top-left, where its paste has to land");
+
+                    tracker->pasteClipboardAtCursor (rtr::kPasteAll);
+
                     tracker->setCursorRow (dstRow);
                     check (tracker->getCursorRow() == dstRow && tracker->getCursorChannel() == srcCh,
                            name + ": the cursor is parked below the fixture, where the paste has to land");
-
-                    p->cell (selMinRow, selMinCh).note = 101;
-                    p->cell (selMinRow, selMinCh).vol = 41;
-                    p->cell (selMinRow, selMinCh).pan = 42;
-                    p->cell (selMaxRow, selMinCh).inst = 3;
 
                     const juce::String copiedFirst = sigAt (selMinRow, selMinCh);
                     const juce::String copiedSecond = sigAt (selMaxRow, selMinCh);
@@ -2013,14 +2054,34 @@ int main()
                     check (tracker->getCursorRow() == dstRow && tracker->getCursorChannel() == srcCh,
                            name + ": copying leaves the cursor where it was for the paste");
 
+                    //== the cut ==================================================
+                    // Alt+X takes the same copy and then empties exactly the cells
+                    // it took, so the selection's data is already on the clipboard
+                    // by the time the paste below looks for its anchor and the
+                    // cells move to the cursor rather than repeat themselves there
+                    check (pressCutOn (panel),
+                           name + " answers Alt+X of its own rather than leaving the press for the editor");
+                    check (tracker->hasCellClipboard(),
+                           name + ": Alt+X puts the selected cells on the clipboard before it empties them");
+                    check (proc.getUndoDepth() == depthHere + 1,
+                           name + ": the cut records one point of the undo line, which is the wipe's alone");
+                    check (sigAt (selMinRow, selMinCh) == clearedCell && sigAt (selMaxRow, selMinCh) == clearedCell,
+                           name + ": Alt+X empties exactly the cells it took and nothing beside them");
+                    check (tracker->isCellSelected (selMinRow, selMinCh) && tracker->isCellSelected (selMaxRow, selMinCh),
+                           name + ": the cut leaves the selection painted where it was, so the next paste still anchors at the cursor");
+                    check (sigAt (dstRow, srcCh) == targetBefore,
+                           name + ": the Alt held x types no D sharp of its own at the cursor, where a bare x would type one");
+                    check (tracker->getCursorRow() == dstRow && tracker->getCursorChannel() == srcCh,
+                           name + ": the cut leaves the cursor where it was for the paste");
+
                     check (pressPasteOn (panel),
                            name + " answers Alt+V too");
-                    check (proc.getUndoDepth() == depthHere + 1,
-                           name + ": one press walks one point, and a paste that wrote cells leaves that one");
+                    check (proc.getUndoDepth() == depthHere + 2,
+                           name + ": one press walks one point, and the cut and a paste that wrote cells leave those two");
                     check (sigAt (dstRow, srcCh) == copiedFirst,
-                           name + ": Alt+V pastes with everything, so the whole copied cell lands at the cursor, empty fields included");
+                           name + ": Alt+V pastes with everything, so the whole cell the cut took lands at the cursor, empty fields included");
                     check (sigAt (dstRow + 1, srcCh) == copiedSecond,
-                           name + ": the second copied cell keeps its offset below the cursor's anchor");
+                           name + ": the second cell the cut took keeps its offset below the cursor's anchor, which is what makes the cut and the paste a move of those cells");
 
                     const int depthPasted = proc.getUndoDepth();
 
@@ -2034,6 +2095,14 @@ int main()
                            name + ": and it types or writes nothing for it either");
                     check (! pressCtrlCopyOn (panel),
                            name + " leaves the Ctrl spelling to the editor rather than claiming it, so a host that does forward it still finds the plug-in's clipboard");
+                    check (! pressCutAltShiftOn (panel),
+                           name + " leaves an Alt+Shift x to the host rather than cutting, the whole Alt+Shift family's meaning");
+                    check (proc.getUndoDepth() == depthPasted,
+                           name + ": that press copies, pastes or cuts nothing of the cells");
+                    check (! pressCtrlCutOn (panel),
+                           name + " leaves the Ctrl x spelling to the editor too, where it still means the clip slice at the playhead rather than a cut of the cells");
+                    check (proc.getUndoDepth() == depthPasted && tracker->hasCellClipboard(),
+                           name + ": no panel spends the Ctrl x spelling, so the cells and the clipboard stay exactly as the cut left them");
                 };
 
                 copyPairOn (tracker, "the tracker");
@@ -2051,11 +2120,26 @@ int main()
                     const int topRow = tracker->getCursorRow();
                     const int srcCh = tracker->getCursorChannel();
                     const int dstRow = topRow + 4 + 2 * pasteIndex++;
-                    const int depthHere = proc.getUndoDepth();
 
                     tracker->mouseDown (makeEvent (*tracker, { 70.0f, 55.5f }));
                     tracker->mouseDrag (makeEvent (*tracker, { 70.0f, 74.5f }));
                     tracker->mouseUp (makeEvent (*tracker, { 70.0f, 74.5f }));
+
+                    // the row the cut left empty has to be filled again, and
+                    // through the clipboard rather than silently: the cut's point
+                    // of the line is what the checks below count
+                    rtr::Cell seeded;
+                    seeded.note = 111;
+                    seeded.vol = 51;
+                    seeded.pan = 52;
+
+                    rtr::Cell taken;
+                    taken.inst = 4;
+
+                    tracker->cellClipboard.entries = { { 0, 0, seeded }, { 1, 0, taken } };
+                    tracker->pasteClipboardAtCursor (rtr::kPasteAll);
+
+                    const int depthHere = proc.getUndoDepth();
 
                     const juce::String copiedFirst = sigAt (topRow, srcCh);
                     const juce::String copiedSecond = sigAt (topRow + 1, srcCh);
@@ -2066,11 +2150,16 @@ int main()
                     check (tracker->keyPressed (juce::KeyPress ('c', juce::ModifierKeys (kAltMod), 'c')),
                            "the tracker takes the lowercase Alt+c spelling the way X11 hands it");
                     check (proc.getUndoDepth() == depthHere, "and the lowercase copy still records nothing");
+                    check (tracker->keyPressed (juce::KeyPress ('x', juce::ModifierKeys (kAltMod), 'x')),
+                           "the lowercase Alt+x cut spelling is heard the same way");
+                    check (proc.getUndoDepth() == depthHere + 1, "and the lowercase cut leaves its one point of the line");
+                    check (sigAt (topRow, srcCh) == clearedCell && sigAt (topRow + 1, srcCh) == clearedCell,
+                           "the lowercase cut empties the cells it took the way the uppercase one does");
                     check (tracker->keyPressed (juce::KeyPress ('v', juce::ModifierKeys (kAltMod), 'v')),
                            "the lowercase Alt+v spelling is taken as well");
-                    check (proc.getUndoDepth() == depthHere + 1, "for one point of the line");
+                    check (proc.getUndoDepth() == depthHere + 2, "for one more point of the line");
                     check (sigAt (dstRow, srcCh) == copiedFirst && sigAt (dstRow + 1, srcCh) == copiedSecond,
-                           "and the lowercase pair lands the same two cells at the cursor");
+                           "and the lowercase steps land the same two cells at the cursor, which is the cut's data moved from where it was cut");
                 }
 
                 // where a host does forward the Ctrl pair, it still means the
