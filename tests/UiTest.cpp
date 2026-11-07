@@ -998,6 +998,31 @@ int main()
                            && p->cell (21, 0).vol == 55,
                    "an all-empty clipboard cell additively writes nothing, which leaves no change and no point of the line");
 
+            // one of the additive submenu's single-field leaves, the same call the
+            // callback makes with the field bit and the mode bit together: the mode
+            // narrows the leaf to the fields the buffer really carries, so a buffer
+            // cell whose one named field is empty is skipped whole and the target
+            // keeps its own value there, where the plain leaf would have cleared it.
+            // this paste stays over the cursor the block above left, so the view
+            // below still maps its clicks to the rows its fixture expects
+            rtr::Cell bufferCell;
+            bufferCell.inst = 9; // its volume stays empty, which is what gets skipped
+            rtr::Cell withVolume;
+            withVolume.vol = 33;
+            withVolume.note = 71; // the note of the same cell never reaches a volume leaf
+            tracker->cellClipboard.entries = { { 0, 0, bufferCell }, { 2, 0, withVolume } };
+
+            const int depthVolume = proc.getUndoDepth();
+
+            tracker->pasteClipboardAtCursor (rtr::kPasteVol | rtr::kPasteAdditive);
+
+            check (p->cell (21, 0).vol == 55 && p->cell (21, 0).inst == rtr::kEmpty,
+                   "the volume leaf skips the buffer cell whose own volume is empty, so the target's volume survives and nothing of that cell is written");
+            check (p->cell (23, 0).vol == 33 && p->cell (23, 0).note == 62 && p->cell (23, 0).pan == 66,
+                   "the buffer cell that does carry a volume lands at its offset below the anchor and writes nothing of its other fields");
+            check (proc.getUndoDepth() == depthVolume + 1,
+                   "a one-field additive paste that lands something still records its one point of the line");
+
             // the fixture's rows go back to empty so the blocks below keep seeing
             // the pattern they had: hidden rows past a shortened end are kept
             // only while they hold something, and these just got given a command

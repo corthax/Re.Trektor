@@ -1011,14 +1011,14 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
     menu.addItem (5, "Copy selection", hasSelection());
     menu.addItem (6, "Cut selection", hasSelection());
 
+    // the two paste submenus are the same list in the two modes: the plain one
+    // writes every field the buffer carries, so a cell that is empty there
+    // clears the target, and the additive one lets only the fields the buffer
+    // actually holds reach, which leaves the target's own value where the
+    // buffer was empty. the leaves repeat rather than a single extra item, so
+    // the user picks the field to paste and the mode after it, in that order
     juce::PopupMenu pasteMenu;
     pasteMenu.addItem (7, "Everything");
-    // its additive twin sits right below so the two all-field choices read
-    // together: everything the buffer carries lands on top of what the target
-    // already has, and only its non-empty fields reach, the empty ones leaving
-    // the target's own value instead of clearing it. its id stays out of the
-    // 7..13 run the masks below map by, so it is answered on its own
-    pasteMenu.addItem (16, "Additive (everything)");
     pasteMenu.addItem (8, "Note");
     pasteMenu.addItem (9, "Instrument");
     pasteMenu.addItem (10, "Volume");
@@ -1027,10 +1027,24 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
     pasteMenu.addItem (13, "Command Value");
     menu.addSubMenu ("Paste", pasteMenu, hasCellClipboard());
 
+    // the additive submenu repeats the same seven leaves under a run of ids
+    // after the undo pair's, so both runs map by one subtraction each and
+    // neither range reaches into the other's
+    juce::PopupMenu additiveMenu;
+    additiveMenu.addItem (17, "Everything");
+    additiveMenu.addItem (18, "Note");
+    additiveMenu.addItem (19, "Instrument");
+    additiveMenu.addItem (20, "Volume");
+    additiveMenu.addItem (21, "Pan");
+    additiveMenu.addItem (22, "Command");
+    additiveMenu.addItem (23, "Command Value");
+    menu.addSubMenu ("Paste (Additive)", additiveMenu, hasCellClipboard());
+
     // the undo pair sits last so the menu reads as the actions the cursor is on
-    // first and the steps along the state line after them; the ids continue the
-    // paste submenu's because one callback sees all of them by number alone,
-    // and the two counts grey the pair out at the ends of the line
+    // first and the steps along the state line after them; its ids continue the
+    // first paste submenu's run because one callback sees all of them by number
+    // alone, and the additive submenu starts past them. the two counts grey the
+    // pair out at the ends of the line
     menu.addItem (14, "Undo", proc.getUndoDepth() > 0);
     menu.addItem (15, "Redo", proc.getUndoRedoCount() > 0);
 
@@ -1040,8 +1054,14 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                             auto& p = pattern();
 
                             // 1..4 are the "Clear" submenu's leaves, 5 and 6 are
-                            // the top-level copy and cut, 7..13 plus 16 the "Paste"
-                            // submenu's and 14/15 the top-level undo pair
+                            // the top-level copy and cut, 7..13 and 17..23 the
+                            // two paste submenus' and 14/15 the top-level undo
+                            // pair
+                            static const int pasteMasks[] = { kPasteAll, kPasteNote,
+                                                              kPasteInst, kPasteVol,
+                                                              kPastePan, kPasteCmd,
+                                                              kPasteCmdVal };
+
                             if (result == 1)
                             {
                                 clearCurrentField();
@@ -1082,22 +1102,21 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                             else if (result >= 7 && result <= 13 && hasCellClipboard())
                             {
                                 // the submenu items map to the paste filter bits:
-                                // 7 is Everything, 8..13 name one field each
-                                static const int pasteMasks[] = { kPasteAll, kPasteNote,
-                                                                  kPasteInst, kPasteVol,
-                                                                  kPastePan, kPasteCmd,
-                                                                  kPasteCmdVal };
+                                // 7 is Everything, 8..13 name one field each. the
+                                // plain mode writes all of them, so an empty field
+                                // in the buffer clears the target's own value
                                 pasteClipboardAtCursor (pasteMasks[result - 7]);
                             }
-                            else if (result == 16 && hasCellClipboard())
+                            else if (result >= 17 && result <= 23 && hasCellClipboard())
                             {
-                                // the whole-buffer paste that never clears: the
-                                // mode bit makes pasteCells drop the empty fields
-                                // of each copied cell, so the target keeps its own
-                                // value wherever the buffer held nothing, and an
-                                // all-empty cell writes nothing at all, which
-                                // leaves no undo point behind
-                                pasteClipboardAtCursor (kPasteAll | kPasteAdditive);
+                                // the same leaves again, the same masks, only with
+                                // the additive mode bit: inside each copied cell a
+                                // field reaches the target only where the buffer
+                                // actually holds something, so an empty field
+                                // leaves the target's value alone, and a cell that
+                                // is empty in every field writes nothing at all,
+                                // which leaves no undo point behind
+                                pasteClipboardAtCursor (pasteMasks[result - 17] | kPasteAdditive);
                             }
                             else if (result == 14)
                             {

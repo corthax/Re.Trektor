@@ -55,7 +55,7 @@ public:
 
     //== Cell clipboard =======================================================
     /** The cells Ctrl+C and the tracker's "Copy selection" menu item have
-        copied, and that Ctrl+V and the paste submenu write back. The copied
+        copied, and that Ctrl+V and the two paste submenus write back. The copied
         cells keep their offsets inside the copied rectangle, so the paste
         anchored at the cursor lays them out around it again and never writes
         through a Ctrl-drag hole. Like the selection this lives in the tracker
