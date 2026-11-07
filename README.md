@@ -688,7 +688,10 @@ drop, and on the release of a drag; the editor hands focus to the tracker rather
 than to the panel that asked, since focus resting on the panel would leave the
 tracker, the only note entry there is, deaf the same way, and where the tracker is
 hidden — the Settings and Macros tabs — the panel takes it so a press at least
-walks up rather than stopping at nothing focused.
+walks up rather than stopping at nothing focused. Both hosts found this shape is
+what they needed: the keyboard came back on its own after every one of the actions
+that had deafened it, with no click in between, while the popups kept floating
+where they were and the drag preview kept crossing the panels.
 Work State
 Completed
 Repo init, JUCE 8.0.9 vendored/committed; CMakeLists.txt for VST3 MIDI effect.
@@ -945,7 +948,15 @@ pattern the drop made active coming back to what it was. CoreTest 185 and Smoke 
 unchanged, the plugin rebuilt with only the pre-existing warnings, and the installed bundle
 at /home/corthax/.vst3/Corthax/Re.Trektor.vst3 was refreshed to the new artefact (sha256
 fef0685afe97074e565b9c494a490ec5ddad1e5efdb1ee97553aa17edde38bd6), still topping out at
-GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation.
+GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation. Confirmed in
+both hosts on the refreshed bundle: the keyboard is heard again on its own, so a note
+typed, a cursor moved or a field cleared straight after a menu paste, a clear, a
+slice-pattern, a greyed item picked, a menu closed with Escape or a pattern dragged
+out of the pool and dropped onto the timeline lands where it was meant to with no
+click in between, and Alt+Z / Alt+Y walk one point per press on each of those paths,
+with the Alt+Shift family still refused rather than spent on a redo alias. That is
+what settles the keyboard half of the pinned check and says the focus hand-back, not
+the per-panel answer, is what the hosts needed.
 Active
 None.
 Blocked
@@ -965,30 +976,24 @@ Further command kinds: dedicated pitch bend CC105/CC106 pair command, tempo and 
 Grid preview currently always starts at row 0 (no preview scrolling yet).
 Confirm in the DAW that Ctrl+C and the cell menu's "Copy selection" copy the selected cells, that Ctrl+V and the menu's "Paste" submenu land them at the cursor starting at its row and channel, that the submenu's items filter to one field (and that "Command" moves the number while "Command Value" moves the argument), that a paste at the last channel or near the pattern's end drops what does not fit rather than growing it, and that Ctrl+Shift+C / Ctrl+Shift+V still reach the pattern clipboard.
 Confirm in the DAW that the tracker menu now shows Clear / Copy selection / Paste at its top level, that the Clear submenu's leaves are Selection / Cell / Channel / Pattern and do what the old four items did, and that a hidden field's chip now reads as a filled plate with the letter cut out of it while a shown one keeps its dark plate, so the state of every chip is readable at a glance.
-Confirm in the DAW that Alt+Z takes back the last thing the plug-in changed (a
-cell written, a clip dropped or sliced, a pattern resized, a setting moved) and
-that Alt+Y puts it again, pressed straight after each action that made it inert
-before — a menu paste, a clear, a slice-pattern, a pattern dragged from the pool
-and dropped onto the timeline — with no click in between, that the timeline
-pattern move still undoes as normal, that the Alt pair refuses every Alt+Shift
-press and walks exactly one point per press whichever panel answers it, that one
-spelling each is enough since the Alt redo's Shift alias was found swallowed on
-the way to both hosts and the whole Alt+Shift family is now refused in every
-panel rather than claimed by any of them, while the Ctrl pair was already found
-not to reach the plug-in in Bitwig and Reaper, which answer those three with
-their own undo, that the tracker menu's Undo / Redo pair does walk the same line
-and greys out at its ends, that the Settings tab's Undo steps row caps how far
-the walk reaches and that 0 turns undoing off, that undoing while the transport
-runs changes what the rows ahead of the playhead play while what was already
-sent to the host stays, that undoing a note at or behind the playhead only shows
-when the transport runs over that row again, and that the cursor, the selection,
-the clipboards and the playheads stay where they were across an undo; and that
-keyboard input is no longer lost on those paths at all — that a note typed
-straight after a menu paste, a clear, a slice-pattern, a greyed item, a menu
-closed with Escape or a pattern dragged out of the pool and dropped onto the
-timeline enters at the cursor with no click in between, that the same holds for
-the cursor moves and the clears, and that the pair walks one point per press
-whichever panel answers it
+Confirmed in Bitwig and Reaper (the user's re-test against the refreshed bundle) that
+the keyboard is heard again on its own: a note typed, a cursor moved or a field
+cleared straight after a menu paste, a clear, a slice-pattern, a greyed item picked,
+a menu closed with Escape or a pattern dragged out of the pool and dropped onto the
+timeline lands where it was meant to with no click in between, and `Alt+Z` / `Alt+Y`
+walk one point per press on each of those paths, with the Alt+Shift family refused
+rather than spent on a redo alias — which is what says the focus hand-back rather than
+the per-panel answer is what the hosts needed. Still to confirm in the DAW: that
+`Alt+Z` takes back the last thing the plug-in changed for an action that never went
+through a menu (a cell written, a clip dropped or sliced, a pattern resized, a
+setting moved) and that `Alt+Y` puts it again, that the timeline pattern move still
+undoes as normal, that the tracker menu's Undo / Redo pair walks the same line and
+greys out at its ends, that the Settings tab's Undo steps row caps how far the walk
+reaches and that 0 turns undoing off, that undoing while the transport runs changes
+what the rows ahead of the playhead play while what was already sent to the host stays,
+that undoing a note at or behind the playhead only shows when the transport runs over
+that row again, and that the cursor, the selection, the clipboards and the playheads
+stay where they were across an undo.
 Confirm in the DAW that the volume column now emits CC7 (CC10 for pan), that a note-off row (`===`) with an explicit volume/pan still applies both controllers, that the Settings tab's Volume column CC / Pan column CC sliders repoint them, and that a channel's column chips hide only that channel's field.
 Confirm interactively that dragging a pattern from the pool floats only that item (its grid preview when expanded, semi-transparent) under the pointer, that the grabbed spot stays under the cursor, and that the clip still lands at the drop position.
 Confirm in the DAW that Remap moves only the instrument named in the source dropdown, that the dim carried rows follow it, and that All in the source box covers every instrument in the scope.
