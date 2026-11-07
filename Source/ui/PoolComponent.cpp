@@ -1,6 +1,6 @@
 #include "PoolComponent.h"
 #include "Theme.h"
-#include "UndoRedoKeys.h"
+#include "AltShortcutKeys.h"
 #include <algorithm>
 
 namespace rtr
@@ -26,7 +26,14 @@ bool PoolComponent::keyPressed (const juce::KeyPress& key)
     // consulted. The pair is answered while that drag is still in flight as
     // well, rather than only after it drops, which is what lets the press land
     // straight away
-    return answerUndoRedoKey (key, undoStep, redoStep);
+    if (answerUndoRedoKey (key, undoStep, redoStep))
+        return true;
+
+    // the clipboard pair is answered the same way, since the same reason that
+    // made the undo pair unreachable gives the clipboard's pair to the host as
+    // well: the pool's drag routes the press here, and the host answers the
+    // Ctrl spelling with its own clipboard before the plug-in is offered it
+    return answerClipboardKey (key, copyStep, pasteStep);
 }
 
 void PoolComponent::refresh()

@@ -1,6 +1,6 @@
 #include "SettingsPanel.h"
 #include "Theme.h"
-#include "UndoRedoKeys.h"
+#include "AltShortcutKeys.h"
 
 namespace rtr
 {
@@ -176,7 +176,13 @@ bool SettingsPanel::keyPressed (const juce::KeyPress& key)
     // while a pattern's context menu was opened over this panel, this panel is
     // what that press is routed to, so a pair the editor alone owned would be
     // swallowed there
-    return answerUndoRedoKey (key, undoStep, redoStep);
+    if (answerUndoRedoKey (key, undoStep, redoStep))
+        return true;
+
+    // the clipboard pair is answered the same way, since the same reason that
+    // made the undo pair unreachable gives the clipboard's pair to the host as
+    // well: this panel is what routes the press while its menus are about
+    return answerClipboardKey (key, copyStep, pasteStep);
 }
 
 void SettingsPanel::refresh()

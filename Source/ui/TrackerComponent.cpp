@@ -1,6 +1,6 @@
 #include "TrackerComponent.h"
 #include "Theme.h"
-#include "UndoRedoKeys.h"
+#include "AltShortcutKeys.h"
 
 namespace rtr
 {
@@ -1567,6 +1567,14 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
     // never consulted, so a pair the editor alone owned would be swallowed
     if (answerUndoRedoKey (key, undoStep, redoStep,
                            [this] { return cancelPendingEdit(); }))
+        return true;
+
+    // the clipboard pair is answered here too rather than handed up, for the
+    // same reason the undo pair had to be: the cell menu routes the press to
+    // this panel, and the host answers the Ctrl spelling with its own
+    // clipboard. Alt+V pastes with everything, the plain spelling's meaning, so
+    // what was copied lands wherever the paste filters put it
+    if (answerClipboardKey (key, copyStep, pasteStep))
         return true;
 
     // any other letter held with Alt stays out of the tracker's own key entry,

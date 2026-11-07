@@ -1,0 +1,125 @@
+#pragma once
+
+#include <juce_gui_basics/juce_gui_basics.h>
+#include <functional>
+
+namespace rtr
+{
+
+// The Alt spellings of the shortcuts the plug-in owns belong to every panel rather
+// than only to the editor, because JUCE sends a key press to the focused or modal
+// component and walks up only from there: while a right-click menu is open or a
+// pattern is being dragged out of the pool, the panel that menu or drag belongs to
+// is what answers the press and the editor is never consulted at all, so a pair
+// the editor alone owned was swallowed on those paths. Hosts such as Bitwig and
+// Reaper also answer the Ctrl spellings with their own undo and clipboard before
+// the plug-in is offered the event, so the Alt pair is the spelling they leave
+// free. Both pairs read the letter over the key code and over the character the
+// press printed, since a key held by Alt arrives over X11 as that character rather
+// than as a bare code, and no Alt+Shift spelling is claimed at all: Alt+Shift+Z
+// was found swallowed on the way to both hosts, so answering it would give a key
+// the user aims at the redo the opposite meaning wherever it does arrive, and the
+// whole Alt+Shift family is left to the host rather than claimed by any panel.
+
+enum class UndoRedoKey { none = 0, undo, redo };
+
+inline UndoRedoKey matchUndoRedoKey (const juce::KeyPress& key)
+{
+    if (! key.getModifiers().isAltDown()
+        || key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown()
+        || key.getModifiers().isShiftDown())
+        return UndoRedoKey::none;
+
+    const int code = key.getKeyCode();
+    const auto printed = key.getTextCharacter();
+
+    if (code == 'Z' || code == 'z' || printed == 'Z' || printed == 'z')
+        return UndoRedoKey::undo;
+
+    if (code == 'Y' || code == 'y' || printed == 'Y' || printed == 'y')
+        return UndoRedoKey::redo;
+
+    return UndoRedoKey::none;
+}
+
+// the shared body a panel answers the undo pair with: the press is only claimed
+// when that panel actually holds the step, which leaves an event no panel can
+// spend free to walk up to the editor. closePending runs before the undo and is
+// how a panel whose number is still half typed closes that buffer on the press
+// instead of walking over it, which is what keeps one press one effect
+inline bool answerUndoRedoKey (const juce::KeyPress& key,
+                               const std::function<bool()>& undo,
+                               const std::function<bool()>& redo,
+                               const std::function<bool()>& closePending = {})
+{
+    const auto step = matchUndoRedoKey (key);
+
+    if (step == UndoRedoKey::undo && undo != nullptr)
+    {
+        if (! (closePending != nullptr && closePending()))
+            undo();
+
+        return true;
+    }
+
+    if (step == UndoRedoKey::redo && redo != nullptr)
+    {
+        redo();
+        return true;
+    }
+
+    return false;
+}
+
+// the cell clipboard's pair, which the same reasoning gives the hosts: Ctrl+C and
+// Ctrl+V are the host's own clipboard, so the plug-in is never handed them and the
+// cells the plug-in copies and pastes are unreachable there. Alt+C copies the
+// selected cells and Alt+V pastes them at the cursor with everything, the plain
+// spelling's meaning, so a paste of what was copied lands wherever the paste
+// filters would put it rather than one field at a time
+enum class ClipboardKey { none = 0, copy, paste };
+
+inline ClipboardKey matchClipboardKey (const juce::KeyPress& key)
+{
+    if (! key.getModifiers().isAltDown()
+        || key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown()
+        || key.getModifiers().isShiftDown())
+        return ClipboardKey::none;
+
+    const int code = key.getKeyCode();
+    const auto printed = key.getTextCharacter();
+
+    if (code == 'C' || code == 'c' || printed == 'C' || printed == 'c')
+        return ClipboardKey::copy;
+
+    if (code == 'V' || code == 'v' || printed == 'V' || printed == 'v')
+        return ClipboardKey::paste;
+
+    return ClipboardKey::none;
+}
+
+// the clipboard pair claims the press whenever the panel holds the step, even when
+// the step itself has nothing to do, which is what keeps an Alt held letter from
+// falling through and being typed as a note at the cursor
+inline bool answerClipboardKey (const juce::KeyPress& key,
+                                const std::function<void()>& copy,
+                                const std::function<void()>& paste)
+{
+    const auto step = matchClipboardKey (key);
+
+    if (step == ClipboardKey::copy && copy != nullptr)
+    {
+        copy();
+        return true;
+    }
+
+    if (step == ClipboardKey::paste && paste != nullptr)
+    {
+        paste();
+        return true;
+    }
+
+    return false;
+}
+
+} // namespace rtr

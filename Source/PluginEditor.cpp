@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "ui/AltShortcutKeys.h"
 
 using namespace rtr;
 
@@ -156,6 +157,30 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     wireUndoRedo (tools);
     wireUndoRedo (settings);
     wireUndoRedo (macros);
+
+    // the cell clipboard's pair needs the same treatment for the same reason:
+    // the hosts answer Ctrl+C and Ctrl+V with their own clipboard the way they
+    // answer the undo trio with their own history, so the plug-in is never
+    // handed those events and the cells it copies and pastes are unreachable
+    // there. Alt is what those hosts leave free, so Alt+C copies what the
+    // tracker is holding selected and Alt+V pastes it at the cursor with
+    // everything, which is the plain spelling's meaning rather than one field
+    // at a time. The steps are injected rather than reached through the panels,
+    // so all six walk the one clipboard the Ctrl pair and the tracker's menu
+    // use, and a paste that wrote anything records its point of the undo line
+    // through the tracker's own change and refreshes the whole view
+    auto wireClipboard = [this] (auto& panel)
+    {
+        panel.copyStep = [this] { tracker.copySelectionToClipboard(); };
+        panel.pasteStep = [this] { tracker.pasteClipboardAtCursor (kPasteAll); };
+    };
+
+    wireClipboard (tracker);
+    wireClipboard (timeline);
+    wireClipboard (pool);
+    wireClipboard (tools);
+    wireClipboard (settings);
+    wireClipboard (macros);
 
     // the other half of what those paths leave behind: a context menu's popup
     // and a pattern the pool started dragging are windows with no parent
@@ -693,6 +718,24 @@ bool ReTrektorAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
             performRedo();
             return true;
         }
+    }
+
+    // the cell clipboard's Alt pair, matched by the shared matcher so the
+    // panels and the editor cannot disagree about what the two letters mean:
+    // the hosts answer Ctrl+C and Ctrl+V with their own clipboard before the
+    // plug-in is offered the event, so Alt+C copies what the tracker is holding
+    // selected and Alt+V pastes it at the cursor with everything, the plain
+    // spelling's meaning. These are the same two steps every panel was given,
+    // so a press the tracker answered here and one that walked up to here do
+    // the same thing, and the Ctrl spellings above keep their meaning
+    if (const auto step = matchClipboardKey (key); step != ClipboardKey::none)
+    {
+        if (step == ClipboardKey::copy)
+            tracker.copySelectionToClipboard();
+        else
+            tracker.pasteClipboardAtCursor (kPasteAll);
+
+        return true;
     }
 
     if (key.getKeyCode() == juce::KeyPress::F5Key)

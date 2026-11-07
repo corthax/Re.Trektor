@@ -73,6 +73,18 @@ public:
     std::function<bool()> undoStep;
     std::function<bool()> redoStep;
 
+    /** The editor's cell-clipboard steps, injected the same way the undo pair is
+        rather than reached through the plug-in, so the Alt+C / Alt+V pair copies
+        and pastes through the same clipboard the Ctrl pair and the cell menu
+        reach and refreshes the whole view. Alt is the spelling Bitwig and Reaper
+        leave free, since those hosts answer Ctrl+C and Ctrl+V with their own
+        clipboard before the plug-in is offered the event, and a press aimed at
+        undo is swallowed on the menu and drag paths for the same reason a pair
+        the editor alone owned was. The paste runs with everything, which is
+        those keys' plain spelling's meaning. */
+    std::function<void()> copyStep;
+    std::function<void()> pasteStep;
+
     /** Closes a half-typed numeric buffer the way Esc does and reports whether
         one was there, which is what makes Ctrl+Z or the menu's Undo one press
         one effect: a press either forgets the digits or walks back. */

@@ -11,7 +11,8 @@
       - cell selection: a click selects one cell, a drag a rectangle of cells,
         Shift unions another rectangle into it and Ctrl takes one away
       - the cell clipboard: Ctrl+C copies the selection, Ctrl+V pastes it at the
-        cursor with everything, the paste submenu filters one field, a clipboard
+        cursor with everything, the Alt+C / Alt+V pair the hosts leave free does
+        the same at every panel, the paste submenu filters one field, a clipboard
         hole pastes nothing, and what does not fit inside the pattern is dropped
       - undo and redo: Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z walk the states the
         model changes append, the Settings tab's Undo steps row caps how far
@@ -1901,6 +1902,188 @@ int main()
             const auto playedMidi = playRowAt (playRow);
             check (hasNoteOn (playedMidi, playedNote),
                    "redoing it while the transport runs puts the row back to playing the note");
+        }
+
+        //== the Alt spellings of the cell clipboard =========================
+        {
+            // the hosts answer Ctrl+C and Ctrl+V with their own clipboard the way
+            // they answer the Ctrl trio with their own undo, so Bitwig and Reaper
+            // never hand the plug-in those events and the cells this plug-in copies
+            // and pastes are unreachable there. Alt is the spelling they leave free,
+            // and the pair needs both halves of what the undo pair needed: it is
+            // answered by every panel, since a press routed to a panel never reaches
+            // the editor, and it claims a press whose step does nothing, since a
+            // note entered by letters would otherwise type the pair's own c as a C
+            // at the cursor and a paste landed at a panel and at the editor would
+            // walk two points of the line for one press
+            auto pressCopyOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kAltMod), 'C')); };
+            auto pressPasteOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('V', juce::ModifierKeys (kAltMod), 'V')); };
+            auto pressCopyAltShiftOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kShiftMod | kAltMod), 'C')); };
+            auto pressAltLetterOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('q', juce::ModifierKeys (kAltMod), 'q')); };
+            auto pressCtrlCopyOn = [&] (auto* panel)
+            { return panel->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kCtrlMod), 'C')); };
+
+            check (tracker->copyStep != nullptr && timeline->copyStep != nullptr
+                   && pool->copyStep != nullptr && settings->copyStep != nullptr
+                   && tools->copyStep != nullptr && macros->copyStep != nullptr
+                   && tracker->pasteStep != nullptr && timeline->pasteStep != nullptr
+                   && pool->pasteStep != nullptr && settings->pasteStep != nullptr
+                   && tools->pasteStep != nullptr && macros->pasteStep != nullptr,
+                   "all six panels were given a copy and a paste step of their own");
+
+            auto* p = song.activePattern();
+            check (p != nullptr, "an active pattern is there for the clipboard's Alt pair");
+
+            if (p != nullptr)
+            {
+                // the fixture's rows come from where a click lands rather than from
+                // a counted row, since the view scrolls and the click's y is read
+                // through that scroll
+                // the paste's target walks down the pattern one panel at a time, so
+                // every panel gets a fresh anchor: a paste that lands cells the model
+                // already holds leaves the line alone, and these checks want one
+                // point per press rather than the dedup's silence
+                int pasteIndex = 0;
+
+                auto copyPairOn = [&] (auto* panel, const juce::String& name)
+                {
+                    clickRow (0);
+                    const int topRow = tracker->getCursorRow();
+                    const int srcCh = tracker->getCursorChannel();
+                    const int dstRow = topRow + 4 + 2 * (pasteIndex++);
+
+                    if (topRow + 1 >= p->length || dstRow + 1 >= p->length)
+                    {
+                        check (false, name + " has no room left for the fixture the pair needs");
+                        return;
+                    }
+
+                    tracker->mouseDown (makeEvent (*tracker, { 70.0f, 55.5f }));
+                    tracker->mouseDrag (makeEvent (*tracker, { 70.0f, 74.5f }));
+                    tracker->mouseUp (makeEvent (*tracker, { 70.0f, 74.5f }));
+
+                    int selCount = 0;
+                    int selMinRow = p->length;
+                    int selMaxRow = -1;
+                    int selMinCh = p->channels;
+                    int selMaxCh = -1;
+
+                    for (int r = 0; r < p->length; ++r)
+                        for (int c = 0; c < p->channels; ++c)
+                        {
+                            if (! tracker->isCellSelected (r, c))
+                                continue;
+
+                            ++selCount;
+                            selMinRow = juce::jmin (selMinRow, r);
+                            selMaxRow = juce::jmax (selMaxRow, r);
+                            selMinCh = juce::jmin (selMinCh, c);
+                            selMaxCh = juce::jmax (selMaxCh, c);
+                        }
+
+                    check (selCount == 2 && selMaxCh == selMinCh && selMaxRow == selMinRow + 1,
+                           name + " is offered a two-cell column of one channel to copy");
+
+                    tracker->setCursorRow (dstRow);
+                    check (tracker->getCursorRow() == dstRow && tracker->getCursorChannel() == srcCh,
+                           name + ": the cursor is parked below the fixture, where the paste has to land");
+
+                    p->cell (selMinRow, selMinCh).note = 101;
+                    p->cell (selMinRow, selMinCh).vol = 41;
+                    p->cell (selMinRow, selMinCh).pan = 42;
+                    p->cell (selMaxRow, selMinCh).inst = 3;
+
+                    const juce::String copiedFirst = sigAt (selMinRow, selMinCh);
+                    const juce::String copiedSecond = sigAt (selMaxRow, selMinCh);
+                    const int depthHere = proc.getUndoDepth();
+                    const juce::String targetBefore = sigAt (dstRow, srcCh);
+
+                    check (pressCopyOn (panel),
+                           name + " answers Alt+C of its own rather than leaving the press for the editor");
+                    check (tracker->hasCellClipboard(),
+                           name + ": Alt+C copies what the tracker holds selected to the tracker's clipboard");
+                    check (proc.getUndoDepth() == depthHere,
+                           name + ": copying records no point of the undo line");
+                    check (sigAt (dstRow, srcCh) == targetBefore,
+                           name + ": the Alt held c enters no note of its own at the cursor, where a bare c would type one");
+                    check (tracker->getCursorRow() == dstRow && tracker->getCursorChannel() == srcCh,
+                           name + ": copying leaves the cursor where it was for the paste");
+
+                    check (pressPasteOn (panel),
+                           name + " answers Alt+V too");
+                    check (proc.getUndoDepth() == depthHere + 1,
+                           name + ": one press walks one point, and a paste that wrote cells leaves that one");
+                    check (sigAt (dstRow, srcCh) == copiedFirst,
+                           name + ": Alt+V pastes with everything, so the whole copied cell lands at the cursor, empty fields included");
+                    check (sigAt (dstRow + 1, srcCh) == copiedSecond,
+                           name + ": the second copied cell keeps its offset below the cursor's anchor");
+
+                    const int depthPasted = proc.getUndoDepth();
+
+                    check (! pressCopyAltShiftOn (panel),
+                           name + " leaves an Alt+Shift combination to the host rather than copying");
+                    check (proc.getUndoDepth() == depthPasted,
+                           name + ": that press copies or pastes nothing");
+                    check (! pressAltLetterOn (panel),
+                           name + " leaves a letter neither pair names alone");
+                    check (proc.getUndoDepth() == depthPasted,
+                           name + ": and it types or writes nothing for it either");
+                    check (! pressCtrlCopyOn (panel),
+                           name + " leaves the Ctrl spelling to the editor rather than claiming it, so a host that does forward it still finds the plug-in's clipboard");
+                };
+
+                copyPairOn (tracker, "the tracker");
+                copyPairOn (timeline, "the timeline");
+                copyPairOn (pool, "the pool");
+                copyPairOn (settings, "the settings panel");
+                copyPairOn (tools, "the tools panel");
+                copyPairOn (macros, "the macros panel");
+
+                // X11 hands a key held with Alt over as the character that press
+                // printed, so the pair is matched over that letter too, which is
+                // how the lowercase spellings the hosts send are heard
+                {
+                    clickRow (0);
+                    const int topRow = tracker->getCursorRow();
+                    const int srcCh = tracker->getCursorChannel();
+                    const int dstRow = topRow + 4 + 2 * pasteIndex++;
+                    const int depthHere = proc.getUndoDepth();
+
+                    tracker->mouseDown (makeEvent (*tracker, { 70.0f, 55.5f }));
+                    tracker->mouseDrag (makeEvent (*tracker, { 70.0f, 74.5f }));
+                    tracker->mouseUp (makeEvent (*tracker, { 70.0f, 74.5f }));
+
+                    const juce::String copiedFirst = sigAt (topRow, srcCh);
+                    const juce::String copiedSecond = sigAt (topRow + 1, srcCh);
+
+                    tracker->setCursorRow (dstRow);
+                    const juce::String targetBefore = sigAt (dstRow, srcCh);
+
+                    check (tracker->keyPressed (juce::KeyPress ('c', juce::ModifierKeys (kAltMod), 'c')),
+                           "the tracker takes the lowercase Alt+c spelling the way X11 hands it");
+                    check (proc.getUndoDepth() == depthHere, "and the lowercase copy still records nothing");
+                    check (tracker->keyPressed (juce::KeyPress ('v', juce::ModifierKeys (kAltMod), 'v')),
+                           "the lowercase Alt+v spelling is taken as well");
+                    check (proc.getUndoDepth() == depthHere + 1, "for one point of the line");
+                    check (sigAt (dstRow, srcCh) == copiedFirst && sigAt (dstRow + 1, srcCh) == copiedSecond,
+                           "and the lowercase pair lands the same two cells at the cursor");
+                }
+
+                // where a host does forward the Ctrl pair, it still means the
+                // plug-in's own clipboard rather than a meaning that changed per
+                // host, so neither spelling has to be resolved by who answered
+                {
+                    const int depthHere = proc.getUndoDepth();
+                    check (editor->keyPressed (juce::KeyPress ('C', juce::ModifierKeys (kCtrlMod), 'C')),
+                           "the editor still answers the Ctrl spelling");
+                    check (tracker->hasCellClipboard() && proc.getUndoDepth() == depthHere,
+                           "and the Ctrl pair still copies the same cells and records nothing of its own");
+                }
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 #include "TimelineComponent.h"
 #include "Theme.h"
-#include "UndoRedoKeys.h"
+#include "AltShortcutKeys.h"
 
 namespace rtr
 {
@@ -39,7 +39,14 @@ bool TimelineComponent::keyPressed (const juce::KeyPress& key)
     // pattern is being dragged over the timeline from the pool, or while a clip's
     // context menu is open, this panel is what that press is routed to, so a pair
     // the editor alone owned would be swallowed there
-    return answerUndoRedoKey (key, undoStep, redoStep);
+    if (answerUndoRedoKey (key, undoStep, redoStep))
+        return true;
+
+    // the clipboard pair is answered the same way, and it claims the press
+    // whenever this panel holds the step rather than only when the step does
+    // something, which is what keeps an Alt held letter from walking up to
+    // become a note entered at the cursor
+    return answerClipboardKey (key, copyStep, pasteStep);
 }
 
 void TimelineComponent::refresh()

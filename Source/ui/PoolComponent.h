@@ -34,6 +34,12 @@ public:
     std::function<bool()> undoStep;
     std::function<bool()> redoStep;
 
+    // the cell clipboard's Alt pair is answered here as well, with the editor's
+    // own copy and paste injected rather than reached here, so a press aimed at
+    // a copy or a paste is heard while the pool's own drag is still modal
+    std::function<void()> copyStep;
+    std::function<void()> pasteStep;
+
     // the panel hands keyboard focus back when its own menu or the rename alert
     // has closed and when a drag it started is released, since a popup and a
     // dragged item are both windows with no parent component and closing one
