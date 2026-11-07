@@ -68,7 +68,7 @@ private:
         juce::MidiMessage message;
     };
 
-    void allNotesOff (std::vector<PendingEvent>& events, int offset);
+    void allNotesOff (std::vector<PendingEvent>& events, int offset, bool soundOff = false);
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,
                      double rowSpanSamples, const std::vector<Macro>& macros);

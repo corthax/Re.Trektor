@@ -41,6 +41,13 @@ struct ControllerEvent
     int value;
 };
 
+struct RawEvent
+{
+    int offset;
+    int kind; // 0 note-off, 1 note-on, 2 all-notes-off, 3 all-sound-off, 4 anything else
+    int pitch; // the note a note event carries, otherwise the controller number
+};
+
 struct Harness
 {
     Song song;
@@ -48,6 +55,7 @@ struct Harness
     std::vector<NoteEvent> notes;
     std::vector<ControllerEvent> controllers;
     std::vector<int> bends;
+    std::vector<RawEvent> raw;
     double ppq = 0.0;
 
     static constexpr int blockSize = 512;
@@ -85,6 +93,27 @@ struct Harness
                                                  m.getControllerNumber(), m.getControllerValue() });
                     else if (m.isPitchWheel())
                         bends.push_back (m.getPitchWheelValue());
+
+                    // the order the host would see the events in, which is what
+                    // lets a check name a release and the note it must not cut
+                    int kind = 4;
+                    int pitch = 0;
+
+                    if (m.isAllNotesOff ())
+                        kind = 2;
+                    else if (m.isAllSoundOff ())
+                        kind = 3;
+                    else if (m.isNoteOn ())
+                        kind = 1;
+                    else if (m.isNoteOff ())
+                        kind = 0;
+
+                    if (kind == 0 || kind == 1)
+                        pitch = m.getNoteNumber ();
+                    else if (m.isController ())
+                        pitch = m.getControllerNumber ();
+
+                    raw.push_back ({ metadata.samplePosition, kind, pitch });
                 }
             }
 
@@ -92,7 +121,13 @@ struct Harness
         }
     }
 
-    void resetEvents() { notes.clear(); controllers.clear(); bends.clear(); }
+    void resetEvents()
+    {
+        notes.clear();
+        controllers.clear();
+        bends.clear();
+        raw.clear();
+    }
 };
 } // namespace
 
@@ -611,6 +646,124 @@ int main()
         check (off2 == 2, "a matching note-off precedes the re-trigger (stuck-key guard), plus the clip-end close");
         check (! h.notes.empty() && ! h.notes.front().on && h.notes.front().note == 60,
                "the moved clip plays with a note-off before the re-triggered note-on");
+    }
+
+    //== Transport re-arm ordering ============================================
+    {
+        std::cout << "Transport re-arm ordering\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (8); // two beats of rows at the default four rows per beat
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60; // a note sitting right at the transport start
+        c0.inst = 0;
+        c0.vol = 100;
+
+        p.cell (4, 0).note = 61; // a row away from that start, to play as usual
+        h.song.clips[0].startBeats = 0.0;
+
+        // reading one block's events in the order the host is handed them
+        auto firstOf = [] (const Harness& hw, int kind, int pitch)
+        {
+            for (size_t i = 0; i < hw.raw.size(); ++i)
+                if (hw.raw[i].kind == kind && (pitch < 0 || hw.raw[i].pitch == pitch))
+                    return (int) i;
+
+            return -1;
+        };
+        auto countAfter = [] (const Harness& hw, int kind, int pitch, int fromIndex)
+        {
+            int n = 0;
+
+            for (size_t i = 0; i < hw.raw.size(); ++i)
+                if ((int) i > fromIndex && hw.raw[i].kind == kind && (pitch < 0 || hw.raw[i].pitch == pitch))
+                    ++n;
+
+            return n;
+        };
+
+        // A fresh start whose first block begins right on the note row: the
+        // release the re-arm sends has to reach the host before the note-on it
+        // queues for the same sample, or a host honouring all-notes-off cuts it.
+        h.runBlocks (1);
+
+        int on = firstOf (h, 1, 60);
+        check (on >= 0 && h.raw[on].offset == 0, "a start on the row sends its note-on at the block start");
+        check (on >= 0 && countAfter (h, 2, 123, on) == 0, "no all-notes-off follows that note-on at all");
+        check (countAfter (h, 2, 123, -1) >= kMidiChannelCount, "the re-arm still releases every channel ahead of the note-on");
+        check (countAfter (h, 3, 120, -1) == 0, "and no All Sound Off, which has no message turning it back on");
+
+        // Run the clip through, then wrap back to a block boundary the host left
+        // inside the row at the loop start, which is what a looping region does.
+        h.resetEvents();
+        h.runBlocks (95); // past the clip end at two beats
+
+        h.resetEvents();
+        h.ppq = 0.125;
+        h.runBlocks (1);
+
+        on = firstOf (h, 1, 60);
+        check (on >= 0 && h.raw[on].offset == 0, "the wrapped pass plays the row the start landed inside at the block start");
+        check (on >= 0 && firstOf (h, 0, 60) >= 0 && firstOf (h, 0, 60) < on,
+               "the stuck-key guard still puts a note-off before that re-triggered note-on");
+        check (on >= 0 && countAfter (h, 2, 123, on) == 0, "the release comes before it, never after it");
+        check (on >= 0 && countAfter (h, 0, 60, on) == 0, "nothing closes that note again inside the block that re-armed it");
+        check (h.song.settings.midRowIgnored, "the row sits at its default while the jump re-arms it anyway");
+
+        h.runBlocks (50); // on through the pass, past the row at one beat
+
+        int on60 = 0, off60 = 0, on61 = 0;
+        for (const auto& n : h.notes)
+        {
+            if (n.note == 60)
+                n.on ? ++on60 : ++off60;
+            else if (n.note == 61 && n.on)
+                ++on61;
+        }
+
+        check (on60 == 1, "the wrapped pass re-arms that row exactly once, not twice");
+        check (off60 == 2, "the guard's release before it plus the one the next row's note makes for the channel");
+        check (on61 == 1, "the rows after it play normally, one note-on for the row at one beat");
+
+        // A reported start a hair past the row rather than a block inside it.
+        h.resetEvents();
+        h.ppq = 1.0e-13;
+        h.runBlocks (1);
+
+        on = firstOf (h, 1, 60);
+        check (on >= 0 && h.raw[on].offset == 0, "a start a hair past the row still plays it once at the block start");
+        check (on >= 0 && countAfter (h, 1, 60, on) == 0, "and once only, the re-arm branch not playing it again");
+        check (countAfter (h, 3, 120, -1) == 0, "the hair case sends no All Sound Off either");
+
+        // A fresh start inside a row, which the Settings row still shapes.
+        h.resetEvents();
+        h.ppq = 0.125;
+        h.runBlocks (1, false); // stopped, so the next block starts fresh
+        h.ppq = 0.125;
+        h.runBlocks (1);
+        check (firstOf (h, 1, 60) < 0, "a fresh start inside a row plays nothing while the setting says to ignore one");
+
+        h.resetEvents();
+        h.ppq = 0.125;
+        h.runBlocks (1, false);
+        h.song.settings.midRowIgnored = false;
+        h.ppq = 0.125;
+        h.runBlocks (1);
+        on = firstOf (h, 1, 60);
+        check (on >= 0 && h.raw[on].offset == 0, "with the setting off that same fresh start plays the row at the block start");
+
+        // A seek forward into the same row keeps the documented answer.
+        h.resetEvents();
+        h.song.settings.midRowIgnored = true;
+        h.ppq = 0.0;
+        h.runBlocks (1, false); // stopped, so the engine starts knowing 0
+        h.ppq = 0.0;
+        h.runBlocks (1); // one block at the start, so the next press is a seek
+        h.resetEvents();
+        h.ppq = 0.125;
+        h.runBlocks (1);
+        check (firstOf (h, 1, 60) < 0, "a seek forward into that row still honours the setting");
     }
 
     //== Volume + pan controllers =============================================

@@ -8,6 +8,12 @@ namespace rtr
 constexpr int kBendCentre = 8192;   // 14-bit pitch wheel centre
 constexpr int kBendFull   = 16383;  // full positive bend
 
+/** How far behind a transport start (in quarter notes) a row still counts as
+    sitting on it: about half a nanosecond of transport, so this only absorbs
+    the rounding a host's per-block position reporting brings in, never a real
+    row, which is a whole row span away. */
+constexpr double kRowAlignEps = 1.0e-9;
+
 void PlaybackEngine::reset()
 {
     for (int i = 0; i < kMaxTrackerChannels; ++i)
@@ -35,7 +41,7 @@ void PlaybackEngine::forgetTransport()
     justStarted = false;
 }
 
-void PlaybackEngine::allNotesOff (std::vector<PendingEvent>& events, int offset)
+void PlaybackEngine::allNotesOff (std::vector<PendingEvent>& events, int offset, bool soundOff)
 {
     for (int i = 0; i < kMaxTrackerChannels; ++i)
     {
@@ -55,19 +61,27 @@ void PlaybackEngine::allNotesOff (std::vector<PendingEvent>& events, int offset)
         uiRow[(size_t) i].store (-1);
     }
 
-    int order = 1000;
-
+    // The channel-wide controllers sort ahead of a note-on at this same offset
+    // (a note-on is order 1): they release what the synth may still be holding
+    // from the position the transport has left, and a host that honours an
+    // all-notes-off, which Bitwig does while Reaper's receivers ignore it, would
+    // otherwise release the note whose row sits exactly at the new position,
+    // leaving it cut short at a start or missing after a loop wraps.
     for (int ch = 0; ch < kMidiChannelCount; ++ch)
     {
-        events.push_back ({ offset, order++, juce::MidiMessage::allNotesOff (ch + 1) });
-        events.push_back ({ offset, order++, juce::MidiMessage::allSoundOff (ch + 1) });
+        events.push_back ({ offset, -2, juce::MidiMessage::allNotesOff (ch + 1) });
+
+        // All Sound Off has no companion message turning it back on, so it only
+        // belongs where the whole channel is meant to go silent for good.
+        if (soundOff)
+            events.push_back ({ offset, -1, juce::MidiMessage::allSoundOff (ch + 1) });
     }
 }
 
 void PlaybackEngine::panic (juce::MidiBuffer& midi)
 {
     std::vector<PendingEvent> events;
-    allNotesOff (events, 0);
+    allNotesOff (events, 0, true);
 
     for (auto& e : events)
         midi.addEvent (e.message, 0);
@@ -294,6 +308,16 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     justStarted = ! wasPlaying;
     const bool jumped = previousPpq >= 0.0 && std::abs (ppqStart - previousPpq) > (double) numSamples * ppqPerSample * 4.0 + 0.01;
 
+    // A transport that came back to an earlier position, which is a loop wrap or
+    // a scrub: the reported start is the point the host meant, so the row it
+    // landed inside belongs to the new pass. Seeking forward into a row stays
+    // what the Settings row about a mid-row start describes.
+    const bool jumpedBack = jumped && ppqStart < previousPpq;
+
+    // A transport starting or jumping releases what the synth may still be
+    // holding from the position it left, before this block's rows play their own
+    // notes, so these releases are ordered ahead of the note-ons this block
+    // queues at the same sample.
     if (justStarted || jumped)
         allNotesOff (events, 0);
 
@@ -340,8 +364,27 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
             if (rowTime >= ppqEnd)
                 continue;
 
-            if (rowTime < ppqStart && ! (nearContinuous && rowTime >= previousPpq && rowTime >= ppqStart - drift))
-                continue;
+            if (rowTime < ppqStart)
+            {
+                // A continuous run: the block before this one already owned the
+                // rows just behind this start, so only a hair of reporting error
+                // reaches them, and that hair is what keeps a row from being
+                // played twice by two blocks.
+                if (nearContinuous)
+                {
+                    if (! (rowTime >= previousPpq && rowTime >= ppqStart - drift))
+                        continue;
+                }
+                // A transport that jumped back (a seek, a loop wrap): nothing
+                // before this start has been covered, so a row a hair behind it
+                // is the row the host meant and belongs to this block at offset
+                // 0 rather than being dropped. Further behind it the re-arm
+                // branch below owns the row the start landed inside.
+                else if (rowTime < ppqStart - kRowAlignEps)
+                {
+                    continue;
+                }
+            }
 
             if (nearContinuous && rowTime >= ppqStart && rowTime < previousPpq)
                 continue; // covered by the previous block already
@@ -355,8 +398,15 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 channels[(size_t) ch].lastRow = row;
         }
 
-        // Starting in the middle of a row: optionally process that row.
-        if ((justStarted || jumped) && ! song.settings.midRowIgnored)
+        // A row the transport starts inside. A fresh start and a forward seek
+        // honour the Settings row that says to ignore such a row; a transport
+        // that came back to an earlier position does not, because the host meant
+        // that position and the row its block boundary fell inside belongs to the
+        // new pass - which is what lets a loop whose block boundary landed past
+        // its start still play the note sitting on that start. A row sitting at
+        // the start itself was already played by the loop above, so this only
+        // ever reaches a row strictly behind it and never doubles one.
+        if (jumpedBack || (justStarted && ! song.settings.midRowIgnored))
         {
             const int rowAtStart = (int) std::floor ((ppqStart - clipStart) * rowsPerBeat);
 
@@ -364,7 +414,7 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
             {
                 const double rowTime = clipStart + (double) rowAtStart / rowsPerBeat;
 
-                if (rowTime < ppqStart - 1.0e-9)
+                if (rowTime < ppqStart - kRowAlignEps)
                     processRow (*pattern, clip, rowAtStart, events, 0, rowSpanSamples, song.macros);
             }
         }
