@@ -44,8 +44,8 @@ struct ControllerEvent
 struct RawEvent
 {
     int offset;
-    int kind; // 0 note-off, 1 note-on, 2 all-notes-off, 3 all-sound-off, 4 anything else
-    int pitch; // the note a note event carries, otherwise the controller number
+    int kind; // 0 note-off, 1 note-on, 2 all-notes-off, 3 all-sound-off, 4 anything else, 5 pitch wheel
+    int pitch; // the note a note event carries, otherwise the controller number, or a wheel position
 };
 
 struct Harness
@@ -103,6 +103,8 @@ struct Harness
                         kind = 2;
                     else if (m.isAllSoundOff ())
                         kind = 3;
+                    else if (m.isPitchWheel ())
+                        kind = 5;
                     else if (m.isNoteOn ())
                         kind = 1;
                     else if (m.isNoteOff ())
@@ -112,6 +114,8 @@ struct Harness
                         pitch = m.getNoteNumber ();
                     else if (m.isController ())
                         pitch = m.getControllerNumber ();
+                    else if (kind == 5)
+                        pitch = m.getPitchWheelValue ();
 
                     raw.push_back ({ metadata.samplePosition, kind, pitch });
                 }
@@ -588,6 +592,149 @@ int main()
         check (g.findArp (1)->length() == kMaxArpSteps, "asking past the step limit gives the limit");
         g.setArpLength (1, 0);
         check (g.findArp (1)->length() == 1, "asking for no steps still leaves one, so the macro stays defined");
+    }
+
+    //== Pitch bend ===========================================================
+    {
+        std::cout << "Pitch bend model (the wheel position an argument names)\n";
+        check (kBendCmd > 143, "the bend letter's command value sits above the values an older build could write for its macro kinds, so no older row can already be a bend");
+        check (kBendCentreVal * kBendStep == kBendCentrePos,
+               "the argument's centre names the wheel's exact centre rather than a position a step off it");
+
+        Song s;
+        s.patterns[0].cell (3, 0).cmd = kBendCmd;
+        s.patterns[0].cell (3, 0).cmdVal = 96;
+        Song r;
+        r.fromValueTree (s.toValueTree());
+        check (r.patterns[0].cell (3, 0).cmd == kBendCmd && r.patterns[0].cell (3, 0).cmdVal == 96,
+               "the bend letter and its argument survive the saved form unchanged");
+
+        Song o;
+        o.patterns[0].cell (0, 0).cmd = 128;
+        o.patterns[0].cell (1, 0).cmd = 140;
+        o.patterns[0].cell (2, 0).cmd = 143; // an older build's M0, M12 and M15 calls
+        Song q;
+        q.fromValueTree (o.toValueTree());
+        check (q.patterns[0].cell (0, 0).cmd == kArpCmd && q.patterns[0].cell (1, 0).cmd == kArpCmd
+               && q.patterns[0].cell (2, 0).cmd == kArpCmd,
+               "an older state's macro calls at both ends of that range land on the call letter rather than the new bend letter");
+    }
+    {
+        std::cout << "Pitch bend playback (the standard pair, ahead of its own row's note)\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 2;
+        c0.vol = 100;
+        c0.cmd = kBendCmd;
+        c0.cmdVal = 96; // the wheel's upper quarter: 96 read in steps of 128
+
+        h.runBlocks (4);
+
+        check (h.bends.size() == 1 && h.bends[0] == 96 * kBendStep,
+               "the row moves the wheel once, to 12288, and the pair the host gets is the standard pitch wheel message");
+        check (h.notes.size() == 1 && h.notes[0].on && h.notes[0].channel == 3,
+               "the note of that row is played on the channel its instrument names, like every other command row");
+        // the host's own re-arm release sits ahead of everything the first block
+        // plays, so the ordering check names the two events rather than their
+        // places in the stream
+        auto indexOfKind = [] (const Harness& hw, int kind)
+        {
+            for (size_t i = 0; i < hw.raw.size(); ++i)
+                if (hw.raw[i].kind == kind)
+                    return (int) i;
+
+            return -1;
+        };
+
+        const int wheelAt = indexOfKind (h, 5);
+        const int onAt = indexOfKind (h, 1);
+        check (wheelAt >= 0 && onAt > wheelAt && h.raw[wheelAt].offset == h.raw[onAt].offset,
+               "the wheel moves before the note-on of the same row, so the note that row strikes is bent from its start");
+    }
+    {
+        std::cout << "Pitch bend carried down a column and released by a note-off\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kBendCmd;
+        c0.cmdVal = 96;
+
+        p.cell (4, 0).note = 61; // a note further down the column, under no row of its own
+        p.cell (8, 0).note = kNoteOff;
+
+        // 94 blocks reach 2.005 ppq, past the row 8 that sits at 2.0
+        h.runBlocks (94);
+
+        check (h.bends.size() == 2 && h.bends[0] == 12288 && h.bends[1] == kBendCentrePos,
+               "the wheel is moved once and returns only at the note-off, so nothing straightens the notes in between");
+        check (h.notes.size() == 4 && h.notes[1].on == false && h.notes[3].on == false,
+               "the channel releases the first note when the second enters and releases the second at the note-off row");
+        check (h.notes[3].channel == 1 && h.notes[3].note == 61,
+               "the note-off that takes the wheel back releases the note the channel was holding, on the channel its instrument named");
+    }
+    {
+        std::cout << "Pitch bend argument rows under a carried letter\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kBendCmd;
+        c0.cmdVal = 96;
+
+        p.cell (2, 0).cmdVal = 32; // the letter carries, so this is a point on the same wheel
+        p.cell (4, 0).cmdVal = 0;  // its bottom
+        p.cell (6, 0).note = kNoteOff;
+        p.cell (8, 0).cmdVal = 96; // re-asserted, the letter still being in force
+
+        h.runBlocks (94);
+
+        static const int wheel[] = { 12288, 4096, 0, kBendCentrePos, 12288 };
+        check (h.bends.size() == 5 && h.bends == std::vector<int> (wheel, wheel + 5),
+               "each argument row moves the same wheel in turn, a note-off returns it to the centre, and a further argument puts the bend back");
+    }
+    {
+        std::cout << "Pitch bend of a row without a note of its own\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.inst = 1;
+        c0.vol = 100;
+        c0.cmd = kBendCmd;
+        c0.cmdVal = 96; // the row asks for a point on the wheel and strikes nothing
+
+        // the clip is 16 rows long at four rows a beat: its end sits at 4.0 ppq,
+        // which block 187 straddles
+        h.runBlocks (180);
+        check (h.bends.size() == 1 && h.bends[0] == 12288,
+                "the wheel stays bent through the clip's own rows even though no note of that channel ever played");
+
+        h.runBlocks (8);
+
+        check (h.bends.size() == 2 && h.bends[1] == kBendCentrePos,
+               "the clip's own end takes that wheel back, which is what a release point cannot do for a row that never struck a note");
+        check (h.notes.empty (), "nothing of that channel was ever playing, so only the clip's end could put the wheel right");
+
+        bool channelNamed = false;
+        for (const auto& e : h.controllers)
+            if (e.channel == 2 && e.number == 7 && e.value == 100)
+                channelNamed = true;
+
+        check (channelNamed, "the row's instrument names the MIDI channel its command reaches, which is also where the take-back goes");
     }
 
     //== Grid snapping ========================================================
@@ -1412,18 +1559,18 @@ int main()
         check (pr->cell (11, 0).vol == kEmpty, "nothing is written past the selected rows");
 
         pm->cell (0, 0).cmd = 120;
-        pm->cell (10, 0).cmd = 140; // above the top of the column: clamped to the call
+        pm->cell (10, 0).cmd = 140; // above the top of the number range: clamped to the highest CC
         check (pm->interpolate (InterpField::cmdNum, rect (0, 10, 0, 0)) == 9,
                "the command column ramps like any other number");
         check (pm->cell (1, 0).cmd == 121 && pm->cell (5, 0).cmd == 124
-               && pm->cell (9, 0).cmd == 127,
-               "the ramp climbs toward the arpeggiator call but stays in the CC range");
+               && pm->cell (9, 0).cmd == 126,
+               "the ramp climbs toward the highest CC rather than the value the row above was holding");
         bool cmdIntact = true;
         for (int row = 1; row <= 9; ++row)
-            if (pm->cell (row, 0).cmd < 120 || pm->cell (row, 0).cmd >= kArpCmd)
+            if (pm->cell (row, 0).cmd < 120 || pm->cell (row, 0).cmd > kCcTop)
                 cmdIntact = false;
 
-        check (cmdIntact, "a ramping command number never invents the letter command");
+        check (cmdIntact, "a ramping command number never invents a letter command");
 
         // --- the selection is a set of cells, so it can have a hole in it ---
         ph->cell (4, 0).note = 60;

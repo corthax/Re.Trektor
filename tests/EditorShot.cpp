@@ -7,13 +7,18 @@
            [--click-timeline=PCT] [--hide=0v1c] [--expand-pool] [--hex]
            [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
            [--undo=N] [--redo=N] [--arp=0,+4,-8] [--arp-loop] [--arp-call=ROW]
+           [--bend=ROW] [--bend-arg=VAL]
 
     --arp= writes signed semitone steps into arpeggiator id 1, so a Macros-tab
     shot shows a step strip of its own length rather than the default ramp; a
     step written as a lone dot stays empty, and --arp-loop marks that macro
     looped so its card shows the looped tick. --arp-call=ROW names an arpeggiator
     call in tracker channel 0 at that row, which is what paints the command
-    column's orange letter A and its decimal id.
+    column's orange letter A and its decimal id. --bend=ROW names a pitch bend in
+    tracker channel 0 at that row, which paints the lilac letter B, and --bend-arg=VAL
+    names the point on the wheel it bends to so the argument is drawn in decimal
+    beside it; with no --bend-arg the row bends to 96, above the wheel's centre
+    rather than sitting on it.
 
     --hide= takes channel/letter pairs (i instrument, v volume, p pan, c
     command), so --hide=0v1c hides the volume of channel 0 and the command of
@@ -155,6 +160,22 @@ int main (int argc, char** argv)
         if (args[i].startsWith ("--arp-call="))
         {
             arpCallRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    int bendRow = -1;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--bend="))
+        {
+            bendRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    int bendArg = 96;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--bend-arg="))
+        {
+            bendArg = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
             args.remove (i);
         }
 
@@ -306,6 +327,12 @@ int main (int argc, char** argv)
         {
             p.cell (arpCallRow, 0).cmd = rtr::kArpCmd;
             p.cell (arpCallRow, 0).cmdVal = 1; // A 1: the letter command and its macro id
+        }
+
+        if (bendRow >= 0)
+        {
+            p.cell (bendRow, 0).cmd = rtr::kBendCmd;
+            p.cell (bendRow, 0).cmdVal = bendArg; // B 96: the lilac letter and the point on the wheel
         }
 
         if (arpStepsList.isNotEmpty())

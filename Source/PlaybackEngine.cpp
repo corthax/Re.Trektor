@@ -5,9 +5,6 @@
 namespace rtr
 {
 
-constexpr int kBendCentre = 8192;   // 14-bit pitch wheel centre
-constexpr int kBendFull   = 16383;  // full positive bend
-
 /** How far behind a transport start (in quarter notes) a row still counts as
     sitting on it: about half a nanosecond of transport, so this only absorbs
     the rounding a host's per-block position reporting brings in, never a real
@@ -50,10 +47,10 @@ void PlaybackEngine::allNotesOff (std::vector<PendingEvent>& events, int offset,
         if (c.activeNote >= 0)
             events.push_back ({ offset, 0, juce::MidiMessage::noteOff (c.activeMidiCh + 1, c.activeNote) });
 
-        if (c.lastBendPos != kBendCentre)
+        if (c.lastBendPos != kBendCentrePos)
         {
-            events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (c.activeMidiCh + 1, kBendCentre) });
-            c.lastBendPos = kBendCentre;
+            events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (c.activeMidiCh + 1, kBendCentrePos) });
+            c.endBend();
         }
 
         c.activeNote = -1;
@@ -102,12 +99,9 @@ void PlaybackEngine::startNote (std::vector<PendingEvent>& events, int offset, i
     if (everPlayed[(size_t) midiCh].test (note) && c.activeNote != note)
         events.push_back ({ offset, 0, juce::MidiMessage::noteOff (midiCh + 1, note) });
 
-    if (c.lastBendPos != kBendCentre)
-    {
-        events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (c.activeMidiCh + 1, kBendCentre) });
-        c.lastBendPos = kBendCentre;
-    }
-
+    // A wheel that is still bent from a row above is left where it is: a bend is
+    // a state the column carries down like a volume or a pan, so the notes below
+    // the row that asked for it are bent until a release point takes it back
     events.push_back ({ offset, 1, juce::MidiMessage::noteOn (midiCh + 1, note, (juce::uint8) juce::jlimit (1, 127, velocity)) });
     everPlayed[(size_t) midiCh].set (note);
 
@@ -122,10 +116,10 @@ void PlaybackEngine::stopNote (std::vector<PendingEvent>& events, int offset, in
 
     auto& c = channels[(size_t) ch];
 
-    if (c.lastBendPos != kBendCentre)
+    if (c.lastBendPos != kBendCentrePos)
     {
-        events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh + 1, kBendCentre) });
-        c.lastBendPos = kBendCentre;
+        events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh + 1, kBendCentrePos) });
+        c.endBend();
     }
 
     if (c.activeNote == note)
@@ -259,6 +253,33 @@ void PlaybackEngine::arpCommand (std::vector<PendingEvent>& events, int ch, int 
 }
 
 //==============================================================================
+/** A row naming the bend letter: the argument names a point on the 14-bit wheel
+    in steps of kBendStep, so the pair the host gets is the standard pitch bend
+    one and the argument's centre bends nowhere. An argument the row left empty
+    is the centre as well, which is what makes the letter on its own a row that
+    asks for nothing rather than one that locks the wheel to its bottom - and it
+    is what the tracker's own entry writes for that letter. The row's MIDI
+    channel is the one its instrument column carries, like every other command
+    row, and the clip whose rows own the move is remembered so that clip's end
+    can take the wheel back even when the row had no note of its own. */
+void PlaybackEngine::bendTo (std::vector<PendingEvent>& events, int ch, int midiCh,
+                             int argument, int offset, const juce::Uuid& clipUid)
+{
+    auto& c = channels[(size_t) ch];
+
+    const int arg = argument >= 0 ? juce::jlimit (0, 127, argument) : kBendCentreVal;
+    const int position = juce::jlimit (0, kBendTopPos, arg * kBendStep);
+
+    // the wheel moves before anything else on the row asks for it, which is what
+    // bends the note that same row strikes rather than leaving it straight until
+    // the row below it; a note-off that had just taken the wheel back sits ahead
+    // of this one, so the host sees the centre and then the new point
+    events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh + 1, position) });
+    c.lastBendPos = position;
+    c.bendClip = clipUid;
+}
+
+//==============================================================================
 void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int row,
                                  std::vector<PendingEvent>& events, int offset,
                                  const Song& song, double rowPpq)
@@ -332,9 +353,11 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             if (cell.cmd == kArpCmd)
                 arpCommand (events, ch, cell.cmdVal, offset, rowPpq, clip.uid,
                             cell.note != kEmpty, song);
+            else if (cell.cmd == kBendCmd)
+                bendTo (events, ch, midiCh, cell.cmdVal, offset, clip.uid);
             else
                 events.push_back ({ offset, 3, juce::MidiMessage::controllerEvent (midiCh + 1,
-                                                                                  juce::jlimit (0, 127, cell.cmd),
+                                                                                  juce::jlimit (0, kCcTop, cell.cmd),
                                                                                   juce::jlimit (0, 127, cell.cmdVal >= 0 ? cell.cmdVal : 0)) });
         }
 
@@ -344,11 +367,18 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
         // carry, so such a row emits nothing
         else if (cell.cmdVal != kEmpty && state.lastCmd >= 0)
         {
-            if (state.lastCmd < kArpCmd)
+            if (state.lastCmd <= kCcTop)
             {
                 events.push_back ({ offset, 3,
                                     juce::MidiMessage::controllerEvent (midiCh + 1, state.lastCmd,
                                                                         juce::jlimit (0, 127, cell.cmdVal)) });
+            }
+            else if (state.lastCmd == kBendCmd)
+            {
+                // under a carried bend the argument is a new point on the same
+                // wheel, which is also how a row re-asserts the bend a note-off
+                // below the row that asked for it had just taken back
+                bendTo (events, ch, midiCh, cell.cmdVal, offset, clip.uid);
             }
             else
             {
@@ -563,6 +593,19 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 // the note the last step left is released here
                 if (c.arpClip == clip.uid)
                     c.endArp();
+
+                // a wheel this clip's own row left bent returns to the centre at
+                // that clip's end as well, so the notes of the clip below it are
+                // not bent by a row that ended this one. A row that struck a note
+                // already had its wheel taken back by the note-off above, so this
+                // is what only a row that bent without striking needs, and the
+                // message goes to the channel the bend row's own instrument named
+                if (c.bendClip == clip.uid && c.lastBendPos != kBendCentrePos)
+                {
+                    const int bendMidiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst) + 1;
+                    events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (bendMidiCh, kBendCentrePos) });
+                    c.endBend();
+                }
             }
         }
     }

@@ -9,6 +9,17 @@
 namespace rtr
 {
 
+/** The pitch wheel's own positions. A row naming the bend letter holds an
+    argument 0..127 that names a point on the wheel in steps of kBendStep, which
+    is what puts the argument's centre kBendCentreVal on the wheel's exact
+    centre kBendCentrePos rather than a hair off it. */
+constexpr int kBendStep = 128;      // one argument step, in wheel positions
+constexpr int kBendCentrePos = 8192; // the wheel's centre
+constexpr int kBendTopPos = 0x3fff;  // the wheel's highest position
+
+static_assert (kBendCentreVal * kBendStep == kBendCentrePos,
+               "the argument's centre names the wheel's centre exactly");
+
 /** Converts the song timeline into MIDI events, following the host transport. */
 class PlaybackEngine
 {
@@ -58,7 +69,7 @@ private:
         int activeMidiCh = 0;
         juce::Uuid activeClip;
         int lastRow = -1;
-        int lastBendPos = 8192; // 14-bit pitch wheel centre
+        int lastBendPos = kBendCentrePos; // the wheel position this channel last left in force
 
         /** An arpeggiator run that has steps still to sound: how many steps of
             it have already played and where the run started, so the next step's
@@ -75,6 +86,11 @@ private:
         juce::Uuid arpClip;        // clip whose rows own the run, so its end closes it
         double arpRowEnd = -1.0;   // end of the row the engine last processed
 
+        /** The clip whose rows last moved this channel's pitch wheel, so that
+            clip's end has a wheel to take back even when the row that moved it
+            had no note of its own. */
+        juce::Uuid bendClip;
+
         /** Ends a run: an arpeggiator that no longer has steps or no longer has
             a clip to hold it leaves nothing to play. */
         void endArp() noexcept
@@ -84,6 +100,15 @@ private:
             arpOrigin = -1.0;
             arpBase = -1;
             arpClip = juce::Uuid();
+        }
+
+        /** Takes the channel's idea of the wheel back to the centre, which is
+            what every release point does once it has sent the message that says
+            so: a wheel left bent has no clip below it to put it right again. */
+        void endBend() noexcept
+        {
+            lastBendPos = kBendCentrePos;
+            bendClip = juce::Uuid();
         }
     };
 
@@ -113,6 +138,16 @@ private:
     void arpCommand (std::vector<PendingEvent>& events, int ch, int id,
                      int offset, double rowPpq, const juce::Uuid& clipUid,
                      bool noteOnRow, const Song& song);
+
+    /** Moves the pitch wheel for one row that named the bend letter: the row's
+        argument names a point on it, 0 at the bottom and 127 near the top, so an
+        argument the row left empty is taken as the wheel's centre, which bends
+        nowhere. The message is the standard pair, and it goes out ahead of the
+        note its own row strikes, so the note that row hits is already bent. What
+        the wheel is left at is remembered, together with the clip whose rows
+        asked for it, so a release point below can take it back. */
+    void bendTo (std::vector<PendingEvent>& events, int ch, int midiCh,
+                 int argument, int offset, const juce::Uuid& clipUid);
 
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,

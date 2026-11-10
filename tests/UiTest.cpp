@@ -611,6 +611,124 @@ int main()
         }
     }
 
+    //== The pitch bend letter and its argument ==============================
+    {
+        auto bendValue = [] (const juce::MidiBuffer& midi)
+        {
+            int found = -1;
+
+            for (const auto metadata : midi)
+                if (metadata.getMessage().isPitchWheel())
+                    found = metadata.getMessage().getPitchWheelValue();
+
+            return found;
+        };
+
+        // restoring a state replaces the pattern objects, so these read the
+        // cell back through the song every time rather than through a held
+        // reference
+        auto cmdAt = [&] (int row)
+        {
+            auto* pp = song.activePattern();
+            return pp != nullptr ? pp->cell (row, 0).cmd : rtr::kEmpty;
+        };
+        auto argAt = [&] (int row)
+        {
+            auto* pp = song.activePattern();
+            return pp != nullptr ? pp->cell (row, 0).cmdVal : rtr::kEmpty;
+        };
+
+        for (int i = 0; i < 32
+             && ! (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum
+                   && tracker->getCursorChannel() == 0); ++i)
+        {
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        }
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum
+                   && tracker->getCursorChannel() == 0,
+               "the cursor sits on the command number field of channel 0 again");
+
+        tracker->setCursorRow (20);
+        check (cmdAt (20) == rtr::kEmpty, "that row names no command of its own yet");
+
+        const int depthBeforeLetter = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('B', juce::ModifierKeys(), 'B'));
+        check (cmdAt (20) == rtr::kBendCmd,
+               "the letter B claims the command number and writes command 144");
+        check (argAt (20) == rtr::kBendCentreVal,
+               "and leaves the argument at the wheel's centre, so a row naming only the letter bends nowhere");
+        check (proc.getUndoDepth() == depthBeforeLetter + 1, "and claiming the letter is one undoable action");
+
+        check (bendValue (playRowAt (20)) == rtr::kBendCentreVal * rtr::kBendStep,
+               "that row moves the wheel to its centre, which is where the argument's centre is read");
+
+        // typing the argument the letter left behind names a new point, and the
+        // argument field takes the digits on its own rather than going through
+        // the number field, which is what keeps the letter the letter
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        tracker->keyPressed (juce::KeyPress ('9', juce::ModifierKeys(), '9'));
+        tracker->keyPressed (juce::KeyPress ('6', juce::ModifierKeys(), '6'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (argAt (20) == 96, "the argument typed next names a point on that wheel");
+        check (bendValue (playRowAt (20)) == 96 * rtr::kBendStep,
+               "and the point plays where the argument is read in steps of 128");
+
+        // a row below that only names an argument stays implicit and moves the
+        // same wheel, which is what re-arms the bend a release point had taken
+        tracker->setCursorRow (21);
+        tracker->keyPressed (juce::KeyPress ('8', juce::ModifierKeys(), '8'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (cmdAt (21) == rtr::kEmpty,
+               "under the carried letter an argument-only row stays implicit");
+        check (argAt (21) == 8, "and names its own point on the wheel");
+        check (bendValue (playRowAt (21)) == 8 * rtr::kBendStep,
+               "which plays on the wheel the letter above is still carrying");
+
+        // as with the other letter, the claim only owns the field's first
+        // character, so the hex CC 11 a column asks for keeps its 0B spelling
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum,
+               "one field back, the cursor is on the command number again");
+
+        if (auto* hex = findToggle (*settings, "Hexadecimal values"))
+        {
+            hex->setToggleState (true, juce::dontSendNotification);
+            hex->onClick();
+        }
+
+        tracker->setCursorRow (22);
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        tracker->keyPressed (juce::KeyPress ('B', juce::ModifierKeys(), 'B'));
+        check (cmdAt (22) == 11, "with hex on, 0B still types CC 11 rather than the letter bend");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::deleteKey, juce::ModifierKeys(), 0));
+        check (cmdAt (22) == rtr::kEmpty, "and clearing that field leaves the row without a command");
+
+        if (auto* hex = findToggle (*settings, "Hexadecimal values"))
+        {
+            hex->setToggleState (false, juce::dontSendNotification);
+            hex->onClick();
+        }
+
+        check (! song.settings.hexDisplay, "and the hex display is back off");
+
+        // a digit run cannot reach the letter's value: the number field tops at
+        // the highest CC, so the letters are the only way to name a command kind
+        tracker->setCursorRow (23);
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('4', juce::ModifierKeys(), '4'));
+        tracker->keyPressed (juce::KeyPress ('4', juce::ModifierKeys(), '4'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (cmdAt (23) == rtr::kCcTop, "typing 144 into the number field gives the highest CC rather than the bend letter");
+
+        // the rows this section parked the cursor on are below the window the
+        // checks after it click into, so the view is brought back to the top
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::homeKey, juce::ModifierKeys(), 0));
+    }
+
     //== Column visibility chips =============================================
     {
         const bool before = p.showColumn (0, 0);
@@ -1640,6 +1758,50 @@ int main()
         check (pressRedoShift(), "Ctrl+Shift+Z is the other spelling of redo");
         check (sigAt (undoRow, undoCh) == enteredNoteSig && proc.getUndoRedoCount() == 0,
                "a redo at the line's end changes nothing, either spelling");
+
+        //== the bend letter as one undoable action ======================
+        clickRow (6);
+
+        for (int i = 0; i < 32
+             && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+        {
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        }
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum,
+               "a short run of fields lands the cursor on a command number");
+
+        const int bendRow = tracker->getCursorRow();
+        const int bendCh = tracker->getCursorChannel();
+
+        auto bendCellOf = [&]
+        {
+            auto* pp = song.activePattern();
+
+            if (pp != nullptr && bendRow < (int) pp->rows.size()
+                && bendCh < (int) pp->rows[(size_t) bendRow].size())
+                return pp->cell (bendRow, bendCh);
+
+            return rtr::Cell();
+        };
+
+        const int argumentBefore = bendCellOf().cmdVal;
+        const juce::String beforeBendSig = sigAt (bendRow, bendCh);
+
+        tracker->keyPressed (juce::KeyPress ('B', juce::ModifierKeys(), 'B'));
+        check (bendCellOf().cmd == rtr::kBendCmd, "the letter claims that field and writes the bend command");
+        check (bendCellOf().cmdVal == (argumentBefore != rtr::kEmpty ? argumentBefore : rtr::kBendCentreVal),
+               "and leaves the wheel's centre as the argument when the cell had none of its own");
+
+        const juce::String bendSig = sigAt (bendRow, bendCh);
+        check (bendSig != beforeBendSig, "and the claim is one change of the model");
+
+        check (pressUndo(), "the editor takes Ctrl+Z over the claim");
+        check (sigAt (bendRow, bendCh) == beforeBendSig,
+               "Ctrl+Z takes the letter and the argument it wrote with it back");
+
+        check (pressRedo(), "Ctrl+Y puts the bend pair back");
+        check (sigAt (bendRow, bendCh) == bendSig, "and the same command number and argument come back");
 
         //== the whole line, back to the start and forward again ==============
         {

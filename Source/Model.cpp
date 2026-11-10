@@ -82,7 +82,7 @@ int fieldTop (InterpField field) noexcept
     switch (field)
     {
         case InterpField::inst:   return kMidiChannelCount - 1;
-        case InterpField::cmdNum: return kArpCmd; // the arpeggiator call tops the column
+        case InterpField::cmdNum: return kCcTop; // a ramp stays a plain CC number
 
         case InterpField::note:
         case InterpField::vol:
@@ -1038,10 +1038,14 @@ void Song::fromValueTree (const juce::ValueTree& root)
                         cell.inst = src[i2++];
                         cell.vol = src[i2++];
                         cell.pan = src[i2++];
-                        // an older state's macro calls (command values 128..143,
-                        // M0..M15) land on the one command this build has for that
-                        // half of the column, so its old argument keeps naming an id
-                        cell.cmd = juce::jmin ((int) src[i2++], kArpCmd);
+                        // an older state's macro calls (command values 128-143, the
+                        // M0-M15 kinds) land on the one letter this build has for that
+                        // half of the column's history, the arpeggiator call, so their
+                        // old argument keeps naming an id. This build's own bend letter
+                        // is a value that build could not have written, so only that one
+                        // reads back as a bend, and nothing else can reach it by accident
+                        const int rawCmd = (int) src[i2++];
+                        cell.cmd = rawCmd > kCcTop && rawCmd != kBendCmd ? kArpCmd : rawCmd;
                         cell.cmdVal = src[i2++];
                     }
                 }

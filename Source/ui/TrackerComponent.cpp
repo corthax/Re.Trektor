@@ -737,6 +737,14 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     text = "A";
                                     colour = theme::cmdMacro;
                                 }
+                                else if (cmdNum == kBendCmd)
+                                {
+                                    // the bend pair is drawn as its letter, in the
+                                    // lilac the theme leaves for a command kind that
+                                    // is neither a plain CC nor a call
+                                    text = "B";
+                                    colour = theme::cmdOther;
+                                }
                                 else
                                 {
                                     text = valueString (cmdNum, hex, fieldGlyphs (Field::cmdNum));
@@ -758,10 +766,15 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                 // a macro id is the number the Macros tab shows
                                 // in decimal, so an arpeggiator argument keeps its
                                 // decimal spelling even when the rest of the view is
-                                // hex; the argument of a plain CC keeps hex with it
+                                // hex; so does a bend's, which is where on the wheel
+                                // its centre of 64 is read; the argument of a plain
+                                // CC keeps hex with it
                                 const bool arpCall = cmdNum == kArpCmd;
-                                text = valueString (cmdVal, hex && ! arpCall, fieldGlyphs (Field::cmdVal));
-                                colour = arpCall ? theme::cmdMacro : theme::cmdCC;
+                                const bool bendCall = cmdNum == kBendCmd;
+                                text = valueString (cmdVal, hex && ! arpCall && ! bendCall, fieldGlyphs (Field::cmdVal));
+                                colour = arpCall ? theme::cmdMacro
+                                                 : bendCall ? theme::cmdOther
+                                                            : theme::cmdCC;
                             }
                             else
                             {
@@ -1447,7 +1460,7 @@ int TrackerComponent::fieldGlyphs (Field field) const
         case Field::inst: return hex ? 2 : 3; // "-" prefix plus one/two digits
         case Field::vol: return hex ? 2 : 3; // 0-255 hex, 0-127 decimal
         case Field::pan: return 3; // hex shows three padded digits, decimal up to 127
-        case Field::cmdNum: return hex ? 2 : 3; // CC number up to 143
+        case Field::cmdNum: return hex ? 2 : 3; // CC number, or one letter for a command kind
         case Field::cmdVal: return hex ? 2 : 3; // argument 0-127
         default: return 1;
     }
@@ -1460,7 +1473,14 @@ int TrackerComponent::clampValue (Field field, int value) const
         case Field::inst: return juce::jlimit (0, 15, value);
         case Field::vol: return juce::jlimit (0, 127, value);
         case Field::pan: return juce::jlimit (0, 127, value);
-        case Field::cmdNum: return juce::jlimit (0, kArpCmd, value);
+
+        case Field::cmdNum:
+            // digits stay a plain CC: the two command letters are written by the
+            // letters themselves, so typing a bigger number than the column asks
+            // for cannot invent one of them and an older build's macro values
+            // cannot be typed back at all
+            return juce::jlimit (0, kCcTop, value);
+
         case Field::cmdVal: return juce::jlimit (0, 127, value);
         default: return value;
     }
@@ -1753,16 +1773,37 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
     {
         const bool hex = song.settings.hexDisplay;
 
-        // the arpeggiator call is a letter rather than a number: as the first
-        // character of the command number column it claims that column, so the
-        // hex CC 10 a value field is asked for keeps its two-character spelling
-        // 0A, and the argument typed next names the macro id
-        if (cursorField == Field::cmdNum && (text == 'a' || text == 'A'))
+        // the command letters are letters rather than numbers: as the first
+        // character of the command number field each claims that field, so the
+        // hex CC 10 or CC 11 a column asks for keeps its 0A and 0B spelling, a
+        // digit already being typed having been appended by the editing path
+        // above, and the argument typed next names what that letter's own field
+        // means: a macro id for A, a point on the wheel for B
+        if (cursorField == Field::cmdNum)
         {
-            applyValue (Field::cmdNum, kArpCmd);
-            markChanged();
-            repaint();
-            return true;
+            const int letterCmd = text == 'a' || text == 'A' ? kArpCmd
+                                : text == 'b' || text == 'B' ? kBendCmd
+                                                             : kEmpty;
+
+            if (letterCmd != kEmpty)
+            {
+                // the letter writes the command value it names rather than a
+                // number that gets clamped, which is what keeps a typed digit
+                // run from inventing one of them
+                auto& claim = p.cell (cursorRow, cursorChannel);
+                claim.cmd = letterCmd;
+
+                // an entry has to leave an argument behind: a call starts at the
+                // release, id 0, and a bend starts at the wheel's centre, so a
+                // row that names only the letter bends nowhere rather than locking
+                // the wheel to its bottom
+                if (claim.cmdVal == kEmpty)
+                    claim.cmdVal = letterCmd == kBendCmd ? kBendCentreVal : 0;
+
+                markChanged();
+                repaint();
+                return true;
+            }
         }
 
         const bool validChar = hex ? isHexDigitChar (text)

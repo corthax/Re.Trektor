@@ -15,9 +15,25 @@ constexpr int kNoteOff = 253;
 constexpr int kMaxRows = 1024;
 constexpr int kMaxTrackerChannels = 127;
 constexpr int kMidiChannelCount = 16;
+/** The Command column's number field holds a plain CC number, 0..kCcTop, and
+    above that the command letters: the letter A names kArpCmd and the letter B
+    names kBendCmd, each claimed as the field's first character rather than
+    typed as a number, which is what keeps a hex spelling like 0A its own CC 10
+    and what stops a typed digit run from inventing a letter. kBendCmd sits
+    above the command values 128-143 an older build used for its M0-M15 macro
+    kinds, so the one value this build owns for a bend is a value that build
+    could not have written, and an older state's macro calls can all land on the
+    letter they now means without any of them becoming a bend.
+
+    A bend's argument names a point on the 14-bit pitch wheel in 128s: 0 is the
+    wheel's bottom, kBendCentreVal its exact centre and 127 near its top, so the
+    argument keeps the decimal spelling its centre is read in. */
 constexpr int kMaxArpMacros = 127; // arpeggiator macros, ids 1..127; the id 0 call releases
 constexpr int kMaxArpSteps = 64;   // most steps one arpeggiator macro can hold
 constexpr int kArpCmd = 128;       // command value 128 calls an arpeggiator, entered as A
+constexpr int kCcTop = 127;        // highest plain CC number a column can hold
+constexpr int kBendCmd = 144;      // command value 144 bends the pitch, entered as B
+constexpr int kBendCentreVal = 64; // the bend argument that sits at the wheel's centre
 constexpr int kArpEmptyStep = -128; // a step that sounds nothing and sustains the one before
 constexpr int kArpDefaultSteps = 8; // steps a newly defined macro starts with
 constexpr int kArpDefaultJump = 4;  // semitones between those steps
@@ -39,7 +55,7 @@ struct Cell
     int inst = kEmpty;    // kEmpty or 0..15 (MIDI output channel)
     int vol = kEmpty;     // kEmpty or 0..127
     int pan = kEmpty;     // kEmpty or 0..127
-    int cmd = kEmpty;     // kEmpty or 0..128 (0..127 = CC; 128 = arpeggiator call, entered A)
+    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B)
     int cmdVal = kEmpty;  // kEmpty or 0..127
 
     bool empty() const noexcept
