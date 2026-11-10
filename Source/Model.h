@@ -15,8 +15,12 @@ constexpr int kNoteOff = 253;
 constexpr int kMaxRows = 1024;
 constexpr int kMaxTrackerChannels = 127;
 constexpr int kMidiChannelCount = 16;
-constexpr int kMaxMacros = 16;
-constexpr int kMacroCmdBase = 128; // command values 128..143 call macros M0..M15
+constexpr int kMaxArpMacros = 127; // arpeggiator macros, ids 1..127; the id 0 call releases
+constexpr int kMaxArpSteps = 64;   // most steps one arpeggiator macro can hold
+constexpr int kArpCmd = 128;       // command value 128 calls an arpeggiator, entered as A
+constexpr int kArpEmptyStep = -128; // a step that sounds nothing and sustains the one before
+constexpr int kArpDefaultSteps = 8; // steps a newly defined macro starts with
+constexpr int kArpDefaultJump = 4;  // semitones between those steps
 constexpr int kMaxUndoSteps = 200; // most undo steps the undo line can be asked for
 
 /** Column visibility bits: the chips above a channel toggle one field of one
@@ -35,7 +39,7 @@ struct Cell
     int inst = kEmpty;    // kEmpty or 0..15 (MIDI output channel)
     int vol = kEmpty;     // kEmpty or 0..127
     int pan = kEmpty;     // kEmpty or 0..127
-    int cmd = kEmpty;     // kEmpty or 0..143 (0..127 = CC; 128..143 = macro call M0..M15)
+    int cmd = kEmpty;     // kEmpty or 0..128 (0..127 = CC; 128 = arpeggiator call, entered A)
     int cmdVal = kEmpty;  // kEmpty or 0..127
 
     bool empty() const noexcept
@@ -60,7 +64,7 @@ enum class InterpField
     inst,     // 0..15
     vol,      // 0..127
     pan,      // 0..127
-    cmdNum,   // 0..143, the CC number the column carries
+    cmdNum,   // 0..128, the CC number the column carries or the arpeggiator call
     cmdVal    // 0..127, the command argument
 };
 
@@ -335,19 +339,34 @@ struct Clip
 };
 
 //==============================================================================
-/** A user defined macro command (arpeggiator etc.), callable from the Command
-    column with cmd = kMacroCmdBase + index. Parameters per kind:
-
-    kind 0 (arpeggiator): param1 = cycle slots (1..16),  param2 = semitone step (1..24)
-    kind 1 (pitch glide): param1 = bend semitones (1..24), param2 = ramp steps (2..16)
-    kind 2 (slide up/down): param1 = semitone step (1..24), param2 = oscillation pairs (1..16)
-*/
-struct Macro
+/** One arpeggiator macro: the signed semitone offsets it steps through, one step
+    per subtick, measured from the note the tracker channel is holding. A row
+    naming `A <id>` in the Command column starts it, where the letter A is the
+    command value kArpCmd and the argument names the macro id, 1..kMaxArpMacros;
+    the id 0 call releases the note the run is holding instead of starting one.
+    A step holding kArpEmptyStep sounds nothing and sustains the step before it,
+    and a step whose note falls outside the keyboard snaps back by whole octaves,
+    so the pitch keeps the step's shape. A macro that is looped starts over at its
+    first step after the last and runs until the clip closes it or the column
+    names another command; one that is not runs through its steps once and leaves
+    the last one sustained. A macro with no steps is not defined. */
+struct ArpMacro
 {
-    juce::String name { "Arpeggio" };
-    int kind = 0;   // 0 = arpeggiator, 1 = pitch glide, 2 = slide up/down
-    int param1 = 0;
-    int param2 = 0;
+    bool looped = false;
+    std::vector<std::int8_t> steps; // signed semitone offsets off the base note
+
+    int length() const noexcept { return (int) steps.size(); }
+    bool defined() const noexcept { return ! steps.empty(); }
+
+    /** The equally spaced ramp a newly defined macro starts with, written into
+        the signed range the step field can hold. */
+    void setDefault (int len = kArpDefaultSteps)
+    {
+        steps.resize ((size_t) juce::jlimit (1, kMaxArpSteps, len));
+
+        for (int i = 0; i < (int) steps.size(); ++i)
+            steps[(size_t) i] = (std::int8_t) juce::jlimit (-127, 127, i * kArpDefaultJump);
+    }
 };
 
 //==============================================================================
@@ -451,6 +470,24 @@ public:
     //== Tools =================================================================
     std::vector<Pattern*> patternsForScope (ToolScope scope, int patternId, const std::vector<std::pair<int, int>>& selection);
 
+    //== Arpeggiator macros ====================================================
+    /** Arpeggiator macros live in one grow-only table indexed by id - 1, so
+        clearing one keeps the room its steps took and defining it again restores
+        them, the same rule the pattern row and channel capacities use. A macro
+        with no steps is not defined, which is what the Macros tab lists and what
+        playback refuses to run; id 0 is the release call and has no entry. */
+    ArpMacro* findArp (int id); // grows the table to name the id, null out of range
+    const ArpMacro* peekArp (int id) const noexcept; // reads it without growing it
+    bool arpDefined (int id) const noexcept;
+    bool arpLooped (int id) const noexcept;
+    int firstUndefArpId() const noexcept; // 0 once every id is taken
+    int lastDefArpId() const noexcept;    // 0 when nothing is defined
+    void defineArp (int id); // fresh macro with the default ramp, not looped
+    void clearArp (int id); // leaves it undefined, keeping its room
+    void setArpLength (int id, int length); // keeps the steps already entered
+    void setArpStep (int id, int index, std::int8_t value) noexcept;
+    void setArpLooped (int id, bool looped) noexcept;
+
     //== Serialization =========================================================
     juce::ValueTree toValueTree() const;
     void fromValueTree (const juce::ValueTree& tree);
@@ -460,7 +497,7 @@ public:
     Settings settings;
     std::vector<Pattern> patterns;
     std::vector<Clip> clips;
-    std::vector<Macro> macros;
+    std::vector<ArpMacro> arps;
 
     int activePatternId = 0;
     double editPlayheadBeats = 0.0;

@@ -730,8 +730,19 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                         {
                             if (cmdNum >= 0)
                             {
-                                text = valueString (cmdNum, hex, fieldGlyphs (Field::cmdNum));
-                                colour = cmdNum >= kMacroCmdBase ? theme::cmdMacro : theme::cmdCC;
+                                if (cmdNum == kArpCmd)
+                                {
+                                    // the arpeggiator call is drawn as its letter,
+                                    // in orange, rather than as its number
+                                    text = "A";
+                                    colour = theme::cmdMacro;
+                                }
+                                else
+                                {
+                                    text = valueString (cmdNum, hex, fieldGlyphs (Field::cmdNum));
+                                    colour = theme::cmdCC;
+                                }
+
                                 dim = ! hasOwn;
                             }
                             else
@@ -744,8 +755,13 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                         {
                             if (cmdVal >= 0)
                             {
-                                text = valueString (cmdVal, hex, fieldGlyphs (Field::cmdVal));
-                                colour = theme::cmdCC;
+                                // a macro id is the number the Macros tab shows
+                                // in decimal, so an arpeggiator argument keeps its
+                                // decimal spelling even when the rest of the view is
+                                // hex; the argument of a plain CC keeps hex with it
+                                const bool arpCall = cmdNum == kArpCmd;
+                                text = valueString (cmdVal, hex && ! arpCall, fieldGlyphs (Field::cmdVal));
+                                colour = arpCall ? theme::cmdMacro : theme::cmdCC;
                             }
                             else
                             {
@@ -1444,7 +1460,7 @@ int TrackerComponent::clampValue (Field field, int value) const
         case Field::inst: return juce::jlimit (0, 15, value);
         case Field::vol: return juce::jlimit (0, 127, value);
         case Field::pan: return juce::jlimit (0, 127, value);
-        case Field::cmdNum: return juce::jlimit (0, kMacroCmdBase + kMaxMacros - 1, value);
+        case Field::cmdNum: return juce::jlimit (0, kArpCmd, value);
         case Field::cmdVal: return juce::jlimit (0, 127, value);
         default: return value;
     }
@@ -1736,6 +1752,19 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
     if (cursorField != Field::note)
     {
         const bool hex = song.settings.hexDisplay;
+
+        // the arpeggiator call is a letter rather than a number: as the first
+        // character of the command number column it claims that column, so the
+        // hex CC 10 a value field is asked for keeps its two-character spelling
+        // 0A, and the argument typed next names the macro id
+        if (cursorField == Field::cmdNum && (text == 'a' || text == 'A'))
+        {
+            applyValue (Field::cmdNum, kArpCmd);
+            markChanged();
+            repaint();
+            return true;
+        }
+
         const bool validChar = hex ? isHexDigitChar (text)
                                    : juce::CharacterFunctions::isDigit (text);
 

@@ -253,86 +253,341 @@ int main()
         check (on60 == 1, "identical note on two tracker channels is played once, got " + juce::String (on60));
     }
 
-    //== Command macros =======================================================
+    //== Arpeggiator macros ===================================================
     {
-        std::cout << "Command macros (arpeggiator)\n";
+        std::cout << "Arpeggiator model (id 1 default, grow-only table)\n";
+        Song s;
+        check (s.arpDefined (1) && ! s.arpLooped (1), "the default song defines arpeggiator id 1, not looped");
+        const auto* m1 = s.peekArp (1);
+        check (m1 != nullptr && m1->length() == kArpDefaultSteps && m1->steps[7] == 7 * kArpDefaultJump,
+               "the default macro holds eight steps a fourth of an octave apart");
+        check (s.firstUndefArpId() == 2 && s.lastDefArpId() == 1,
+               "the lowest free id and the highest defined one name the same gap");
+        check (s.findArp (127) != nullptr && s.arps.size() == 127,
+               "naming id 127 grows the grow-only table to the id limit");
+        check (s.peekArp (0) == nullptr && s.peekArp (128) == nullptr && s.findArp (0) == nullptr,
+               "id 0 is the release call and there is no macro entry above the limit");
+    }
+    {
+        std::cout << "Arpeggiator playback (default ramp spilling past its row)\n";
         Harness h;
         auto& p = h.song.patterns[0];
         p.setLength (16);
 
-        // default song includes one macro (M0); redefine as a small arpeggiator
-        h.song.macros[0].name = "Arp 3x+2";
-        h.song.macros[0].kind = 0;
-        h.song.macros[0].param1 = 3;
-        h.song.macros[0].param2 = 2;
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd; // A
+        c0.cmdVal = 1;
 
-        p.cell (0, 0).note = 60;
-        p.cell (0, 0).inst = 0;
-        p.cell (0, 0).vol = 100;
-        p.cell (0, 0).cmd = 128; // call M0
-
-        h.runBlocks (12);
+        // a row is 6000 samples at these sizes and a step 1000: eight steps reach
+        // 7000, so the two past the row's end wait for the blocks below it
+        h.runBlocks (14);
 
         std::vector<int> ons;
         for (auto& n : h.notes)
             if (n.on)
                 ons.push_back (n.note);
 
-        check (ons.size() == 3, "arpeggiator re-triggers the note once per slot, got " + juce::String ((int) ons.size()));
-        check (std::find (ons.begin(), ons.end(), 62) != ons.end(), "arp adds the +2 semitone note");
-        check (std::find (ons.begin(), ons.end(), 64) != ons.end(), "arp adds the +4 semitone note");
+        check (ons.size() == 8, "the row's own note is the first step and the run sounds its steps once, got " + juce::String ((int) ons.size()));
+        static const int ramp[] = { 60, 64, 68, 72, 76, 80, 84, 88 };
+        check (ons == std::vector<int> (ramp, ramp + 8),
+               "the steps play +4 semitones per subtick in order, spilling past the row that called them");
+        check (! ons.empty() && ons.back() == 88, "the run ends with the last step's note, left held");
     }
     {
-        std::cout << "Command macros (pitch glide)\n";
+        std::cout << "Arpeggiator looped run\n";
         Harness h;
         auto& p = h.song.patterns[0];
-        p.setLength (16);
+        p.setLength (32);
 
-        h.song.macros[0].kind = 1;
-        h.song.macros[0].param1 = 5; // bend target in semitones
-        h.song.macros[0].param2 = 4; // ramp steps
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 1;
+        h.song.setArpLooped (1, true);
 
-        p.cell (0, 0).note = 60;
-        p.cell (0, 0).inst = 0;
-        p.cell (0, 0).cmd = 128;
-
-        h.runBlocks (12);
-
-        check (h.bends.size() == 4, "glide sweeps the pitch wheel in the configured number of steps, got " + juce::String ((int) h.bends.size()));
-
-        bool rising = ! h.bends.empty();
-        for (int i = 0; i < (int) h.bends.size() && rising; ++i)
-            if (h.bends[(size_t) i] <= 8192 || h.bends[(size_t) i] > 16383)
-                rising = false;
-
-        check (rising, "pitch wheel ramps upward from centre");
-        check (! h.bends.empty() && h.bends.back() == 16383, "glide reaches the configured bend target");
-    }
-    {
-        std::cout << "Command macros (slide)\n";
-        Harness h;
-        auto& p = h.song.patterns[0];
-        p.setLength (16);
-
-        h.song.macros[0].kind = 2;
-        h.song.macros[0].param1 = 2; // semitone step
-        h.song.macros[0].param2 = 1; // one up/down pair
-
-        p.cell (0, 0).note = 60;
-        p.cell (0, 0).inst = 0;
-        p.cell (0, 0).vol = 100;
-        p.cell (0, 0).cmd = 128;
-
-        h.runBlocks (12);
+        // 20 blocks reach 10240 samples: eleven steps fit before the block edge
+        h.runBlocks (20);
 
         std::vector<int> ons;
         for (auto& n : h.notes)
             if (n.on)
                 ons.push_back (n.note);
 
-        check (ons.size() == 3, "slide adds an up and a down re-trigger, got " + juce::String ((int) ons.size()));
-        check (std::find (ons.begin(), ons.end(), 62) != ons.end(), "slide oscillates up to +2 semitones");
-        check (std::find (ons.begin(), ons.end(), 58) != ons.end(), "slide oscillates down to -2 semitones");
+        check (ons.size() == 11, "a looped run keeps cycling while the rows below it run, got " + juce::String ((int) ons.size()));
+        check (std::count (ons.begin(), ons.end(), 60) == 2, "the cycle starts over at the first step after the last");
+    }
+    {
+        std::cout << "Finished unlooped run sustains\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (32);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 1;
+
+        h.runBlocks (30);
+
+        std::vector<int> ons;
+        for (auto& n : h.notes)
+            if (n.on)
+                ons.push_back (n.note);
+
+        check (ons.size() == 8 && std::count (ons.begin(), ons.end(), 88) == 1,
+               "a finished run leaves its last step's note held rather than repeating it");
+    }
+    {
+        std::cout << "Value-only row under a carried call switches the macro\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 1;
+
+        h.song.defineArp (2);
+        h.song.setArpLength (2, 4);
+        h.song.setArpStep (2, 0, 12);
+        h.song.setArpStep (2, 1, 24);
+        h.song.setArpStep (2, 2, 36);
+        h.song.setArpStep (2, 3, 48);
+
+        p.cell (2, 0).cmdVal = 2; // implicit: the A above carries, the argument names a new macro
+        p.cell (3, 0).cmdVal = 5; // an undefined id under the carried call sounds nothing
+
+        h.runBlocks (40); // rows 2 and 3 sit at 12000 and 18000 samples
+
+        std::vector<int> ons;
+        for (auto& n : h.notes)
+            if (n.on)
+                ons.push_back (n.note);
+
+        check (ons.size() == 12, "the id-only row restarts at the new macro's first step, got " + juce::String ((int) ons.size()));
+        check (std::find (ons.begin(), ons.end(), 100) != ons.end() && std::find (ons.begin(), ons.end(), 112) != ons.end(),
+               "the switched macro steps its own semitone offsets from the note the run holds");
+    }
+    {
+        std::cout << "A 0 releases the note the run holds\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (8);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 1;
+        h.song.setArpLooped (1, true);
+
+        p.cell (3, 0).cmdVal = 0; // the carried call with the id 0 argument releases
+
+        h.runBlocks (48); // the clip is eight rows, so the kill is well inside it
+
+        int onCount = 0;
+        int off64 = 0;
+        int soundOff = 0;
+
+        for (auto& n : h.notes)
+        {
+            if (n.on)
+                ++onCount;
+            else if (n.note == 64)
+                ++off64;
+        }
+
+        for (auto& e : h.raw)
+            if (e.kind == 3)
+                ++soundOff;
+
+        // the steps at 0..17000 samples play (18); the looped run would carry
+        // on below the kill if the call did not end it; the guard's stuck-key
+        // releases add a note-off of 64 at each re-struck step on top of the
+        // release at the kill itself
+        check (onCount == 18, "the kill stops the run at its row, got " + juce::String (onCount));
+        check (off64 == 5, "the note the last step held is released at the kill along the re-articulations");
+        check (soundOff == 0, "the release reaches the synth as a plain note-off, not as an All Sound Off");
+    }
+    {
+        std::cout << "Empty steps sustain and out-of-range steps snap by octaves\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        h.song.defineArp (2);
+        h.song.setArpLength (2, 4);
+        h.song.setArpStep (2, 0, 0);
+        h.song.setArpStep (2, 1, 4);
+        h.song.setArpStep (2, 2, (std::int8_t) kArpEmptyStep);
+        h.song.setArpStep (2, 3, 8);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 2;
+
+        h.runBlocks (8); // 4096 samples reach the +8 step at 3000
+
+        std::vector<int> ons;
+        for (auto& n : h.notes)
+            if (n.on)
+                ons.push_back (n.note);
+
+        check (ons.size() == 3, "the empty step sounds nothing, got " + juce::String ((int) ons.size()));
+        check (std::find (ons.begin(), ons.end(), 64) != ons.end() && std::find (ons.begin(), ons.end(), 68) != ons.end(),
+               "the empty step holds the note before it and the next step sounds from its own subtick");
+
+        Harness h2;
+        auto& p2 = h2.song.patterns[0];
+        p2.setLength (16);
+        p2.cell (0, 0).note = 60;
+        p2.cell (0, 0).inst = 0;
+        p2.cell (0, 0).vol = 100;
+
+        h2.song.defineArp (3);
+        h2.song.setArpLength (3, 1);
+        h2.song.setArpStep (3, 0, 100);
+        p2.cell (1, 0).cmd = kArpCmd;
+        p2.cell (1, 0).cmdVal = 3; // no note of its own: the run steps from the note above
+
+        h2.runBlocks (16);
+
+        std::vector<int> ons2;
+        for (auto& n : h2.notes)
+            if (n.on)
+                ons2.push_back (n.note);
+
+        check (std::find (ons2.begin(), ons2.end(), 124) != ons2.end(), "a step above the keyboard's top snaps back by whole octaves");
+
+        Harness h3;
+        auto& p3 = h3.song.patterns[0];
+        p3.setLength (16);
+        p3.cell (0, 0).note = 60;
+        p3.cell (0, 0).inst = 0;
+        p3.cell (0, 0).vol = 100;
+
+        h3.song.defineArp (4);
+        h3.song.setArpLength (4, 1);
+        h3.song.setArpStep (4, 0, -100);
+        p3.cell (1, 0).cmd = kArpCmd;
+        p3.cell (1, 0).cmdVal = 4;
+
+        h3.runBlocks (16);
+
+        std::vector<int> ons3;
+        for (auto& n : h3.notes)
+            if (n.on)
+                ons3.push_back (n.note);
+
+        check (std::find (ons3.begin(), ons3.end(), 8) != ons3.end(), "a step below the bottom snaps up by whole octaves");
+    }
+    {
+        std::cout << "The clip end closes a looping run\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (2); // the clip is two rows: 12000 samples
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 1;
+        h.song.setArpLooped (1, true);
+
+        h.runBlocks (24); // 12288 samples: the clip end at 12000 sits inside this run
+
+        std::vector<int> ons;
+        int off72 = 0;
+        for (auto& n : h.notes)
+        {
+            if (n.on)
+                ons.push_back (n.note);
+            else if (n.note == 72)
+                ++off72;
+        }
+
+        check (ons.size() == 12, "the looping run stops where the clip ends, not at the row that called it");
+        check (off72 == 3, "the note the last step left is released at the clip end");
+    }
+    {
+        std::cout << "Arpeggiator state round trip and the old format\n";
+        Song a;
+        a.defineArp (2);
+        a.setArpStep (2, 0, -7);
+        a.setArpLength (2, 64); // keeps the step already entered
+        a.setArpLooped (2, true);
+        a.setArpStep (2, 63, -40);
+
+        check (a.findArp (2) != nullptr && a.findArp (2)->length() == 64 && a.findArp (2)->steps[0] == -7,
+               "growing a macro keeps the steps already entered");
+
+        Song b;
+        b.fromValueTree (a.toValueTree());
+        check (b.arpDefined (2) && b.arpLooped (2) && b.findArp (2)->length() == 64 && b.findArp (2)->steps[63] == -40,
+               "the id, the loop flag and all 64 signed steps reload from the state");
+        check (b.arpDefined (1), "the default macro survives a round trip as the default macro");
+
+        // what an undo hands back is the song the changes are in rather than a
+        // fresh one, so the read has to drop what that song holds ahead of the
+        // state it is given: an undo of a step, of the loop flag or of defining
+        // a macro at all has to be able to take each of them back
+        Song kept;
+        const auto keptXml = kept.toValueTree().toXmlString();
+
+        kept.setArpStep (1, 0, 100);
+        kept.setArpLooped (1, true);
+        kept.defineArp (2);
+
+        kept.fromValueTree (juce::ValueTree::fromXml (keptXml));
+        check (kept.arpDefined (1) && kept.findArp (1) != nullptr
+                   && kept.findArp (1)->length() == kArpDefaultSteps && kept.findArp (1)->steps[0] == 0,
+               "an earlier state's steps replace the ones the macro had kept rather than being added behind them");
+        check (! kept.arpLooped (1), "and the loop flag reloads as the state has it, unset");
+        check (! kept.arpDefined (2) && kept.lastDefArpId() == 1,
+               "and a macro the state does not name is taken back, which is what makes undoing the definition of one work");
+
+        Song c;
+        auto vt = c.toValueTree();
+        juce::ValueTree oldSec ("MACROS");
+        oldSec.appendChild (juce::ValueTree ("MACRO"), nullptr);
+        vt.appendChild (oldSec, nullptr);
+        Song d;
+        d.fromValueTree (vt);
+        check (d.arpDefined (1) && d.lastDefArpId() == 1,
+               "an older state's MACROS section is dropped outright and the default macro comes back");
+
+        Song e;
+        e.patterns[0].cell (5, 0).cmd = 140; // an older row calling M12
+        e.patterns[0].cell (5, 0).cmdVal = 12;
+        Song f;
+        f.fromValueTree (e.toValueTree());
+        check (f.patterns[0].cell (5, 0).cmd == kArpCmd && f.patterns[0].cell (5, 0).cmdVal == 12,
+               "an older row's macro call lands on A with its old argument naming the id");
+
+        Song g;
+        g.clearArp (1);
+        check (! g.arpDefined (1), "clearing a macro leaves it undefined, so no row can call it");
+        g.defineArp (1);
+        check (g.arpDefined (1) && ! g.arpLooped (1), "defining it again restores the default ramp, not looped");
+        g.setArpLength (1, 100);
+        check (g.findArp (1)->length() == kMaxArpSteps, "asking past the step limit gives the limit");
+        g.setArpLength (1, 0);
+        check (g.findArp (1)->length() == 1, "asking for no steps still leaves one, so the macro stays defined");
     }
 
     //== Grid snapping ========================================================
@@ -926,12 +1181,14 @@ int main()
 
         check (invented == 0, "an argument with nothing carried above emits no controller");
 
-        // macros carry too, but they take no controller argument, so a value-only
-        // row below one still stays silent
+        // macros carry too, but the argument of an arpeggiator call is its macro
+        // id: a value-only row below a carried call becomes a call of that id, so
+        // an undefined one stays silent and no controller is invented either way
         Harness h3;
         auto& p3 = h3.song.patterns[0];
         p3.setLength (8);
-        p3.cell (0, 0).cmd = kMacroCmdBase + 2; // M2
+        p3.cell (0, 0).cmd = kArpCmd;
+        p3.cell (0, 0).cmdVal = 2; // A 2: an undefined macro, so nothing sounds
         p3.cell (3, 0).cmdVal = 44;
 
         h3.runBlocks (40);
@@ -942,7 +1199,7 @@ int main()
             if (cc.value == 44)
                 ++fromMacro;
 
-        check (fromMacro == 0, "a value-only row under a macro command emits no controller");
+        check (fromMacro == 0, "a value-only row under a carried call plays that call, not a controller");
     }
 
     //== Column visibility ====================================================
@@ -1018,7 +1275,7 @@ int main()
         const int cmdId = a.addPattern ("Cmds", 32, 1).id;
         const int offId = a.addPattern ("Offs", 32, 1).id;
         const int rampId = a.addPattern ("Ramp", 32, 1).id;
-        const int macroId = a.addPattern ("Macros", 32, 1).id;
+        const int cmdRangeId = a.addPattern ("Cmd range", 32, 1).id;
         const int holedId = a.addPattern ("Holed", 32, 2).id;
 
         auto* pn = a.findPattern (noteId);
@@ -1026,7 +1283,7 @@ int main()
         auto* pc = a.findPattern (cmdId);
         auto* po = a.findPattern (offId);
         auto* pr = a.findPattern (rampId);
-        auto* pm = a.findPattern (macroId);
+        auto* pm = a.findPattern (cmdRangeId);
         auto* ph = a.findPattern (holedId);
 
         // the selection is a set of cells rather than a pair of row and channel
@@ -1154,19 +1411,19 @@ int main()
                "a descending ramp rounds the same way");
         check (pr->cell (11, 0).vol == kEmpty, "nothing is written past the selected rows");
 
-        pm->cell (0, 0).cmd = 138;
-        pm->cell (10, 0).cmd = kMacroCmdBase + kMaxMacros; // past the last macro
+        pm->cell (0, 0).cmd = 120;
+        pm->cell (10, 0).cmd = 140; // above the top of the column: clamped to the call
         check (pm->interpolate (InterpField::cmdNum, rect (0, 10, 0, 0)) == 9,
-               "the macro range ramps like any other number");
-        check (pm->cell (1, 0).cmd == 139 && pm->cell (5, 0).cmd == 141
-               && pm->cell (9, 0).cmd == 143,
-               "the ramp is clamped to the last macro");
-        bool macrosIntact = true;
+               "the command column ramps like any other number");
+        check (pm->cell (1, 0).cmd == 121 && pm->cell (5, 0).cmd == 124
+               && pm->cell (9, 0).cmd == 127,
+               "the ramp climbs toward the arpeggiator call but stays in the CC range");
+        bool cmdIntact = true;
         for (int row = 1; row <= 9; ++row)
-            if (pm->cell (row, 0).cmd < kMacroCmdBase || pm->cell (row, 0).cmd > kMacroCmdBase + kMaxMacros - 1)
-                macrosIntact = false;
+            if (pm->cell (row, 0).cmd < 120 || pm->cell (row, 0).cmd >= kArpCmd)
+                cmdIntact = false;
 
-        check (macrosIntact, "a filled command number always names a macro");
+        check (cmdIntact, "a ramping command number never invents the letter command");
 
         // --- the selection is a set of cells, so it can have a hole in it ---
         ph->cell (4, 0).note = 60;

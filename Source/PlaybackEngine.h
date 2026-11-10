@@ -59,6 +59,32 @@ private:
         juce::Uuid activeClip;
         int lastRow = -1;
         int lastBendPos = 8192; // 14-bit pitch wheel centre
+
+        /** An arpeggiator run that has steps still to sound: how many steps of
+            it have already played and where the run started, so the next step's
+            position is the start plus that many step widths - counted, not
+            summed, which is what keeps a looped run's cycle boundaries exact.
+            The steps measure from arpBase: the row's own note when the call
+            row had one, the note the channel carries when it had none, re-based
+            by any note that enters further down the column while a run is
+            still going. */
+        int arpId = 0;             // macro id in force (0 = no run)
+        int arpCount = 0;          // steps of the run already played
+        double arpOrigin = -1.0;   // where the run's first step sits, in transport beats
+        int arpBase = -1;          // the note the run's steps measure from
+        juce::Uuid arpClip;        // clip whose rows own the run, so its end closes it
+        double arpRowEnd = -1.0;   // end of the row the engine last processed
+
+        /** Ends a run: an arpeggiator that no longer has steps or no longer has
+            a clip to hold it leaves nothing to play. */
+        void endArp() noexcept
+        {
+            arpId = 0;
+            arpCount = 0;
+            arpOrigin = -1.0;
+            arpBase = -1;
+            arpClip = juce::Uuid();
+        }
     };
 
     struct PendingEvent
@@ -69,9 +95,28 @@ private:
     };
 
     void allNotesOff (std::vector<PendingEvent>& events, int offset, bool soundOff = false);
+
+    /** Sounds the arpeggiator steps of one channel that belong to the position
+        range [ppqStart, ppqLimit), which is how a row whose steps spill past its
+        own span gets them played: they wait in the channel state and the block
+        that reaches them emits them at their real sample. `ppqLimit` never passes
+        the end of the row the engine last owned, so a run the column supersedes
+        lower down loses the steps that were still below it. */
+    void flushArp (std::vector<PendingEvent>& events, int ch, double ppqStart,
+                   double ppqLimit, double ppqPerSample, int numSamples,
+                   const Song& song);
+
+    /** A row naming the arpeggiator command: id 0 releases what the run is
+        holding and ends it, another id starts or restarts that macro's run. A
+        row that also names a note has already played its first step, so its run
+        starts at the next one. */
+    void arpCommand (std::vector<PendingEvent>& events, int ch, int id,
+                     int offset, double rowPpq, const juce::Uuid& clipUid,
+                     bool noteOnRow, const Song& song);
+
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,
-                     double rowSpanSamples, const std::vector<Macro>& macros);
+                     const Song& song, double rowPpq);
 
     void startNote (std::vector<PendingEvent>& events, int offset, int ch, int midiCh, int note, int velocity);
     void stopNote (std::vector<PendingEvent>& events, int offset, int ch, int midiCh, int note);

@@ -58,6 +58,7 @@ void PlaybackEngine::allNotesOff (std::vector<PendingEvent>& events, int offset,
 
         c.activeNote = -1;
         c.lastRow = -1;
+        c.endArp();
         uiRow[(size_t) i].store (-1);
     }
 
@@ -131,9 +132,136 @@ void PlaybackEngine::stopNote (std::vector<PendingEvent>& events, int offset, in
         c.activeNote = -1;
 }
 
+//==============================================================================
+/** Arpeggiator playback. A row naming the command only queues the run: its steps
+    are one subtick wide, the subtick being a row divided by "Subticks per row",
+    so a macro longer than that, which is what 64 steps against a default of 6
+    means, cannot be squeezed inside the block the row falls in - at these sizes a
+    row is some 5900 samples against a block of 512, and an event queued past the
+    end of a block is clamped to its last sample by process(), which would bunch
+    every step of the run onto one sample. So the steps wait in the channel state,
+    with where the next one sits in absolute transport position, and the block that
+    reaches it emits it there. The limit is never past the end of the row the
+    engine last owned, which is what leaves a run the column supersedes lower down
+    with the steps that were still below it rather than replaying them. */
+void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double ppqStart,
+                               double ppqLimit, double ppqPerSample, int numSamples,
+                               const Song& song)
+{
+    auto& c = channels[(size_t) ch];
+
+    if (c.arpId <= 0)
+        return;
+
+    const auto* macro = song.peekArp (c.arpId);
+
+    if (macro == nullptr || ! macro->defined())
+    {
+        c.endArp();
+        return;
+    }
+
+    const int len = macro->length();
+    const double rowsPerBeat = (double) juce::jmax (1, song.settings.rowsPerBeat);
+    const double rowSpanPpq = 1.0 / rowsPerBeat;
+    const int subticks = juce::jmax (1, song.settings.subticksPerRow);
+    const double stepPpq = rowSpanPpq / (double) subticks;
+
+    if (! macro->looped && c.arpCount >= len)
+        return; // the run is over: its last step stays sustained
+
+    // a run whose next step sits more than a row behind where this block starts
+    // cannot be placed any more, which is what a scrub or a jump leaves behind,
+    // so it ends rather than sounding late
+    if (c.arpOrigin + (double) c.arpCount * stepPpq < ppqStart - rowSpanPpq)
+    {
+        c.endArp();
+        return;
+    }
+
+    const int midiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst);
+    const int vel = juce::jlimit (1, 127, c.lastVol > 0 ? c.lastVol : 100);
+
+    while (macro->looped || c.arpCount < len)
+    {
+        // the step's position is the start of the run plus its count, never a
+        // sum of step widths, so a loop that cycles many times stays exact
+        const double stepTime = c.arpOrigin + (double) c.arpCount * stepPpq;
+
+        if (stepTime >= ppqLimit)
+            break;
+
+        if (stepTime >= ppqStart - kRowAlignEps)
+        {
+            const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
+                                             (int) std::llround ((stepTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
+
+            const std::int8_t step = macro->steps[(size_t) (macro->looped ? c.arpCount % len : c.arpCount)];
+            const int base = c.arpBase;
+
+            if (step != kArpEmptyStep && base >= 0 && base <= 127)
+            {
+                // the steps measure from arpBase, which a note entering further
+                // down the column re-bases while a run is still going, and a
+                // step landing off the keyboard snaps back by whole octaves so
+                // it keeps its shape
+                int note = base + (int) step;
+
+                while (note < 0)
+                    note += 12;
+
+                while (note > 127)
+                    note -= 12;
+
+                startNote (events, offset, ch, midiCh, note, vel);
+                c.activeClip = c.arpClip;
+            }
+
+            // an empty step sounds nothing, which sustains the step before it
+        }
+
+        ++c.arpCount;
+    }
+}
+
+void PlaybackEngine::arpCommand (std::vector<PendingEvent>& events, int ch, int id,
+                                 int offset, double rowPpq, const juce::Uuid& clipUid,
+                                 bool noteOnRow, const Song& song)
+{
+    auto& c = channels[(size_t) ch];
+
+    id = juce::jlimit (0, kMaxArpMacros, id);
+
+    if (id == 0)
+    {
+        // the release call: a row that names a note has already released what it
+        // was holding before striking its own, so only a row without one has to
+        if (! noteOnRow && c.activeNote >= 0)
+            stopNote (events, offset, ch, c.activeMidiCh, c.activeNote);
+
+        c.endArp();
+        return;
+    }
+
+    c.arpId = id;
+    c.arpClip = clipUid;
+    c.activeClip = clipUid;
+
+    // the run steps away from the note the channel holds at the call: the row's
+    // own note if it named one, otherwise the note carried down the column
+    c.arpBase = c.activeNote;
+    c.arpOrigin = rowPpq;
+
+    if (noteOnRow)
+        c.arpCount = 1; // the row's own note was the first step, so the run picks up at the next one
+    else
+        c.arpCount = 0;
+}
+
+//==============================================================================
 void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int row,
                                  std::vector<PendingEvent>& events, int offset,
-                                 double rowSpanSamples, const std::vector<Macro>& macros)
+                                 const Song& song, double rowPpq)
 {
     std::set<std::pair<int, int>> notesThisRow;
 
@@ -178,6 +306,9 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             if (state.activeNote >= 0)
                 stopNote (events, offset, ch, state.activeMidiCh, state.activeNote);
 
+            if (state.arpId > 0)
+                state.arpBase = -1; // the run loses its base note here: its steps sound again once a new note comes in below
+
             continue;
         }
 
@@ -191,73 +322,16 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             const int velocity = cell.vol != kEmpty ? cell.vol : juce::jlimit (1, 127, state.lastVol > 0 ? state.lastVol : 100);
             startNote (events, offset, ch, midiCh, cell.note, velocity);
             state.activeClip = clip.uid;
+
+            if (state.arpId > 0)
+                state.arpBase = cell.note; // a note entering while a run is still going re-bases that run
         }
 
         if (cell.cmd != kEmpty)
         {
-            if (cell.cmd >= kMacroCmdBase && cell.cmd < kMacroCmdBase + kMaxMacros)
-            {
-                const int mi = cell.cmd - kMacroCmdBase;
-
-                if (mi < (int) macros.size())
-                {
-                    const auto& macro = macros[(size_t) mi];
-                    const int baseNote = cell.note != kEmpty ? cell.note : state.activeNote;
-                    const int vel = cell.vol != kEmpty ? cell.vol
-                                                       : juce::jlimit (1, 127, state.lastVol > 0 ? state.lastVol : 100);
-
-                    if (baseNote >= 0 && baseNote <= 127)
-                    {
-                        if (macro.kind == 0) // arpeggiator
-                        {
-                            const int slots = juce::jlimit (1, 16, macro.param1);
-                            const int step = juce::jlimit (1, 24, macro.param2);
-
-                            // an explicit note in this row already started slot 0
-                            for (int k = (cell.note != kEmpty ? 1 : 0); k < slots; ++k)
-                            {
-                                const int arpNote = juce::jlimit (0, 127, baseNote + (k * step) % 12);
-                                const int sub = offset + (int) std::llround ((double) k * rowSpanSamples / (double) slots);
-                                startNote (events, sub, ch, midiCh, arpNote, vel);
-                            }
-                        }
-                        else if (macro.kind == 1 && state.activeNote >= 0) // pitch glide
-                        {
-                            const int semis = juce::jlimit (1, 24, macro.param1);
-                            const int steps = juce::jlimit (2, 16, macro.param2);
-
-                            events.push_back ({ offset, 2, juce::MidiMessage::controllerEvent (state.activeMidiCh + 1, 105, semis) });
-
-                            for (int k = 1; k <= steps; ++k)
-                            {
-                                const int pos = kBendCentre + (int) std::llround (8191.0 * (double) k / (double) steps);
-                                const int sub = offset + (int) std::llround ((double) k * rowSpanSamples / (double) steps);
-                                events.push_back ({ sub, 1, juce::MidiMessage::pitchWheel (state.activeMidiCh + 1, pos) });
-                                state.lastBendPos = pos;
-                            }
-                        }
-                        else if (macro.kind == 2) // slide up/down
-                        {
-                            const int step = juce::jlimit (1, 24, macro.param1);
-                            const int pairs = juce::jlimit (1, 16, macro.param2);
-                            const int total = 2 * pairs;
-
-                            for (int j = 1; j <= total; ++j)
-                            {
-                                const int n = (j + 1) / 2;
-                                const int delta = (j % 2 == 1 ? n : -n) * step;
-                                const int slideNote = baseNote + delta;
-
-                                if (slideNote < 0 || slideNote > 127)
-                                    continue;
-
-                                const int sub = offset + (int) std::llround ((double) j * rowSpanSamples / (double) total);
-                                startNote (events, sub, ch, midiCh, slideNote, vel);
-                            }
-                        }
-                    }
-                }
-            }
+            if (cell.cmd == kArpCmd)
+                arpCommand (events, ch, cell.cmdVal, offset, rowPpq, clip.uid,
+                            cell.note != kEmpty, song);
             else
                 events.push_back ({ offset, 3, juce::MidiMessage::controllerEvent (midiCh + 1,
                                                                                   juce::jlimit (0, 127, cell.cmd),
@@ -268,10 +342,23 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
         // force above it in the column, which is what an implicit cell under a
         // carried command means; a column that never named one has nothing to
         // carry, so such a row emits nothing
-        else if (cell.cmdVal != kEmpty && state.lastCmd >= 0 && state.lastCmd < kMacroCmdBase)
-            events.push_back ({ offset, 3,
-                                juce::MidiMessage::controllerEvent (midiCh + 1, state.lastCmd,
-                                                                    juce::jlimit (0, 127, cell.cmdVal)) });
+        else if (cell.cmdVal != kEmpty && state.lastCmd >= 0)
+        {
+            if (state.lastCmd < kArpCmd)
+            {
+                events.push_back ({ offset, 3,
+                                    juce::MidiMessage::controllerEvent (midiCh + 1, state.lastCmd,
+                                                                        juce::jlimit (0, 127, cell.cmdVal)) });
+            }
+            else
+            {
+                // the argument of an arpeggiator call is its macro id, so a row
+                // under a carried call names a new one: id 0 releases what the
+                // run was holding and ends it, another starts that macro
+                arpCommand (events, ch, cell.cmdVal, offset, rowPpq, clip.uid,
+                            cell.note != kEmpty, song);
+            }
+        }
 
         uiRow[(size_t) ch].store (row);
     }
@@ -328,7 +415,6 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     }
 
     const double rowsPerBeat = (double) juce::jmax (1, song.settings.rowsPerBeat);
-    const double rowSpanSamples = (60.0 / juce::jmax (1.0, t.bpm)) * sampleRate / rowsPerBeat;
 
     // Hosts report per-block positions with their own rounding; a transport
     // stopping exactly at a clip end can end a hair before the computed bound.
@@ -340,6 +426,18 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     // end); a deliberate backwards seek is excluded from this dedup.
     const double drift = std::max (1.0e-9, span * 1.0e-4);
     const bool nearContinuous = previousPpq >= 0.0 && ppqStart >= previousPpq - drift;
+
+    // Steps still waiting from the block before this one: their run's rows have
+    // already been processed, so the part this block may still play stops at the
+    // end of the last row the engine owned, which is what keeps a run the column
+    // supersedes lower down from replaying steps that belong below that row.
+    for (int ch = 0; ch < kMaxTrackerChannels; ++ch)
+    {
+        auto& c = channels[(size_t) ch];
+
+        if (c.arpId > 0)
+            flushArp (events, ch, ppqStart, juce::jmin (ppqEnd, c.arpRowEnd), ppqPerSample, numSamples, song);
+    }
 
     for (auto& clip : song.clips)
     {
@@ -392,10 +490,22 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
             const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
                                              (int) std::llround ((rowTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
 
-            processRow (*pattern, clip, row, events, offset, rowSpanSamples, song.macros);
+            processRow (*pattern, clip, row, events, offset, song, rowTime);
+
+            const double rowEnd = rowTime + 1.0 / rowsPerBeat;
 
             for (int ch = 0; ch < pattern->channels && ch < kMaxTrackerChannels; ++ch)
-                channels[(size_t) ch].lastRow = row;
+            {
+                auto& c = channels[(size_t) ch];
+                c.lastRow = row;
+                c.arpRowEnd = rowEnd;
+
+                // the steps of a run that reached this row sound up to its end;
+                // the ones past it wait for the next rows or the next block,
+                // which is what keeps a macro longer than one row from being
+                // squeezed onto this row's samples
+                flushArp (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+            }
         }
 
         // A row the transport starts inside. A fresh start and a forward seek
@@ -415,7 +525,23 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 const double rowTime = clipStart + (double) rowAtStart / rowsPerBeat;
 
                 if (rowTime < ppqStart - kRowAlignEps)
-                    processRow (*pattern, clip, rowAtStart, events, 0, rowSpanSamples, song.macros);
+                {
+                    processRow (*pattern, clip, rowAtStart, events, 0, song, rowTime);
+
+                    const double rowEnd = rowTime + 1.0 / rowsPerBeat;
+
+                    for (int ch = 0; ch < pattern->channels && ch < kMaxTrackerChannels; ++ch)
+                    {
+                        auto& c = channels[(size_t) ch];
+                        c.lastRow = rowAtStart;
+                        c.arpRowEnd = rowEnd;
+
+                        // the run this row starts counts from the row itself, so
+                        // its first step is played at this block's first sample
+                        // rather than being dropped for sitting behind the start
+                        flushArp (events, ch, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+                    }
+                }
             }
         }
 
@@ -431,16 +557,24 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
 
                 if (c.activeNote >= 0 && c.activeClip == clip.uid)
                     stopNote (events, offset, ch, c.activeMidiCh, c.activeNote);
+
+                // an arpeggiator run this clip owns ends with the clip: whatever
+                // of it was still waiting has no rows below it to play it, and
+                // the note the last step left is released here
+                if (c.arpClip == clip.uid)
+                    c.endArp();
             }
         }
     }
 
-    // Notes whose owning clip was deleted or is no longer under the playhead.
+    // Notes whose owning clip was deleted or is no longer under the playhead,
+    // and the arpeggiator runs belonging to such a clip: nothing below the playhead
+    // can play a run whose clip is gone, so its waiting steps end as well.
     for (int ch = 0; ch < kMaxTrackerChannels; ++ch)
     {
         auto& c = channels[(size_t) ch];
 
-        if (c.activeNote < 0)
+        if (c.activeNote < 0 && c.arpId <= 0)
             continue;
 
         const auto* clip = song.findClip (c.activeClip);
@@ -461,7 +595,12 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
         }
 
         if (! stillUnder)
-            stopNote (events, 0, ch, c.activeMidiCh, c.activeNote);
+        {
+            if (c.activeNote >= 0)
+                stopNote (events, 0, ch, c.activeMidiCh, c.activeNote);
+
+            c.endArp();
+        }
     }
 
     std::stable_sort (events.begin(), events.end(), [] (const PendingEvent& a, const PendingEvent& b)

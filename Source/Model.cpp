@@ -82,7 +82,7 @@ int fieldTop (InterpField field) noexcept
     switch (field)
     {
         case InterpField::inst:   return kMidiChannelCount - 1;
-        case InterpField::cmdNum: return kMacroCmdBase + kMaxMacros - 1;
+        case InterpField::cmdNum: return kArpCmd; // the arpeggiator call tops the column
 
         case InterpField::note:
         case InterpField::vol:
@@ -274,7 +274,7 @@ void Song::reset()
     settings = Settings();
     patterns.clear();
     clips.clear();
-    macros.clear();
+    arps.clear();
     clipboard.clear();
     nextPatternId = 1;
     activePatternId = 0;
@@ -285,7 +285,9 @@ void Song::reset()
     activePatternId = p.id;
     addClip (p.id, 0.0);
 
-    macros.push_back ({ "Arp 7x+4", 0, 7, 4 });
+    // the song starts with one arpeggiator defined: id 1, the default ramp of
+    // eight steps a fourth of an octave apart, not looped
+    defineArp (1);
 }
 
 //==============================================================================
@@ -682,6 +684,122 @@ std::vector<Pattern*> Song::patternsForScope (ToolScope scope, int patternId,
 }
 
 //==============================================================================
+/** Arpeggiator macros are one grow-only table indexed by id - 1: naming an id
+    extends the table with undefined entries rather than moving the ones already
+    in it, so a macro that is cleared keeps the room its steps took and defining
+    it again restores them. */
+static bool arpInRange (int id) noexcept
+{
+    return id >= 1 && id <= kMaxArpMacros;
+}
+
+ArpMacro* Song::findArp (int id)
+{
+    if (! arpInRange (id))
+        return nullptr;
+
+    if ((int) arps.size() < id)
+        arps.resize ((size_t) id);
+
+    return &arps[(size_t) id - 1];
+}
+
+const ArpMacro* Song::peekArp (int id) const noexcept
+{
+    if (! arpInRange (id) || (int) arps.size() < id)
+        return nullptr;
+
+    return &arps[(size_t) id - 1];
+}
+
+bool Song::arpDefined (int id) const noexcept
+{
+    const auto* m = peekArp (id);
+    return m != nullptr && m->defined();
+}
+
+bool Song::arpLooped (int id) const noexcept
+{
+    const auto* m = peekArp (id);
+    return m != nullptr && m->defined() && m->looped;
+}
+
+int Song::firstUndefArpId() const noexcept
+{
+    for (int id = 1; id <= kMaxArpMacros; ++id)
+        if (! arpDefined (id))
+            return id;
+
+    return 0;
+}
+
+int Song::lastDefArpId() const noexcept
+{
+    for (int id = kMaxArpMacros; id >= 1; --id)
+        if (arpDefined (id))
+            return id;
+
+    return 0;
+}
+
+void Song::defineArp (int id)
+{
+    auto* m = findArp (id);
+
+    if (m == nullptr)
+        return;
+
+    m->looped = false;
+    m->setDefault();
+}
+
+void Song::clearArp (int id)
+{
+    auto* m = findArp (id);
+
+    if (m != nullptr)
+        m->steps.clear();
+}
+
+void Song::setArpLength (int id, int length)
+{
+    auto* m = findArp (id);
+
+    if (m == nullptr)
+        return;
+
+    length = juce::jlimit (1, kMaxArpSteps, length);
+
+    if ((int) m->steps.size() < length)
+    {
+        // growing keeps the steps already entered and adds the base note itself
+        for (int i = (int) m->steps.size(); i < length; ++i)
+            m->steps.push_back (0);
+    }
+    else
+        m->steps.resize ((size_t) length);
+}
+
+void Song::setArpStep (int id, int index, std::int8_t value) noexcept
+{
+    auto* m = findArp (id);
+
+    if (m == nullptr)
+        return;
+
+    if (index >= 0 && index < (int) m->steps.size())
+        m->steps[(size_t) index] = value;
+}
+
+void Song::setArpLooped (int id, bool looped) noexcept
+{
+    auto* m = findArp (id);
+
+    if (m != nullptr)
+        m->looped = looped;
+}
+
+//==============================================================================
 juce::ValueTree Song::toValueTree() const
 {
     juce::ValueTree root ("RETREKTOR");
@@ -774,19 +892,34 @@ juce::ValueTree Song::toValueTree() const
 
     root.appendChild (ct, nullptr);
 
-    juce::ValueTree mt ("MACROS");
+    juce::ValueTree at ("ARPS");
 
-    for (auto& m : macros)
+    for (int id = 1; id <= kMaxArpMacros; ++id)
     {
-        juce::ValueTree mv ("MACRO");
-        mv.setProperty ("name", m.name, nullptr);
-        mv.setProperty ("kind", m.kind, nullptr);
-        mv.setProperty ("param1", m.param1, nullptr);
-        mv.setProperty ("param2", m.param2, nullptr);
-        mt.appendChild (mv, nullptr);
+        const auto* m = peekArp (id);
+
+        if (m == nullptr || ! m->defined())
+            continue;
+
+        juce::ValueTree av ("ARP");
+        av.setProperty ("id", id, nullptr);
+        av.setProperty ("loop", m->looped, nullptr);
+        av.setProperty ("len", m->length(), nullptr); // readable alongside the block
+
+        // the steps are signed semitone offsets, one byte each, so a macro of
+        // 64 of them costs 64 bytes rather than one property per step
+        juce::MemoryBlock packed;
+        packed.setSize ((size_t) m->length());
+        auto* sdst = static_cast<std::int8_t*> (packed.getData());
+
+        for (int i = 0; i < m->length(); ++i)
+            sdst[i] = m->steps[(size_t) i];
+
+        av.setProperty ("steps", packed.toBase64Encoding(), nullptr);
+        at.appendChild (av, nullptr);
     }
 
-    root.appendChild (mt, nullptr);
+    root.appendChild (at, nullptr);
 
     root.setProperty ("activePatternId", activePatternId, nullptr);
     root.setProperty ("nextPatternId", nextPatternId, nullptr);
@@ -801,7 +934,6 @@ void Song::fromValueTree (const juce::ValueTree& root)
     reset();
     patterns.clear();
     clips.clear();
-    macros.clear();
 
     if (auto st = root.getChildWithName ("SETTINGS"); st.isValid())
     {
@@ -906,7 +1038,10 @@ void Song::fromValueTree (const juce::ValueTree& root)
                         cell.inst = src[i2++];
                         cell.vol = src[i2++];
                         cell.pan = src[i2++];
-                        cell.cmd = src[i2++];
+                        // an older state's macro calls (command values 128..143,
+                        // M0..M15) land on the one command this build has for that
+                        // half of the column, so its old argument keeps naming an id
+                        cell.cmd = juce::jmin ((int) src[i2++], kArpCmd);
                         cell.cmdVal = src[i2++];
                     }
                 }
@@ -937,21 +1072,61 @@ void Song::fromValueTree (const juce::ValueTree& root)
         }
     }
 
-    if (auto mt = root.getChildWithName ("MACROS"); mt.isValid())
-    {
-        for (int i = 0; i < mt.getNumChildren(); ++i)
-        {
-            auto mv = mt.getChild (i);
+    // an older state's MACROS section (the name/kind/two-parameter macros) is
+    // not read at all: those kinds are gone, and the arpeggiator macros this build
+    // runs are a different thing, named by id, so the section is simply dropped
 
-            if (! mv.hasType ("MACRO"))
+    // the ARPS section names every macro that exists, so what the model held
+    // before the read is dropped ahead of it: an undo that took a macro away has
+    // to leave it undefined again, and a macro whose steps changed has to take
+    // the state's steps rather than have them added behind the ones still in
+    // place, which is what keeps walking the undo line back a true rewind of the
+    // macros as well as of the rows
+    for (auto& a : arps)
+    {
+        a.looped = false;
+        a.steps.clear();
+    }
+
+    if (auto at = root.getChildWithName ("ARPS"); at.isValid())
+    {
+        for (int i = 0; i < at.getNumChildren(); ++i)
+        {
+            auto av = at.getChild (i);
+
+            if (! av.hasType ("ARP"))
                 continue;
 
-            Macro m;
-            m.name = mv.getProperty ("name", "Macro").toString();
-            m.kind = mv.getProperty ("kind", 0);
-            m.param1 = mv.getProperty ("param1", 0);
-            m.param2 = mv.getProperty ("param2", 0);
-            macros.push_back (m);
+            const int id = juce::jlimit (1, kMaxArpMacros, (int) av.getProperty ("id", 0));
+            auto* m = findArp (id);
+
+            if (m == nullptr)
+                continue;
+
+            m->looped = av.getProperty ("loop", false);
+
+            juce::MemoryBlock packed;
+            const juce::String stepsText = av.getProperty ("steps").toString();
+
+            if (stepsText.isNotEmpty() && packed.fromBase64Encoding (stepsText))
+            {
+                const auto* ssrc = static_cast<const std::int8_t*> (packed.getData());
+                const int steps = juce::jmin ((int) packed.getSize(), kMaxArpSteps);
+
+                for (int s = 0; s < steps; ++s)
+                    m->steps.push_back (ssrc[s]);
+            }
+
+            // len names the step count beside the block, so a state whose steps
+            // block came up short is padded with the base note rather than played
+            // with fewer steps than it says
+            const int claimed = juce::jlimit (1, kMaxArpSteps, (int) av.getProperty ("len", (int) m->steps.size()));
+
+            while ((int) m->steps.size() < claimed)
+                m->steps.push_back (0);
+
+            if (m->steps.size() > (size_t) claimed)
+                m->steps.resize ((size_t) claimed);
         }
     }
 
@@ -971,8 +1146,10 @@ void Song::fromValueTree (const juce::ValueTree& root)
     for (auto& p : patterns)
         nextPatternId = juce::jmax (nextPatternId, p.id + 1);
 
-    if (macros.empty())
-        macros.push_back ({ "Arp 7x+4", 0, 7, 4 });
+    // a state that named no arpeggiator at all gets the default one, the same
+    // song reset gives
+    if (lastDefArpId() == 0)
+        defineArp (1);
 }
 
 } // namespace rtr

@@ -6,7 +6,14 @@
            [tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
            [--click-timeline=PCT] [--hide=0v1c] [--expand-pool] [--hex]
            [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
-           [--undo=N] [--redo=N]
+           [--undo=N] [--redo=N] [--arp=0,+4,-8] [--arp-loop] [--arp-call=ROW]
+
+    --arp= writes signed semitone steps into arpeggiator id 1, so a Macros-tab
+    shot shows a step strip of its own length rather than the default ramp; a
+    step written as a lone dot stays empty, and --arp-loop marks that macro
+    looped so its card shows the looped tick. --arp-call=ROW names an arpeggiator
+    call in tracker channel 0 at that row, which is what paints the command
+    column's orange letter A and its decimal id.
 
     --hide= takes channel/letter pairs (i instrument, v volume, p pan, c
     command), so --hide=0v1c hides the volume of channel 0 and the command of
@@ -127,6 +134,29 @@ int main (int argc, char** argv)
     // editor writes instead
     const bool cmdCarry = args.contains ("--cmd-carry");
     args.removeString ("--cmd-carry");
+
+    // signed semitone steps to write into arpeggiator id 1, so the Macros tab
+    // shot shows a real step strip rather than the default ramp, and a row of
+    // the tracker shot that names the call so the letter A and its decimal id
+    // are visible
+    juce::String arpStepsList;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--arp="))
+        {
+            arpStepsList = args[i].fromFirstOccurrenceOf ("=", false, false);
+            args.remove (i);
+        }
+
+    const bool arpLoop = args.contains ("--arp-loop");
+    args.removeString ("--arp-loop");
+
+    int arpCallRow = -1;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--arp-call="))
+        {
+            arpCallRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
 
     int shotChannels = 0;
     for (int i = args.size(); --i >= 0;)
@@ -270,6 +300,36 @@ int main (int argc, char** argv)
             p.cell (21, 0).cmdVal = 99; // only an argument: plays the CC above
             p.cell (24, 1).cmd = 0;     // the channel 1 has never named: the editor's own 0
             p.cell (24, 1).cmdVal = 12;
+        }
+
+        if (arpCallRow >= 0)
+        {
+            p.cell (arpCallRow, 0).cmd = rtr::kArpCmd;
+            p.cell (arpCallRow, 0).cmdVal = 1; // A 1: the letter command and its macro id
+        }
+
+        if (arpStepsList.isNotEmpty())
+        {
+            // the id's own steps, so a Macros-tab shot shows a strip of the
+            // length the list names: a step written as a lone dot stays empty,
+            // and the flag says nothing about the loop unless asked
+            song.defineArp (1);
+            song.setArpLooped (1, arpLoop);
+
+            const juce::StringArray steps = juce::StringArray::fromTokens (arpStepsList, ",", "");
+
+            song.setArpLength (1, (int) steps.size());
+
+            for (int i = 0; i < steps.size(); ++i)
+            {
+                const juce::String token = steps[i].removeCharacters ("+");
+
+                const std::int8_t value = (token.isEmpty() || token == ".")
+                    ? (std::int8_t) rtr::kArpEmptyStep
+                    : (std::int8_t) juce::jlimit (-127, 127, token.getIntValue());
+
+                song.setArpStep (1, i, value);
+            }
         }
 
         p.cell (20, 1).note = 48;

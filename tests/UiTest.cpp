@@ -403,6 +403,214 @@ int main()
         check (controllerValue (belowMidi, 0) == -1, "nothing is played on CC0");
     }
 
+    //== The arpeggiator letter and the Macros tab ===========================
+    {
+        // park the cursor on the command number field of channel 0
+        for (int i = 0; i < 32
+             && ! (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum
+                   && tracker->getCursorChannel() == 0); ++i)
+        {
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        }
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum
+                   && tracker->getCursorChannel() == 0,
+               "the cursor sits on the command number field of channel 0");
+
+        p.cell (6, 0).note = 60; // the row names the note the run steps away from
+        tracker->setCursorRow (6);
+        check (p.cell (6, 0).cmd == rtr::kEmpty, "that row names no command of its own yet");
+
+        tracker->keyPressed (juce::KeyPress ('A', juce::ModifierKeys(), 'A'));
+        check (p.cell (6, 0).cmd == rtr::kArpCmd,
+               "the letter A claims the command number and writes command 128");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (p.cell (6, 0).cmdVal == 1, "the argument typed next names arpeggiator id 1");
+
+        // a row naming only the argument below that call stays implicit and names
+        // another id, which nothing defined, so it sounds nothing at all
+        tracker->setCursorRow (8);
+        tracker->keyPressed (juce::KeyPress ('7', juce::ModifierKeys(), '7'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (p.cell (8, 0).cmd == rtr::kEmpty,
+               "under the carried call an argument-only row stays implicit");
+        check (p.cell (8, 0).cmdVal == 7, "and names arpeggiator id 7, which nothing defined");
+
+        // the letter only claims the field as its first character, so the hex
+        // CC 10 a column asks for keeps its 0A spelling
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum,
+               "one field back, the cursor is on the command number again");
+
+        // the Settings tab's own toggle is what changes the flag, so the point
+        // the undo line holds follows the model rather than surprising the next
+        // commit with a change that came from outside it
+        if (auto* hex = findToggle (*settings, "Hexadecimal values"))
+        {
+            hex->setToggleState (true, juce::dontSendNotification);
+            hex->onClick();
+        }
+        tracker->setCursorRow (10);
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        tracker->keyPressed (juce::KeyPress ('A', juce::ModifierKeys(), 'A'));
+        check (p.cell (10, 0).cmd == 10, "with hex on, 0A still types CC 10 rather than the letter call");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::deleteKey, juce::ModifierKeys(), 0));
+        check (p.cell (10, 0).cmd == rtr::kEmpty, "and clearing that field leaves the row without a command");
+
+        if (auto* hex = findToggle (*settings, "Hexadecimal values"))
+        {
+            hex->setToggleState (false, juce::dontSendNotification);
+            hex->onClick();
+        }
+
+        check (! song.settings.hexDisplay, "and the hex display is back off, so the checks below read decimal");
+
+        // the run the row names plays over the row and the ones below it, a
+        // sixth of a row per step in 64-sample blocks the way a host hands them
+        {
+            std::vector<int> ons;
+
+            for (int i = 0; i < 140; ++i)
+            {
+                juce::AudioBuffer<float> audio (2, 64);
+                juce::MidiBuffer midi;
+                head->playing = true;
+                head->ppq = 1.5 + (double) (i * 64) / 48000.0 * 2.0;
+                proc.processBlock (audio, midi);
+
+                for (const auto m : midi)
+                    if (m.getMessage().isNoteOn())
+                        ons.push_back (m.getMessage().getNoteNumber());
+            }
+
+            static const int ramp[] = { 60, 64, 68, 72, 76, 80, 84, 88 };
+            check (ons == std::vector<int> (ramp, ramp + 8),
+                   "the row's own note is the run's first step and its eight steps play in order a sixth of a row apart, spilling past the row that called them");
+
+            head->playing = false;
+        }
+
+        // the Macros tab holds one length field and one looped tick per macro
+        // that exists, and the default song has one
+        std::vector<juce::Slider*> lengths;
+        collectSliders (*macros, lengths);
+        check (lengths.size() == 1, "the tab exposes one length field for the one macro the song defines");
+
+        if (! lengths.empty())
+        {
+            check (lengths[0]->getRange().getStart() == 1.0
+                       && lengths[0]->getRange().getEnd() == (double) rtr::kMaxArpSteps,
+                   "that field steps a single step and reaches the step limit");
+            check (lengths[0]->getValue() == (double) rtr::kArpDefaultSteps,
+                   "and it opens at the default eight steps");
+        }
+
+        check (findToggle (*macros, "LOOPED") != nullptr, "the tab exposes a looped tick beside it");
+        check (findToggle (*macros, "LOOPED") != nullptr
+                   && ! song.arpLooped (1), "the default macro is not looped");
+
+        if (auto* add = findButton (*macros, "+ Add macro"))
+            add->onClick();
+
+        check (song.arpDefined (2) && song.firstUndefArpId() == 3,
+               "a defined macro brings the next free id up and takes that one further");
+        check (song.peekArp (2) != nullptr && song.peekArp (2)->length() == rtr::kArpDefaultSteps
+                   && ! song.arpLooped (2),
+               "and it comes in as the default ramp, not looped");
+
+        if (auto* remove = findButton (*macros, "- Remove last"))
+            remove->onClick();
+
+        check (! song.arpDefined (2) && song.lastDefArpId() == 1,
+               "clearing takes the highest defined id back and leaves the ones below naming the same macros");
+
+        // the drawn steps are entered at the cursor the arrows and the buttons
+        // leave on, so a typed sign and digits land on one step of that macro
+        const int depthBefore = proc.getUndoDepth();
+        macros->keyPressed (juce::KeyPress ('4', juce::ModifierKeys(), '4'));
+        macros->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (song.peekArp (1) != nullptr && song.peekArp (1)->steps[0] == 4,
+               "typing 4 into the step the cursor sits on writes it into the macro");
+        check (proc.getUndoDepth() == depthBefore + 1, "and typing a step is one undoable action");
+
+        // the length field rewrites the macro the way the row does: the steps
+        // already entered stay, growing pads with the base note itself
+        if (! lengths.empty())
+        {
+            lengths[0]->setValue (3.0, juce::sendNotificationSync);
+            check (song.peekArp (1) != nullptr && song.peekArp (1)->length() == 3
+                       && song.peekArp (1)->steps[0] == 4,
+                   "shortening keeps the steps still inside it rather than shifting them");
+
+            lengths[0]->setValue (8.0, juce::sendNotificationSync);
+            check (song.peekArp (1) != nullptr && song.peekArp (1)->length() == 8
+                       && song.peekArp (1)->steps[7] == 0,
+                   "and growing back adds the base note at the end, so the steps already entered keep their places");
+        }
+
+        check (findToggle (*macros, "LOOPED") != nullptr
+                   && findToggle (*macros, "LOOPED")->onClick != nullptr,
+               "the looped tick is a click the panel answers");
+
+        if (auto* looped = findToggle (*macros, "LOOPED"))
+        {
+            // a click is what flips the tick and what writes the flag, in that
+            // order, so the pair stands in for the one gesture a user makes
+            looped->setToggleState (true, juce::sendNotificationSync);
+            looped->onClick();
+            check (song.arpLooped (1), "clicking the tick writes the looped flag into the macro");
+
+            looped->setToggleState (false, juce::sendNotificationSync);
+            looped->onClick();
+            check (! song.arpLooped (1), "clicking it again clears it");
+        }
+
+        // every change the panel makes is an action of its own, so the undo line
+        // holds a point for each of them and Ctrl+Z can take each one back: a drag
+        // of a length field, a click of the looped tick, and the steps the macro
+        // held when the earlier point was written rather than the ones it has now
+        if (! lengths.empty())
+        {
+            const int depthBeforeLength = proc.getUndoDepth();
+
+            lengths[0]->setValue (4.0, juce::sendNotificationSync);
+            check (proc.getUndoDepth() == depthBeforeLength + 1,
+                   "a drag of the length field is one undoable action");
+
+            check (proc.undo() && song.peekArp (1) != nullptr && song.peekArp (1)->length() == 8,
+                   "and Ctrl+Z takes the length back to what the earlier state held");
+            check (song.peekArp (1)->steps[7] == 0,
+                   "with the steps that state held rather than the ones the macro had kept");
+
+            check (proc.redo() && song.peekArp (1) != nullptr && song.peekArp (1)->length() == 4,
+                   "and Ctrl+Y puts the new length back");
+        }
+
+        if (auto* looped = findToggle (*macros, "LOOPED"))
+        {
+            const int depthBeforeTick = proc.getUndoDepth();
+
+            looped->setToggleState (true, juce::sendNotificationSync);
+            looped->onClick();
+            check (proc.getUndoDepth() == depthBeforeTick + 1,
+                   "a click of the looped tick is one undoable action");
+
+            check (proc.undo() && ! song.arpLooped (1),
+                   "and Ctrl+Z takes the tick back, the flag the macro holds with it");
+            check (proc.getUndoDepth() == depthBeforeTick, "and the line's depth goes back with it");
+
+            looped->setToggleState (false, juce::sendNotificationSync);
+            looped->onClick();
+            check (! song.arpLooped (1), "clicking the tick again leaves the macro unlooped");
+        }
+    }
+
     //== Column visibility chips =============================================
     {
         const bool before = p.showColumn (0, 0);
