@@ -127,6 +127,20 @@ void PlaybackEngine::stopNote (std::vector<PendingEvent>& events, int offset, in
 }
 
 //==============================================================================
+/** The close of an arpeggiator run, which releases the note its last step
+    entered. Only a note the run itself entered may be released here: a note the
+    column struck is the run's base rather than one of its steps, and it belongs
+    to whatever ends it below, which is what a run whose steps all sound nothing
+    leaves the note above it alone. */
+void PlaybackEngine::closeArp (std::vector<PendingEvent>& events, int offset, int ch)
+{
+    auto& c = channels[(size_t) ch];
+
+    if (c.activeNote >= 0 && c.arpNote >= 0 && c.activeNote == c.arpNote)
+        stopNote (events, offset, ch, c.activeMidiCh, c.activeNote);
+}
+
+//==============================================================================
 /** Arpeggiator playback. A row naming the command only queues the run: its steps
     are one subtick wide, the subtick being a row divided by "Subticks per row",
     so a macro longer than that, which is what 64 steps against a default of 6
@@ -191,14 +205,14 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
                                              (int) std::llround ((stepTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
 
             const std::int8_t step = macro->steps[(size_t) (macro->looped ? c.arpCount % len : c.arpCount)];
-            const int base = c.arpBase;
+            const int base = c.columnNote;
 
             if (step != kArpEmptyStep && base >= 0 && base <= 127)
             {
-                // the steps measure from arpBase, which a note entering further
-                // down the column re-bases while a run is still going, and a
-                // step landing off the keyboard snaps back by whole octaves so
-                // it keeps its shape
+                // the steps measure from the note the column last named, which a
+                // note entering further down the column re-bases while a run is
+                // still going, and a step landing off the keyboard snaps back by
+                // whole octaves so it keeps its shape
                 int note = base + (int) step;
 
                 while (note < 0)
@@ -209,9 +223,13 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
 
                 startNote (events, offset, ch, midiCh, note, vel);
                 c.activeClip = c.arpClip;
+                c.arpNote = note;
             }
 
-            // an empty step sounds nothing, which sustains the step before it
+            // an empty step sounds nothing, which sustains the step before it, and
+            // the next step releases what the step before it left holding, so a
+            // looped run's cycle keeps the note its last step entered sounding
+            // until the next cycle's first step reaches its own subtick
         }
 
         ++c.arpCount;
@@ -241,9 +259,17 @@ void PlaybackEngine::arpCommand (std::vector<PendingEvent>& events, int ch, int 
     c.arpClip = clipUid;
     c.activeClip = clipUid;
 
-    // the run steps away from the note the channel holds at the call: the row's
-    // own note if it named one, otherwise the note carried down the column
-    c.arpBase = c.activeNote;
+    // the run this row's call replaces is stopped here rather than carried into
+    // the new one: the note its last step entered is released at this row's
+    // first subtick, so the new run steps from the note the column named instead
+    // of continuing from whatever note that run happened to be sounding. A row
+    // that struck a note of its own had already released it above this call, so
+    // only a row without one has to close the run.
+    if (! noteOnRow)
+        closeArp (events, offset, ch);
+
+    // the run's steps measure from columnNote: the call row's own note where it
+    // named one, and where it did not, the note the column above left named
     c.arpOrigin = rowPpq;
 
     if (noteOnRow)
@@ -327,14 +353,22 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             if (state.activeNote >= 0)
                 stopNote (events, offset, ch, state.activeMidiCh, state.activeNote);
 
-            if (state.arpId > 0)
-                state.arpBase = -1; // the run loses its base note here: its steps sound again once a new note comes in below
+            // the note the column named is gone here, which is what a call
+            // further down this column has no note to step from until a note
+            // enters below the note-off
+            state.columnNote = -1;
 
             continue;
         }
 
         if (cell.note != kEmpty && cell.note >= 0 && cell.note <= 127)
         {
+            // this is the note the column last named: a call at this row steps
+            // from it, a call lower down steps from it too while nothing else
+            // entered the column, and a run that is still going measures from it
+            // from here on
+            state.columnNote = cell.note;
+
             const std::pair<int, int> key { midiCh, cell.note };
 
             if (! notesThisRow.insert (key).second)
@@ -343,9 +377,6 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             const int velocity = cell.vol != kEmpty ? cell.vol : juce::jlimit (1, 127, state.lastVol > 0 ? state.lastVol : 100);
             startNote (events, offset, ch, midiCh, cell.note, velocity);
             state.activeClip = clip.uid;
-
-            if (state.arpId > 0)
-                state.arpBase = cell.note; // a note entering while a run is still going re-bases that run
         }
 
         if (cell.cmd != kEmpty)

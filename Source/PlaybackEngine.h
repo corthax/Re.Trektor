@@ -65,6 +65,7 @@ private:
         int lastPan = -1;
         int lastCmd = -1;
         int lastCmdVal = -1;
+        int columnNote = -1; // the note this channel's column last named, empty until one does
         int activeNote = -1;
         int activeMidiCh = 0;
         juce::Uuid activeClip;
@@ -75,14 +76,17 @@ private:
             it have already played and where the run started, so the next step's
             position is the start plus that many step widths - counted, not
             summed, which is what keeps a looped run's cycle boundaries exact.
-            The steps measure from arpBase: the row's own note when the call
-            row had one, the note the channel carries when it had none, re-based
-            by any note that enters further down the column while a run is
-            still going. */
+            The steps measure from columnNote, the note this channel's column
+            last named, which is the call row's own note where it had one: a
+            further call in a column steps from the note its rows named rather
+            than from whatever note the run above happened to be sounding when
+            the switch came. A note entering further down the column re-bases
+            a run that is still going, and the notes a run entered are tracked
+            in arpNote so closing a run releases only those. */
         int arpId = 0;             // macro id in force (0 = no run)
         int arpCount = 0;          // steps of the run already played
         double arpOrigin = -1.0;   // where the run's first step sits, in transport beats
-        int arpBase = -1;          // the note the run's steps measure from
+        int arpNote = -1;          // the note the run last entered, -1 when it entered none
         juce::Uuid arpClip;        // clip whose rows own the run, so its end closes it
         double arpRowEnd = -1.0;   // end of the row the engine last processed
 
@@ -92,13 +96,15 @@ private:
         juce::Uuid bendClip;
 
         /** Ends a run: an arpeggiator that no longer has steps or no longer has
-            a clip to hold it leaves nothing to play. */
+            a clip to hold it leaves nothing to play. The note the column last
+            named is not part of the run, so it stays: a call further down the
+            column still steps from the note its rows named. */
         void endArp() noexcept
         {
             arpId = 0;
             arpCount = 0;
             arpOrigin = -1.0;
-            arpBase = -1;
+            arpNote = -1;
             arpClip = juce::Uuid();
         }
 
@@ -132,12 +138,23 @@ private:
                    const Song& song);
 
     /** A row naming the arpeggiator command: id 0 releases what the run is
-        holding and ends it, another id starts or restarts that macro's run. A
+        holding and ends it, another id stops the run above it and starts or
+        restarts that macro's run. Its steps measure from the note the column
+        last named, which is the call row's own note where it had one, so a new
+        call never picks its base off a note another run was left sounding. A
         row that also names a note has already played its first step, so its run
         starts at the next one. */
     void arpCommand (std::vector<PendingEvent>& events, int ch, int id,
                      int offset, double rowPpq, const juce::Uuid& clipUid,
                      bool noteOnRow, const Song& song);
+
+    /** Closes the arpeggiator run this channel is in: the note its last step
+        entered is released, which is what a switch to another command and a
+        looped run's cycle end leave no note sounding from the step before. A
+        run that entered nothing has nothing to release, which is what a note
+        the column itself struck is left alone, and a finished run's last step
+        is not closed where the run simply ran out of steps. */
+    void closeArp (std::vector<PendingEvent>& events, int offset, int ch);
 
     /** Moves the pitch wheel for one row that named the bend letter: the row's
         argument names a point on it, 0 at the bottom and 127 near the top, so an

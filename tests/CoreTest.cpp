@@ -395,8 +395,55 @@ int main()
                 ons.push_back (n.note);
 
         check (ons.size() == 12, "the id-only row restarts at the new macro's first step, got " + juce::String ((int) ons.size()));
-        check (std::find (ons.begin(), ons.end(), 100) != ons.end() && std::find (ons.begin(), ons.end(), 112) != ons.end(),
-               "the switched macro steps its own semitone offsets from the note the run holds");
+        check (std::find (ons.begin(), ons.end(), 96) != ons.end() && std::find (ons.begin(), ons.end(), 108) != ons.end(),
+               "the switched macro steps its own offsets from the note the column named, not the note the run above was left sounding");
+
+        // the switch also stops the run it replaces: the note that run left
+        // holding is released at the row that switched, and the host sees it
+        // ahead of the new run's first step
+        int offLast = -1;
+        int onsAfter = 0;
+
+        for (size_t i = 0; i < h.raw.size(); ++i)
+            if (h.raw[i].kind == 0 && h.raw[i].pitch == 88)
+                offLast = (int) i;
+
+        for (size_t i = 0; i < h.raw.size(); ++i)
+            if ((int) i > offLast && h.raw[i].kind == 1)
+                ++onsAfter;
+
+        check (offLast >= 0 && onsAfter == 4, "the run above the switch is stopped there, its last note released ahead of the new run's steps, got " + juce::String (onsAfter));
+    }
+    {
+        std::cout << "A call the column has no note for sounds nothing\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        p.cell (0, 0).note = 60; // the column's note
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+        seedSteps (h.song, 1, 4);
+
+        p.cell (1, 0).note = kNoteOff; // the note the column named is gone below here
+
+        p.cell (2, 0).cmd = kArpCmd;
+        p.cell (2, 0).cmdVal = 1; // a call, and the column has no note to step from
+
+        p.cell (3, 0).note = 62; // the note that comes back in below
+        p.cell (3, 0).cmdVal = 1; // the call carried onto it, now based on that note
+
+        h.runBlocks (40); // 20480 samples reach the row at 18000 and its first steps
+
+        std::vector<int> ons;
+        for (auto& n : h.notes)
+            if (n.on)
+                ons.push_back (n.note);
+
+        check (std::count (ons.begin(), ons.end(), 60) == 1 && std::count (ons.begin(), ons.end(), 64) == 0,
+               "a call the column has no note for sounds nothing, so no step leans on a note a note-off took away");
+        check (std::count (ons.begin(), ons.end(), 62) == 1 && std::count (ons.begin(), ons.end(), 66) == 1,
+               "the run carried onto the note that entered below it steps from that note");
     }
     {
         std::cout << "A 0 releases the note the run holds\n";
