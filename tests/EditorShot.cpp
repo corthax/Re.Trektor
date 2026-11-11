@@ -8,7 +8,7 @@
            [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
            [--undo=N] [--redo=N] [--arp=0,+4,-8] [--arp-loop] [--arp-call=ROW]
            [--arp-call-id=VAL] [--arp-note-off=ROW] [--bend=ROW] [--bend-arg=VAL]
-           [--macros=N]
+           [--macros=N] [--cmd-carry]
 
     --arp= writes signed semitone steps into arpeggiator id 1, so a Macros-tab
     shot shows a step strip of its own length rather than one that is all empty;
@@ -32,6 +32,14 @@
     names the point on the wheel it bends to so the argument is drawn in decimal
     beside it; with no --bend-arg the row bends to 96, above the wheel's centre
     rather than sitting on it.
+
+    --cmd-carry writes the command column's carried case in both channels: a row
+    that names only an argument under the explicit CC the demo already has at row
+    20, so the rows under it are drawn with the argument that row entered rather
+    than the one the letter above called with, and in the other channel a call its
+    letter names followed by a row naming only a 0 there, which answers as the
+    release and leaves the rows under it carrying neither the letter nor an
+    argument.
 
     --hide= takes channel/letter pairs (i instrument, v volume, p pan, c
     command), so --hide=0v1c hides the volume of channel 0 and the command of
@@ -353,9 +361,16 @@ int main (int argc, char** argv)
 
         if (cmdCarry)
         {
-            p.cell (21, 0).cmdVal = 99; // only an argument: plays the CC above
+            p.cell (21, 0).cmdVal = 99; // only an argument: the newest one the column entered
             p.cell (24, 1).cmd = 0;     // the channel 1 has never named: the editor's own 0
             p.cell (24, 1).cmdVal = 12;
+
+            // a call the other channel names, followed by a row naming only its
+            // 0: that row answers as the release and leaves the column carrying
+            // neither the letter nor an argument for the rows under it
+            p.cell (18, 1).cmd = rtr::kArpCmd;
+            p.cell (18, 1).cmdVal = 3; // A 3: the call the column carries down
+            p.cell (19, 1).cmdVal = 0; // -- 0: the release the carried call answers as
         }
 
         if (arpCallRow >= 0)

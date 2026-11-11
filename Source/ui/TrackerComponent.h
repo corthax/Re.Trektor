@@ -126,6 +126,11 @@ public:
         a command yet. */
     int carriedCommandNumber (int row, int ch) const;
 
+    /** The argument the column resolves to above the given row, which is the one
+        the rows under it are drawn with and answers them with, or -1 when the
+        column carries none. */
+    int carriedCommandValue (int row, int ch) const;
+
     //== Geometry exposed to the tests and any host-facing tool ================
     Field getCursorField() const noexcept { return cursorField; }
     juce::Rectangle<int> fieldBoundsFor (int channel, Field field) const

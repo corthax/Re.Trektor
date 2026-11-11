@@ -52,6 +52,46 @@ namespace
     {
         return cell.cmd != kEmpty && ! (cell.cmd == kArpCmd && cell.cmdVal == 0);
     }
+
+    /** Steps what a column carries for its command by the row it is carried into,
+        the letter and the argument together: a row that named a command leaves that
+        one, the arpeggiator release leaving none, and a row that named only an
+        argument belongs to the command already in force above it, so it answers
+        with that command and leaves the argument it named itself in force for the
+        rows below rather than the one the letter above called with. An argument of
+        0 read under a carried call is the release as much as A 0 is, which matches
+        the engine clearing the command it answers with at that row and is what
+        stops a letter and an argument being drawn over the rows under it. */
+    void stepCommandCarry (int& cmd, int& cmdVal, const Cell& cell)
+    {
+        if (cell.cmd != kEmpty)
+        {
+            if (commandLeavesCarry (cell))
+            {
+                cmd = cell.cmd;
+                cmdVal = cell.cmdVal;
+            }
+            else
+            {
+                cmd = -1;
+                cmdVal = -1;
+            }
+
+            return;
+        }
+
+        if (cmd >= 0 && cell.cmdVal != kEmpty)
+        {
+            if (cmd == kArpCmd && cell.cmdVal == 0)
+            {
+                cmd = -1;
+                cmdVal = -1;
+                return;
+            }
+
+            cmdVal = cell.cmdVal;
+        }
+    }
 }
 
 //==============================================================================
@@ -549,28 +589,21 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
         {
             const auto& cell = p.rows[(size_t) r][(size_t) ch];
 
+            // the row is drawn from what the column carries into it rather than
+            // from what it leaves for the rows below, which is what a release
+            // written as only its argument still reads as the letter above it on
+            // its own row and as nothing on the ones under it
+            eff[(size_t) ch][(size_t) r] = c;
+
             if (cell.inst != kEmpty) c.inst = cell.inst;
             if (cell.vol != kEmpty) c.vol = cell.vol;
             if (cell.pan != kEmpty) c.pan = cell.pan;
 
             // the argument is part of what the column carries, which is what a
             // row under a command that named one shows it as well as the letter,
-            // and a release leaves the column carrying neither
-            if (cell.cmd != kEmpty)
-            {
-                if (commandLeavesCarry (cell))
-                {
-                    c.cmd = cell.cmd;
-                    c.cmdVal = cell.cmdVal;
-                }
-                else
-                {
-                    c.cmd = -1;
-                    c.cmdVal = -1;
-                }
-            }
-
-            eff[(size_t) ch][(size_t) r] = c;
+            // and a row naming only an argument carries the one it entered down
+            // over the ones below it instead of the argument of the letter above
+            stepCommandCarry (c.cmd, c.cmdVal, cell);
         }
     }
 
@@ -752,8 +785,12 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                         const int cmdNum = hasOwnNum ? cell.cmd : carried.cmd;
                         // the argument belongs to what the column carries as much
                         // as the letter does, so a row under a command that named
-                        // one shows both dim rather than only the letter
-                        const int cmdVal = hasOwnVal ? cell.cmdVal : carried.cmdVal;
+                        // one shows both dim rather than only the letter; a row
+                        // that named a command of its own answers with that row's
+                        // own argument, which names nothing beside a bare letter
+                        const int cmdVal = hasOwnVal ? cell.cmdVal
+                                                     : hasOwnNum ? kEmpty
+                                                                : carried.cmdVal;
 
                         if (fr.field == Field::cmdNum)
                         {
@@ -1529,17 +1566,38 @@ int TrackerComponent::carriedCommandNumber (int row, int ch) const
     if (ch < 0 || ch >= p.channels)
         return -1;
 
-    for (int r = juce::jmin (row, (int) p.rows.size()) - 1; r >= 0; --r)
-    {
-        const auto& cell = p.rows[(size_t) r][(size_t) ch];
+    // the walk goes down from the top of the column to the row rather than up from
+    // the row, because what a row leaves in force also depends on the arguments the
+    // rows above it named on their own, which a bottom-up walk cannot see; a row
+    // naming only a 0 under a carried call releases it there and leaves the column
+    // calling nothing for the rows below
+    int cmd = -1;
+    int cmdVal = -1;
+    const int top = juce::jmin (row, (int) p.rows.size());
 
-        // a release call leaves the column calling nothing rather than calling
-        // its id, which is what stops an argument typed below one being implicit
-        if (cell.cmd != kEmpty)
-            return commandLeavesCarry (cell) ? cell.cmd : -1;
-    }
+    for (int r = 0; r < top; ++r)
+        stepCommandCarry (cmd, cmdVal, p.rows[(size_t) r][(size_t) ch]);
 
-    return -1;
+    return cmd;
+}
+
+int TrackerComponent::carriedCommandValue (int row, int ch) const
+{
+    auto& p = pattern();
+
+    if (ch < 0 || ch >= p.channels)
+        return -1;
+
+    // the same walk the drawing steps the column by, so a test reads the argument
+    // the view carries rather than a pixel
+    int cmd = -1;
+    int cmdVal = -1;
+    const int top = juce::jmin (row, (int) p.rows.size());
+
+    for (int r = 0; r < top; ++r)
+        stepCommandCarry (cmd, cmdVal, p.rows[(size_t) r][(size_t) ch]);
+
+    return cmdVal;
 }
 
 void TrackerComponent::applyValue (Field field, int value)

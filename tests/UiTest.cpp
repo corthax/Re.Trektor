@@ -442,6 +442,18 @@ int main()
                "under the carried call an argument-only row stays implicit");
         check (p.cell (8, 0).cmdVal == 7, "and names arpeggiator id 7, which nothing defined");
 
+        // the argument the column carries follows the newest one the rows above
+        // entered: the row under the call is drawn with the id its letter named,
+        // and the rows under the row that entered another follow that one instead,
+        // which is what the view answers them with and what it draws beside the
+        // letter it still carries
+        check (tracker->carriedCommandValue (8, 0) == 1,
+               "above the argument-only row the column carries the id the letter named");
+        check (tracker->carriedCommandValue (9, 0) == 7,
+               "under it the column carries the id that row entered rather than the one above it");
+        check (tracker->carriedCommandNumber (9, 0) == rtr::kArpCmd,
+               "and the letter is still the one carried beside it, so the row under names the same call");
+
         // the release written as its letter and its 0 leaves the column calling
         // nothing rather than calling id 0: a fixture write rather than a typed
         // edit, so the undo line the sections below lean on stays the same length
@@ -455,6 +467,20 @@ int main()
 
         p.cell (12, 0).cmd = rtr::kEmpty;
         p.cell (12, 0).cmdVal = rtr::kEmpty; // the fixture's row is put back
+
+        // the same release read as only its argument under a carried call ends the
+        // run as well, which the bottom-up walk used to miss and leave a letter and
+        // an argument drawn over the rows under it: a fixture write rather than a
+        // typed edit, so the undo line the sections below lean on stays the same
+        // length
+        p.cell (14, 0).cmdVal = 0; // -- 0: the release the carried call answers as
+
+        check (tracker->carriedCommandNumber (15, 0) == rtr::kEmpty,
+               "below it the column carries no command rather than the call it was carrying");
+        check (tracker->carriedCommandValue (15, 0) == rtr::kEmpty,
+               "and carries no argument beside one, so nothing is drawn over those rows");
+
+        p.cell (14, 0).cmdVal = rtr::kEmpty; // the fixture's row is put back
 
         // the letter only claims the field as its first character, so the CC 10
         // a column asks for keeps its own 10 spelling, typed as three digits at
