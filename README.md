@@ -58,9 +58,10 @@ cmake --build tests/build -j"$(nproc)"
 ```
 
 * `ReTrektorCoreTest` – model, sequencing, snapping, arpeggiator macros, slicing,
-  paste, state, including that an older saved state which still carries a property
-  the current build no longer reads reloads its other settings, keeps its pattern
-  and clip counts and does not carry the property on, a transport re-arm putting
+  paste, state, including that an older saved state which still carries properties
+  the current build no longer reads, the dropped paste row's and the dropped hex
+  row's, reloads its other settings, keeps its pattern and clip counts and does
+  not carry them on, a transport re-arm putting
   every channel's all-notes-off ahead of the note-ons queued for that same block
   sample rather than after them, so the note whose row sits exactly at a start or
   exactly at a loop start is not released the moment it is struck, sending no
@@ -226,8 +227,10 @@ cmake --build tests/build -j"$(nproc)"
   closing that buffer on the first press and stepping on the second, and undoing
   while the mock transport runs leaving the row ahead of the playhead without the
   note it played and redoing it putting it back, the Command column's letter `A`
-  claiming the command number while the hex `0A` spelling still types CC 10 and an
-  argument-only row under a carried call staying implicit and naming an id that
+  claiming the command number while a `10` typed into that field still types CC 10
+  there, an `A` typed last of a run of digits claiming the field on its own and
+  dropping the number it interrupts, and an argument-only row under a carried call
+  staying implicit and naming an id that
   sounds nothing when nothing defined it, that same call being answered at a row
   that holds the column's note-off rather than skipped there and that release's
   `0` being drawn `OFF` with the column below it carrying neither the letter nor
@@ -254,7 +257,9 @@ cmake --build tests/build -j"$(nproc)"
   it, so a row naming only the letter bends nowhere, the argument typed next naming
   a point on that wheel and playing where that point is read in steps of 128, an
   argument-only row under a carried letter staying implicit and moving the same wheel
-  again, the hex `0B` spelling still typing CC 11 rather than the letter, a typed
+  again, an 11 typed as its own three decimal digits still giving CC 11 rather than
+  the letter and the B typed after them claiming the field and dropping that number, a
+  typed
   `144` giving the highest CC rather than inventing the bend letter, and that letter's
   claim being one undoable action the editor's `Ctrl+Z` and `Ctrl+Y` take back and put
   again, with the undo checks reading the cell back through the song rather than through
@@ -262,7 +267,10 @@ cmake --build tests/build -j"$(nproc)"
   which
   MIDI channel and which controller value the notes and columns end up on
 * `ReTrektorEditorShot` – renders the editor headlessly and can dump the
-  component layout (`--dump`, optionally `--tab=settings|macros`,
+  component layout (`--dump`, optionally `--tab=settings|macros|tools` to show a
+  whole tab at once, the Settings tab's rows all being the decimal ones now its
+  row offering another spelling has gone and the tools panel's instrument dropdowns
+  naming their choices `-0 .. -15`,
   `--expand-pool` to show the pool grid preview, `--channels=N` to
   widen the active pattern to N channels, narrow it to N/2 and widen it back,
   `--scroll=N` to jump N% along the tracker's horizontal scrollbar (so a wide
@@ -273,7 +281,7 @@ cmake --build tests/build -j"$(nproc)"
   channel 0 and the command column of channel 1 (channel digit plus
   `i`/`v`/`p`/`c` pairs, so a shot can show that chips hide per channel and that
   a hidden chip inverts its plate instead of dimming), and
-  `--hex` to render the narrower hex field widths, with `--drag-preview=IDX`
+  every value being drawn in that one decimal spelling, and `--drag-preview=IDX`
   compositing the image JUCE floats at the cursor while pool item IDX is dragged
   out of the pool, so a shot can show that only that item's cell follows the
   pointer), `--cmd-carry` to write a row that only names a command argument
@@ -362,10 +370,11 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   its flags, so widening the pattern again restores them. Field widths follow
   the widest text a field can show, so a decimal volume of `0`–`127` needs three
   digits like the pan column. The command cell's two halves each take room for
-  their own widest spelling rather than splitting the cell in half, so the
-  argument's half is three glyphs even in a hex view, which is where a macro id,
-  a point on the wheel and a release's `OFF` all need the three of them while a
-  plain CC's hex argument pads in the first two. The rows field above the line
+  their own widest spelling rather than splitting the cell in half: the number's
+  half takes its three CC digits with a two-pixel inner trim and the argument's
+  half its three glyphs with a wider pad, so a macro id, a point on the wheel and
+  a release's `OFF` all keep their last glyph rather than one half being cut tight
+  by halving a wider total. The rows field above the line
   numbers sets
   the pattern length (shared by every clip that references the pattern).
   Shortening a pattern keeps its rows past the new end, so enlarging it again
@@ -690,26 +699,28 @@ cut and its own duplication, while `Ctrl+C` and `Ctrl+V` keep the plain cell cli
 the Alt letters reach, with the Shift spellings refused rather than left to read as the
 plain pair.
 
-Numeric fields accept hex when "Hexadecimal values" is enabled in Settings,
-decimal otherwise. Instrument values are the MIDI output channel (`0`–`F` in
-hex, `0`–`15` in decimal). Volume and Pan take `0`–`127`: three decimal digits
-(two in hex), displayed right-aligned like the pan column. The Command field
-accepts `0`–`127` and the two letters `A` and `B`: an `A` typed as the first
-character claims the command number and means `128`, the arpeggiator call, whose
+Every numeric field is decimal only: the plug-in has no other spelling on offer
+and no row that offers one. Instrument values are the MIDI output channel
+(`0`–`15`), drawn with the column's dash as `-0` to `-15`, the same labels the
+tools panel's remap dropdowns use. Volume and Pan take `0`–`127` as up to three
+digits, displayed right-aligned like the pan column. The Command field accepts
+`0`–`127` and the two letters `A` and `B`: an `A` typed as the command number
+field's first character claims it and means `128`, the arpeggiator call, whose
 argument names the macro id, and a `B` claims it and means `144`, the pitch bend,
-whose argument names a point on the wheel, while a command number that merely has
-an `a` or a `b` in it keeps its own spelling, so the hex CC `10` and CC `11` a
-column asks for are still typed `0A` and `0B` with hex on. A letter writes the
-command value it names rather than a number that gets clamped, since the number
-field tops at the highest CC `127` and only the letters themselves reach above it:
-typing `144` into that field gives the highest CC rather than the bend letter, and
-an interpolation ramp climbs toward it rather than inventing a command. Each letter
-has to leave an argument behind, so a call starts at the release id `0` and a bend
-starts at the wheel's centre `64`, which is what makes a row naming only the `B`
-bend nowhere rather than lock the wheel to its bottom. The call pair is drawn orange
-and the bend pair lilac, both arguments keeping their decimal spelling even where the
-rest of the view is hex, and either letter a row carries from above draws dim like
-any other carried command.
+whose argument names a point on the wheel. The CC `10` and CC `11` a column asks
+for are typed `10` and `11`, and a letter typed after a run of digits only claims
+the field, the number being typed having been dropped rather than read as a
+command, so nothing about a number's spelling reaches one of the letters. A
+letter writes the command value it names rather than a number that gets clamped,
+since the number field tops at the highest CC `127` and only the letters
+themselves reach above it: typing `144` into that field gives the highest CC
+rather than the bend letter, and an interpolation ramp climbs toward it rather
+than inventing a command. Each letter has to leave an argument behind, so a call
+starts at the release id `0` and a bend starts at the wheel's centre `64`, which
+is what makes a row naming only the `B` bend nowhere rather than lock the wheel
+to its bottom. The call pair is drawn orange and the bend pair lilac, every
+value in the view being decimal, and either letter a row carries from above
+draws dim like any other carried command.
 
 The Macros tab's steps are typed the same way rather than one press at a time: the
 arrows and Page Up/Down move the step cursor over the cards it draws, with `Tab` joining
@@ -752,9 +763,9 @@ sustains the step before it rather than the base note.
   argument names the macro id, `1`–`127`, with `0` releasing the note the run
   holds and leaving the column calling nothing rather than calling its id, so
   the rows under one carry neither the letter nor an argument and that release's
-  `0` is drawn `OFF` instead; the pair is drawn orange and the id keeps its
-  decimal spelling even while the rest of the view is hex, which is why that
-  argument's cell is always three glyphs wide. An arpeggiator:
+  `0` is drawn `OFF` instead; the pair is drawn orange, and since decimal is the
+  one spelling the whole view has, that argument's cell keeps the three glyphs a
+  macro id, a point on the wheel and the release's `OFF` all need. An arpeggiator:
 
   * sounds one step per subtick, a subtick being a row over the Settings row
     "Subticks per row" (default 6, so a step is a sixth of a row);
@@ -854,7 +865,6 @@ sustains the step before it rather than the base note.
 
 ## Settings
 
-* Hex or decimal value display
 * Ignore mid-row transport start (default on): with it on, a fresh playback start
   inside a row, or a seek that comes in from behind it, does not play that row,
   since the transport is only moving and the row is not being repeated; a
@@ -1032,7 +1042,7 @@ Timeline ops (move/resize/slice/paste) disabled while host is playing; pattern s
 Slice splits pattern at playhead into two new unique patterns (requires snapping; not allowed on 1-row pattern).
 Paste as instance (shared pattern reference) or as unique new pattern; both in context menu, default set in Settings tab; paste target = plugin playhead (same as host time display).
 Per-pattern: visible channel count (bottom bar numeric), column visibility for inst/vol/pan/command (toggle buttons above each channel's note column), pattern length rows (field above line numbers), pattern name.
-Columns: Note, Instrument, Volume, Pan, Command (+ hidden-able); --/--- when empty (Renoise style), instrument shown -0..-F (or -0..-15 decimal).
+Columns: Note, Instrument, Volume, Pan, Command (+ hidden-able); --/--- when empty (Renoise style), instrument shown -0..-15, every value in the one decimal spelling the plug-in has.
 Instrument column = MIDI output channel (max 16); if unset, use last previously entered value per tracker channel; same carry applies to vol/pan/command; carried values drawn darker, vol/pan/inst only when note present, command carried shown even if note empty.
 Commands: only CC (0-127) for now, color-coded by type, extensible to pitchbend/macros.
 Tracker channel limit is the constant 127 (kMaxTrackerChannels, no user setting; the bottom-bar CHANNELS slider sets it per pattern), independent of 16 MIDI output channels; same note on multiple channels in same row → duplicates ignored.
@@ -2004,29 +2014,99 @@ bytes against the bundle refreshed by rsync to sha256
 65a894722bc4249da197cd7672c2a619c17b69a3e14726c88572054639836ef6, matching the built
 artefact and still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf
 or atan2f relocation.
+The values have one decimal spelling and there is no other to be offered (commit
+d978758): the user asked for the hexadecimal display option to be dropped and decimal
+kept, and that is what the plug-in already drew for a macro id and for a bend's point
+on the wheel, so the row that offered the other spelling was a choice a host could
+second-guess rather than one that bought anything. SettingsPanel stops adding the
+"Hexadecimal values" toggle and the panel loses its hexToggle member, so its refresh
+guard moved onto the mid-row toggle that is now the tab's first toggle - which is what
+leaves the tab one row shorter and opening at "Ignore mid-row start" rather than at a
+spelling row. Model.h loses the Settings::hexDisplay member and Model.cpp neither
+writes nor reads that property in the SETTINGS block, so an older state that still
+spells the choice reloads with nothing to read it into, re-serialising it does not
+carry the property on, and the older state stays a one-way read rather than something
+the plug-in quietly keeps alive again - the same shape the dropped paste row's
+property already showed, and the two are now checked together in one fixture. The two
+drawing helpers lost their hex branch rather than gaining a flag: valueString takes
+only a digit count and pads a shorter decimal number with spaces so its digits land
+in the same columns as a longer one's, and instString takes only the instrument and
+writes the dash the column draws beside it. TrackerComponent lost its isHexDigitChar
+helper outright and both numeric-key paths now take digits only, so nothing about a
+number's spelling can reach one of the command letters any more - the CC 10 and the
+CC 11 a column asks for are typed 10 and 11, and a letter typed after a run of digits
+claims the field on its own with that number dropped rather than read, which is the
+half of the earlier rule the tests had to keep rather than lose. maxDigitsFor and
+fieldGlyphs lost their hex halves and name one spelling: the instrument's two digits,
+three glyphs with the column's dash, and volume, pan, the command number and the
+command argument three each, so the release's OFF, a macro id of 100 and a bend's
+point above 99 keep their last glyph in the view rather than in one spelling's favour,
+and the command cell still splits its two halves by their own glyph counts because the
+halves' pads differ - the number's taking a two-pixel inner trim and the argument's
+the wider kFieldPad - rather than by a wider total being halved. The row gutter, the
+value cells, the command pair and the empty fields all draw in the one decimal
+spelling, with the release still spelled OFF, and the tools panel's remap dropdowns
+now label their instruments -0 .. -15, the decimal spelling that column shows them in.
+The tests moved with the drop: CoreTest's state round trip writes and reads the mid-row
+switch rather than a hex one, and its older-state fixture puts that dropped hex property
+back into the SETTINGS child beside the dropped paste one to show both reload, both
+leave the pattern and clip counts alone and neither comes back on a re-serialise; UiTest
+drives the three decimal digits a command field takes, an A typed last of a run of digits
+claiming the field and dropping them at one row and a B doing the same at another, the
+remap dropdowns naming their instruments -0 .. -15 and the Settings tab exposing no
+toggle under that old name - and its Settings-section and undo-reverts-Settings undoable
+actions spending the tab's Snap to grid row instead of the row that used to switch the
+spelling, each of them still exactly one point of the undo line, which is what keeps the
+undo saturation the later sections ride at its cap where it was rather than moving it by
+one; and EditorShot lost its --hex flag, its usage header's mention of it and the parse
+block that read it, along with the setting it wrote. CoreTest 265 checks, +1, UiTest 614,
++5, and Smoke 13 all PASS, and Smoke's serialised state came down from 2396 to 2376 bytes,
+which is the property that left the saved form - the undo line, the undo caps and the
+state's other properties otherwise unchanged. The plug-in builds clean and the bundle
+refreshed by rsync --checksum to sha256 bd6de09edc6280312122738ec87630bb8cea91a64841b4a1f2c3b7078e6a7537
+matches the built artefact and still tops out at GLIBC_2.38 with GLIBCXX_3.4.32 and names
+no sqrtf or atan2f relocation. The shots read back with nothing about a spelling left in
+the view: the Settings tab opening at "Ignore mid-row start" with the row gone above it
+rather than greyed and twelve rows beside it at /tmp/opencode/hexgone-settings.png with its
+crops /tmp/opencode/settings-crop.png and /tmp/opencode/settings-rows.png, the release drawn A
+OFF with the rows under it carrying nothing at all at /tmp/opencode/hexgone-off.png and its
+crop /tmp/opencode/off-crop2.png, a call in a row holding the column's === drawn bright there
+with the rows under it carrying it dim at /tmp/opencode/hexgone-onoffrow.png and its crop
+/tmp/opencode/onoff-crop2.png, a macro id of 100 keeping all three digits of it over the dim
+carried pair at /tmp/opencode/hexgone-id100.png and its crop /tmp/opencode/id100-crop.png, the
+Macros tab's 12-step strip still in two shaded bands of six at /tmp/opencode/hexgone-macros.png,
+and the tools panel's remap dropdown opening at All -> -0 at /tmp/opencode/hexgone-tools.png and
+its crop /tmp/opencode/tools-crop2.png. The shot that showed the other spelling is not re-taken:
+/tmp/opencode/arphex2.png belongs to a view this build no longer has and is cited nowhere.
 Active
-All five asks are landed, built, installed and tested, with only the hosts hearing them
-still open: the arpeggiator's base rule stands as it did at 19e4278, ChannelState's
-arpBase gone and taken by columnNote, the note the tracker channel's column last named,
-processRow writing it for a note cell, clearing it at a note-off where the run in force
-used to lose its base instead and leaving a cell that names no note alone, so the note
-carries down the column like an instrument, a volume or a pan does; flushArp reading a
-step's offset off it and arpCommand leaving the run it starts with no base of its own,
-so a call steps from the note its column named - the call row's own where it named one,
-the note its rows above left named where it did not, and nothing at all where the column
-never named one - rather than off whatever note the channel was left holding; closeArp
-releasing the note the run a call replaces last entered, tracked in arpNote, at that
-row's first subtick ahead of the new run's first step and following only a note the run
-itself entered. On top of that rule this round moved the base of a call that has no note
-of its own but a note-off in its row into the run rather than losing it: the run answers
-against the note that row releases and holds it in arpCallNote, so the column's note
-carries down as before while the run keeps its own answer for the rows the note-off took
-it from. CoreTest answers 264 checks, UiTest 609 and Smoke 13 with the serialised state
-still 2396 bytes against the bundle refreshed by rsync to sha256
-65a894722bc4249da197cd7672c2a619c17b69a3e14726c88572054639836ef6, matching the
-built artefact and still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no
-sqrtf or atan2f relocation, so what is left of this round is the user hearing these
-five in Reaper and Bitwig rather than anything still open in the code. The Macros tab's five fixes stand landed as before it: the tab paints no description memo, keeps its title and the one MACRO / LENGTH /
+Nothing is open in the code: this round's one change, the values having one decimal
+spelling and no other on offer, is landed, built, installed and tested, and the five
+asks before it are landed as they were with only the hosts hearing them still open.
+SettingsPanel has no row that switches the values between two spellings, its hexToggle
+member, the Settings::hexDisplay member and the saved SETTINGS property having gone with
+the row, so the tab opens at "Ignore mid-row start" and counts one row fewer, and its
+refresh guard starts at the mid-row toggle that is now its first toggle. valueString and
+instString draw every value decimal, a shorter number padded with spaces so its digits
+land in the same columns as a longer one's, and maxDigitsFor and fieldGlyphs name that
+one spelling - the instrument's two digits with room for the column's dash beside them,
+and volume, pan, the command number and the command argument three glyphs each - so the
+release's OFF, a macro id of 100 and a bend's point above 99 keep their last glyph in the
+cell rather than in one spelling's favour, and the command cell's two halves still split
+by their own glyph counts because their pads differ rather than by a wider total being
+halved. Both numeric-key paths take digits only, so a CC 10 and a CC 11 are typed 10 and
+11 and a letter typed after a run of digits claims the field with that number dropped
+rather than read, the command letters' claim at a value field's first character being the
+only route to a command kind and clampValue still capping a typed number at kCcTop. The
+tools panel's remap dropdowns label their instruments -0 .. -15, the spelling the
+tracker's instrument column writes them in. CoreTest answers 265 checks, UiTest 614 and
+Smoke 13 all PASS, with Smoke's serialised state at 2376 bytes against the bundle
+refreshed by rsync to sha256 bd6de09edc6280312122738ec87630bb8cea91a64841b4a1f2c3b7078e6a7537,
+matching the built artefact and still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and
+naming no sqrtf or atan2f relocation, so what is left of this round is the user seeing
+the one decimal spelling, the shorter Settings tab and the matching dropdown labels in
+Reaper and Bitwig rather than anything still open in the code.
+
+The Macros tab's five fixes stand landed as before it: the tab paints no description memo, keeps its title and the one MACRO / LENGTH /
 LOOPED / STEPS label row at y 48 with kContentTop taking the cards up to 70; a newly defined
 macro arrives as eight steps that all sound nothing, ArpMacro::setDefault and Song::setArpLength
 writing kArpEmptyStep rather than the ramp kArpDefaultJump used to name, so a macro's shape is
@@ -2102,7 +2182,8 @@ played once at that block's first sample and the wrap's arithmetic over the bloc
 what Bitwig does with an all-notes-off it receives and where it leaves a loop's block boundary
 inside a row are known from its behaviour and the user's reports rather than from a host the
 tests can drive. The arpeggiator is the same shape of cover rather than a stronger one: UiTest
-drives the letter's entry, the hex 0A neighbour, a row naming only an argument under a carried
+drives the letter's entry, a 10 typed as its own three decimal digits, the A typed after them
+claiming the field and dropping them, a row naming only an argument under a carried
 call, the panel's length slider, looped tick, + Add macro and the - Remove selected one, the step
 cursor and a number typed at it one character at a time, the scroll a wheel leaves on a taller
 panel and a click and a drag of the drawn strip's own column, and CoreTest names the step widths,
@@ -2129,7 +2210,8 @@ anything between that row and the note-off which also releases the note the chan
 that argument-only rows under a carried letter move that same wheel in turn through its bottom and
 back, and that a clip's own end returns a wheel a row left bent while it struck nothing; and UiTest
 drives the letter's claim and the centre argument it writes with it, the argument typed next, an
-argument-only row under the carried letter, the hex 0B neighbour, a typed 144 landing on the highest
+argument-only row under the carried letter, an 11 typed as its own three decimal digits and
+the B typed after them claiming the field and dropping the number, a typed 144 landing on the highest
 CC rather than inventing the letter and the claim being one point of the undo line the editor walks
 back and forward; but where a host's MIDI receiver maps a 14-bit position to a sounding pitch, how
 far it honours a wheel it was left with while the transport is stopped or across a block boundary,
@@ -2151,11 +2233,37 @@ the column's note-off. What is still known only from the hosts is where their MI
 receivers put a note-off and a note-on handed at one sample, which is the shape a call
 beside a note-off sends them, how long a host holds the note that release cut, whether
 a host spends its own reading of the letter A and the argument 0 before the plug-in is
-offered the press, whether a host keeps the plug-in's own three-glyph argument cell in a
-hex view rather than restyling the column, and where the bands move when the Settings
+offered the press, whether a host keeps the plug-in's own three-glyph argument cell rather
+than restyling the column, and where the bands move when the Settings
 row "Subticks per row" is set to anything but its default, which the tests only read at
 the default.
+This round's one change is the same shape of cover rather than a stronger one: the suites
+show the Settings tab exposing no toggle under the name the row used to have, the saved
+state carrying no such property and an older state that still carries one reloading with
+nothing to read it into and not carrying it on, the three decimal digits a command field
+takes at the keyboard with a letter typed after them claiming that field and dropping them,
+the remap dropdowns naming their instruments -0 .. -15, and EditorShot having no flag that
+would ask for another spelling to render. What is still known only from the hosts is whether
+a host restyles the numbers it shows at all - its own theme, its own font, its own digit
+width - and where it puts the plug-in's own field widths once it has no spelling setting to
+read, which is the whole of what a view the tests cannot drive can add.
 Next Move
+Confirm in Reaper and Bitwig that the values have one decimal spelling and nothing else to
+offer: that the Settings tab opens at "Ignore mid-row start" with the row that used to switch
+the spelling gone rather than greyed and one row fewer in the tab beside it, and that no host
+keyboard spelling swallows a row that is not there; that a CC 10 and a CC 11 are typed 10 and
+11 in the command number and that typing 144 there still gives the highest CC rather than a
+letter; that a letter typed last of a run of digits claims that field on its own and drops the
+number it was interrupting rather than reading it as a command, the letters themselves being
+the only route to a command kind; that the volume, pan and the command pair take the three
+decimal digits they now do and the empty fields still draw --- rather than a shorter dash; that
+the instrument column shows its -0 to -15 and the tools panel's remap dropdowns name those
+same labels, so a remap choice reads as the column it acts on; that the command cell still fits
+the argument's three glyphs - the release's OFF, a macro id of 100 and a bend's point above 99
+all keeping their last glyph - without the number's half being cut beside it, the two halves
+keeping their own pads; that the row gutter still counts its rows in decimal three digits wide;
+and that undoing is as it was, the Settings tab's Snap to grid row taking one point of the line
+back and putting it again as the undoable action the tests spend there.
 Confirm in Reaper and Bitwig that a row holding the column's note-off and a call beside
 it plays that call rather than nothing, its first step measured from the note that row was
 releasing, and that the release and that step reach the host in that order at one sample
@@ -2165,10 +2273,10 @@ enters the column again; that a row naming only an argument under an `A 0` relea
 nothing there rather than switching or restarting anything, while one under a real call
 still switches as it did; that the tracker draws no orange letter and no argument over the
 rows under a release and still draws the letter and the argument dim over the rows under a
-call that named one; that the release's own argument reads `OFF` in decimal and in a hex
-view, that a macro id of 100 and a bend's point above 99 keep all three digits in a hex
-view rather than losing their last one, and that a plain CC's hex argument still pads to
-three; and that the Macros tab's step strip changes shade every six steps at the default
+call that named one; that the release's own argument reads `OFF` rather
+than its `0`, that a macro id of 100 and a bend's point above 99 keep all three digits of the
+one decimal spelling rather than losing their last one, and that a plain CC's argument pads in
+that same three; and that the Macros tab's step strip changes shade every six steps at the default
 "Subticks per row" rather than every sixteen cells, a macro longer than its row reading as
 spans - the bands following that row where a host sets it to another value.
 Confirm in Reaper and Bitwig that a column entering one note and calling two macros down it
@@ -2212,9 +2320,9 @@ volume, a pan or an instrument does, so notes entered further down play bent unt
 end of the clip whose rows asked, a transport re-arm or the editor's own all-notes-off takes the
 wheel back, and that a row naming only an argument under a carried B moves that same wheel to a new
 point rather than inventing a controller of its own; that the letter draws lilac and its argument
-keeps its decimal spelling where the rest of the view is hex, that the B a row carries from above
-draws dim beside the bright argument a row below writes, that the hex spelling 0B still types CC 11
-rather than the letter, that typing 144 into the command number gives the highest CC rather than
+is drawn in the view's one decimal spelling, that the B a row carries from above draws dim beside
+the bright argument a row below writes, that an 11 typed there still gives CC 11 rather than the
+letter, that typing 144 into the command number gives the highest CC rather than
 inventing a bend, and that the pool's grid preview paints that command's tick lilac too; that a
 Ctrl+Z or Alt+Z taken right after the letter's claim takes the command and the centre argument it
 wrote with it back for one point of the line and Ctrl+Y or Alt+Y puts both again; and that a wheel
@@ -2223,10 +2331,10 @@ own end rather than bending the notes of the clip below it.
 Confirm in the DAW that a row writing the letter A and an argument starts a run at the note that
 row holds, one step at a time a sixth of a row apart with the Settings row "Subticks per row" at
 its default 6, and that the steps past the row that called them play on over the rows below rather
-than being cut at its end; that the letter and its macro id draw orange in decimal while the rest
-of the view stays hex, that the A a row carries from above draws dim beside the bright argument a
-row below writes, and that typing 0 into a command number still types CC 0 while the hex spelling
-0A still types CC 10 rather than a call; that a row naming only the argument under a carried A
+than being cut at its end; that the letter and its macro id draw orange in the view's one
+decimal spelling, that the A a row carries from above draws dim beside the bright argument a
+row below writes, and that typing 0 into a command number still types CC 0 while a 10 types
+CC 10 rather than a call; that a row naming only the argument under a carried A
 restarts the run at the macro that id names at its first step, sends no controller of its own and
 sounds nothing at all when that id has no macro; that an A 0 call releases the note the run is
 holding the way a note-off does rather than sending an All Sound Off; that a step drawn -- sounds
@@ -2322,7 +2430,7 @@ Confirm that the pinned bundle loads in Bitwig Studio 6.1.4, whose Flatpak root 
 Confirm in the DAW that typing a number into the transpose amount field and clicking only a direction button moves the notes by that many semitones, that an amount past an octave still behaves, and that the two direction buttons draw as up and down arrows rather than boxes in Bitwig and Reaper.
 Relevant Files
 /media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
-/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate taking a std::function<bool (int row, int ch)> mask so the selection can be any shape and a cell outside the mask ends the anchor run), and the cell clipboard (CellClipboard holding one {row, ch, Cell} entry per copied cell with its offset inside the copied rectangle, the kPasteNote/kPasteInst/kPasteVol/kPastePan/kPasteCmd/kPasteCmdVal bits and kPasteAll naming which fields reach plus kPasteAdditive = 64 as a mode bit added to a filter rather than one more field, Pattern::pasteCells writing them at an anchor and, when that bit is set, masking each copied cell's own non-empty fields under the working mask so an empty field of the buffer leaves the target's value in place and a cell carrying nothing at all writes nothing, still skipping a target past length or channels so a paste never grows the pattern), and the Undo steps setting (Settings::undoSteps, default 50 with kMaxUndoSteps = 200 as the cap, written and read back clamped with the rest of the SETTINGS block so the depth a host reloads belongs to the song, the same block having lost the pattern paste's default property on both the write and the read back along with its Settings member, which leaves a song saved before the drop reloading with nothing to read there), and the arpeggiator macros (ArpMacro holding signed semitone steps off the base note, kArpCmd = 128 as the command value the letter A enters and kMaxArpMacros = 127 naming the id cap with id 0 the release call, kMaxArpSteps = 64, kArpEmptyStep = -128 as the step that sounds nothing and, this round, as the value every step of a newly defined macro holds and every step growing one adds, kArpDefaultSteps = 8 naming only how many of them a macro starts with while kArpDefaultJump was deleted outright since nothing builds a shape any more, Song::arps one grow-only table indexed by id - 1 beside the pattern rows and channels the build already treats that way so clearing a macro keeps the room its steps took and defining it again restores them, findArp growing it while peekArp reads it without growing it so the UI, the engine and the writer never invent a macro, arpDefined / arpLooped / firstUndefArpId / lastDefArpId / defineArp / clearArp / setArpLength clamped 1..64 and padded with kArpEmptyStep rather than with the base note, so a macro's shape is only ever where it was entered / setArpStep / setArpLooped naming it, the ARPS section writing a macro's id, loop flag, length and its steps as one base64 block rather than one property per step, an older state's MACROS section dropped outright on the read since those kinds are gone, an older row's command in the 128-143 range landing on kArpCmd while the argument it holds stays the argument
+/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate taking a std::function<bool (int row, int ch)> mask so the selection can be any shape and a cell outside the mask ends the anchor run), and the cell clipboard (CellClipboard holding one {row, ch, Cell} entry per copied cell with its offset inside the copied rectangle, the kPasteNote/kPasteInst/kPasteVol/kPastePan/kPasteCmd/kPasteCmdVal bits and kPasteAll naming which fields reach plus kPasteAdditive = 64 as a mode bit added to a filter rather than one more field, Pattern::pasteCells writing them at an anchor and, when that bit is set, masking each copied cell's own non-empty fields under the working mask so an empty field of the buffer leaves the target's value in place and a cell carrying nothing at all writes nothing, still skipping a target past length or channels so a paste never grows the pattern), and the Undo steps setting (Settings::undoSteps, default 50 with kMaxUndoSteps = 200 as the cap, written and read back clamped with the rest of the SETTINGS block so the depth a host reloads belongs to the song, the same block having lost the pattern paste's default property on both the write and the read back along with its Settings member, which leaves a song saved before the drop reloading with nothing to read there, this block also losing the hex display's property on both the write and the read back with its Settings member and the Settings tab's row for it gone, which is what lets an older state that still spells that choice reload with nothing to read it into and leaves every value the model holds the one decimal spelling valueString and instString draw it in, a shorter number padded with spaces so its digits land in the same columns as a longer one's), and the arpeggiator macros (ArpMacro holding signed semitone steps off the base note, kArpCmd = 128 as the command value the letter A enters and kMaxArpMacros = 127 naming the id cap with id 0 the release call, kMaxArpSteps = 64, kArpEmptyStep = -128 as the step that sounds nothing and, this round, as the value every step of a newly defined macro holds and every step growing one adds, kArpDefaultSteps = 8 naming only how many of them a macro starts with while kArpDefaultJump was deleted outright since nothing builds a shape any more, Song::arps one grow-only table indexed by id - 1 beside the pattern rows and channels the build already treats that way so clearing a macro keeps the room its steps took and defining it again restores them, findArp growing it while peekArp reads it without growing it so the UI, the engine and the writer never invent a macro, arpDefined / arpLooped / firstUndefArpId / lastDefArpId / defineArp / clearArp / setArpLength clamped 1..64 and padded with kArpEmptyStep rather than with the base note, so a macro's shape is only ever where it was entered / setArpStep / setArpLooped naming it, the ARPS section writing a macro's id, loop flag, length and its steps as one base64 block rather than one property per step, an older state's MACROS section dropped outright on the read since those kinds are gone, an older row's command in the 128-143 range landing on kArpCmd while the argument it holds stays the argument
 it was, and the ARPS read clearing the whole table ahead of filling it, since that section names every macro that exists, which is what hands an undo an earlier state's own steps, loop flag and absence rather than the steps the macro still held with the state's added behind them), and the pitch bend letter
 (kCcTop = 127 as the highest plain CC number a column can hold, kBendCmd = 144 as the command value
 the letter B enters and kBendCentreVal = 64 as the bend argument that sits at the wheel's centre,
@@ -2395,10 +2503,10 @@ mistaken for one of the letters' own kinds.
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock, the size of the last GUI shown, and the undo line (undoStates holding the saved song XML with undoCursor and undoBytes counted in UTF-8 bytes, pushUndoPoint appending what a model change reached and skipping one that changed nothing, undo() / redo() stepping and refreshing the snapshot, resetUndoHistory anchoring a fresh line for a state the host hands back, getUndoDepth / getUndoRedoCount naming what is left to walk, trimUndoLine dropping the oldest states against the Settings depth and a 32 MB budget while never dropping the state the model is in or one ahead of the cursor, and stepUndoHistory keeping the pattern clipboard, the edit playhead and the mirrored transport position a saved state does not carry).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size, wiring the tools panel's isCellSelected hook to the tracker's selection, and the shortcuts where Ctrl+C/V name the cell clipboard (copySelectionToClipboard / pasteClipboardAtCursor) while the pattern clipboard's Ctrl+Shift+C / Ctrl+Shift+V pair is refused rather than answered, its two doCopy() / doPaste (bool forceUnique) members and its Ctrl+X slice branch gone altogether with that pair, the undo funnel commitEdit() (record the point the model reached, then refresh, so every component's onModelChanged ends in it while the bottom bar's OCT / STEP / CHANNELS handlers and selectPattern() record their own), performUndo / performRedo stepping the plug-in's line and refreshing the Settings panel as well because its rows hold their own values, and the Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z shortcuts with the Alt+Z / Alt+Y spellings the hosts leave free answering the same two steps, one each since the whole Alt+Shift family is refused rather than spent on a redo alias the hosts swallow, the Alt branches matching the letter over the key code and the printed character, all of them reaching the editor while every panel answers the Alt pair as well through one wireUndoRedo lambda that injects performUndo / performRedo into the tracker, timeline, pool, settings, tools and macros panels, so whichever panel the host routed the press to walks one point of the same line rather than one the panel owns, and one wireFocusRescue lambda injecting the same shape's focusRescue member into the tracker, timeline and pool so the panel that closed a menu, an alert or a drag hands keyboard focus back to the tracker (and to itself where the tracker is hidden), which is what makes the whole keyboard heard again rather than only the editor's own shortcuts, and one wireClipboard lambda injecting the cell clipboard's Alt steps as copyStep / pasteStep / cutStep members into all six panels with the tracker's own copySelectionToClipboard, pasteClipboardAtCursor (kPasteAll) and cutSelectionToClipboard, and one wireSlice lambda injecting the editor's own doSlice as a sliceStep member into all six of them beside those clipboard steps, so an Alt+C / Alt+V / Alt+X reaches one cell clipboard and an Alt+S reaches one clip slice at one snapped beat whichever panel the host routed the press to, and one press of either leaves one point of the undo line rather than two, the editor's own keyPressed answering those steps through the shared matchClipboardKey and answerSliceKey next to a Ctrl+C / Ctrl+V pair that refuses Shift so the hosts keep their own Ctrl+Shift+C / Ctrl+Shift+V meaning and no Ctrl+X branch left to it at all, and its first lines including the renamed header so no panel and the editor can disagree about what the Alt letters name.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom, ruler (bar numbers only, no transport readout), and the Alt pair of undo and redo answered in its keyPressed, which is where a press aimed at undo has to be heard while the timeline's own clip menu is open or while a pattern is being dropped onto it, and a focusRescue member it calls at the end of both context menus and ahead of the playback guard in its drop, since both the popup and the dragged item are parentless desktop windows that take the keyboard focus with them when they close, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, chained through the 4-argument answerClipboardKey so an Alt+C / Alt+V / Alt+X pressed while this panel routes the press reaches the tracker's cell clipboard rather than the host's, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape, so an Alt+S heard while this panel holds the press splits the clip under the playhead that the timeline's own "Slice at playhead" menu item reaches rather than leaving the Ctrl+X spelling the host already spent on its own cut.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber), cell selection (selBits one bit per (row, channel) in kSelWords = 2 uint64 words per row, applyCellRect unioning/subtracting/replacing word masks, gestureOp reading the held modifiers, channelAtX and channelBoundsFor naming a cell, per-cell painting and a hidden chip inverting its plate (theme::text plate, letter cut out in theme::panelLight) instead of dimming) and the cell clipboard (cellClipboard of CellClipboard type, copySelectionToClipboard putting the selected cells on it with their offsets inside the copied rectangle counted from the top-left selected cell and doing nothing while nothing is selected, pasteClipboardAtCursor writing at the cursor and only marking the model changed when it wrote something, cutSelectionToClipboard taking that copy and then emptying exactly the cells it took through the clearSelectedCells loop the cell menu's Clear / Selection calls as well so the two do not drift apart, marking the model changed for the wipe alone since the copy changes nothing in the saved song, hasCellClipboard greying out both of the menu's pastes, and the cell menu's four top-level items - a "Clear" submenu whose leaves keep the old ids so the callback still answers them by id (4 Selection / 1 Cell / 2 Channel / 3 Pattern), "Copy selection" (id 5), "Cut selection" (id 6 right after the copy, greyed while nothing is selected and answered by the same cutSelectionToClipboard the Alt+X key reaches), and two sibling paste submenus carrying the same seven leaves, Everything / Note / Instrument / Volume / Pan / Command / Command Value, the plain "Paste" one at ids 7..13 and the "Paste (Additive)" one at ids 17..23, both greyed by hasCellClipboard and both answered through one static pasteMasks the callback hoists above its if-chain so the field and the mode compose rather than a leaf owning the mode, pasteClipboardAtCursor (pasteMasks[result - 7]) and pasteClipboardAtCursor (pasteMasks[result - 17] | kPasteAdditive), 16 left unused between the two runs and the undo pair's 14/15 still last), and the undo pair (undoStep / redoStep std::function members the editor injects so the menu's Undo and Redo, ids 14 and 15 after the paste submenu's leaves and greyed out by the plug-in's own counts, walk the same line Ctrl+Z and Ctrl+Y walk and refresh every panel rather than only the grid, and cancelPendingEdit reporting whether a numeric buffer was half typed and closing it the way Esc does, which the Ctrl+Z and Alt+Z branches and the menu's Undo consult before stepping so one press is one effect, and its keyPressed now answering the Alt pair itself through answerUndoRedoKey, with cancelPendingEdit as the closing hook so a half-typed number still closes on that press rather than being walked over, while any other letter held with Alt is still handed up rather than typed as a note at the cursor), and a focusRescue member it calls at the end of the cell menu's callback, whether the press picked an item, a greyed one or dismissed the popup with Escape, and the Alt clipboard steps answered through the 4-argument answerClipboardKey with copyStep / pasteStep / cutStep members of the same shape the editor injects, placed ahead of the hand-up that keeps other Alt letters out of the tracker's own key entry, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor next to copying, pasting or cutting, and the Alt+S slice answered the same way through answerSliceKey with a sliceStep member of the same shape the editor injects, this very letter being the note entry's C sharp, so the slice is claimed before the key entry can leave a C sharp at the cursor whether or not there was a clip to split, and the command letters: the A and the B branch sitting in the path that owns a value field's first character, so either letter claims the command number as its own command value while a number that merely has an a or a b in it keeps its own spelling and the hex CC 10 and CC 11 a column asks for stay typeable as 0A and 0B rather than turning into a call or a bend, the pair painted in theme::cmdMacro with the macro id keeping its decimal spelling even where the view is hex, the A a row carries from above drawn dim through carriedCommandNumber beside the bright argument a row below writes, and clampValue's command number capped at kCcTop rather than at the call, both letters' claim writing the command value it names straight into the cell rather than as a number that gets clamped there, so a typed digit run and an interpolation ramp can only reach a plain CC and typing 144 into the field gives the highest CC rather than inventing a letter - the letters being the only route to a command kind - beside each letter leaving its own argument behind, a call at the release id 0 and a bend at the wheel's centre kBendCentreVal so a row naming only the letter bends nowhere rather than locking the wheel to its bottom, and the bend pair painted in the lilac theme::cmdOther that was going unused with that argument keeping its decimal spelling where the view is hex and that letter carried down a column drawn dim like the call's is beside the bright argument a row below writes, the command cell now splitting its two halves by their own glyph counts rather than halving the whole cell and each half taking its own pad, with fieldGlyphs giving the argument three glyphs whatever the view is so a macro id of 100, a bend's point above 99 and an arpeggiator release's OFF all keep their last glyph in a hex view while a plain CC's hex argument pads in the first two of them as the pan column does, the display's carry table having grown the argument beside the command number through the new file-local commandLeavesCarry so a row under a command that named one draws the carried letter and the carried argument both dim rather than the letter alone over a placeholder, and that same helper deciding carriedCommandNumber as well so the letter A with the argument 0 releases and leaves the column under it carrying neither a letter nor an argument while the value cell spells that release OFF rather than a bare 0.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber), cell selection (selBits one bit per (row, channel) in kSelWords = 2 uint64 words per row, applyCellRect unioning/subtracting/replacing word masks, gestureOp reading the held modifiers, channelAtX and channelBoundsFor naming a cell, per-cell painting and a hidden chip inverting its plate (theme::text plate, letter cut out in theme::panelLight) instead of dimming) and the cell clipboard (cellClipboard of CellClipboard type, copySelectionToClipboard putting the selected cells on it with their offsets inside the copied rectangle counted from the top-left selected cell and doing nothing while nothing is selected, pasteClipboardAtCursor writing at the cursor and only marking the model changed when it wrote something, cutSelectionToClipboard taking that copy and then emptying exactly the cells it took through the clearSelectedCells loop the cell menu's Clear / Selection calls as well so the two do not drift apart, marking the model changed for the wipe alone since the copy changes nothing in the saved song, hasCellClipboard greying out both of the menu's pastes, and the cell menu's four top-level items - a "Clear" submenu whose leaves keep the old ids so the callback still answers them by id (4 Selection / 1 Cell / 2 Channel / 3 Pattern), "Copy selection" (id 5), "Cut selection" (id 6 right after the copy, greyed while nothing is selected and answered by the same cutSelectionToClipboard the Alt+X key reaches), and two sibling paste submenus carrying the same seven leaves, Everything / Note / Instrument / Volume / Pan / Command / Command Value, the plain "Paste" one at ids 7..13 and the "Paste (Additive)" one at ids 17..23, both greyed by hasCellClipboard and both answered through one static pasteMasks the callback hoists above its if-chain so the field and the mode compose rather than a leaf owning the mode, pasteClipboardAtCursor (pasteMasks[result - 7]) and pasteClipboardAtCursor (pasteMasks[result - 17] | kPasteAdditive), 16 left unused between the two runs and the undo pair's 14/15 still last), and the undo pair (undoStep / redoStep std::function members the editor injects so the menu's Undo and Redo, ids 14 and 15 after the paste submenu's leaves and greyed out by the plug-in's own counts, walk the same line Ctrl+Z and Ctrl+Y walk and refresh every panel rather than only the grid, and cancelPendingEdit reporting whether a numeric buffer was half typed and closing it the way Esc does, which the Ctrl+Z and Alt+Z branches and the menu's Undo consult before stepping so one press is one effect, and its keyPressed now answering the Alt pair itself through answerUndoRedoKey, with cancelPendingEdit as the closing hook so a half-typed number still closes on that press rather than being walked over, while any other letter held with Alt is still handed up rather than typed as a note at the cursor), and a focusRescue member it calls at the end of the cell menu's callback, whether the press picked an item, a greyed one or dismissed the popup with Escape, and the Alt clipboard steps answered through the 4-argument answerClipboardKey with copyStep / pasteStep / cutStep members of the same shape the editor injects, placed ahead of the hand-up that keeps other Alt letters out of the tracker's own key entry, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor next to copying, pasting or cutting, and the Alt+S slice answered the same way through answerSliceKey with a sliceStep member of the same shape the editor injects, this very letter being the note entry's C sharp, so the slice is claimed before the key entry can leave a C sharp at the cursor whether or not there was a clip to split, and the command letters: the A and the B branch sitting in the path that owns a value field's first character, so either letter claims the command number as its own command value while a number that merely has an a or a b in it keeps its own spelling and the CC 10 and CC 11 a column asks for are typed as their own 10 and 11, a letter typed after a run of digits claiming the field and dropping that number rather than reading it, the pair painted in theme::cmdMacro with every value drawn in the view's one decimal spelling, the A a row carries from above drawn dim through carriedCommandNumber beside the bright argument a row below writes, and clampValue's command number capped at kCcTop rather than at the call, both letters' claim writing the command value it names straight into the cell rather than as a number that gets clamped there, so a typed digit run and an interpolation ramp can only reach a plain CC and typing 144 into the field gives the highest CC rather than inventing a letter - the letters being the only route to a command kind - beside each letter leaving its own argument behind, a call at the release id 0 and a bend at the wheel's centre kBendCentreVal so a row naming only the letter bends nowhere rather than locking the wheel to its bottom, and the bend pair painted in the lilac theme::cmdOther that was going unused with that argument drawn in the view's one decimal spelling like every other value and that letter carried down a column drawn dim like the call's is beside the bright argument a row below writes, the command cell now splitting its two halves by their own glyph counts rather than halving the whole cell and each half taking its own pad, with fieldGlyphs giving the number's half three glyphs and the argument's half three more in the view's one decimal spelling so a macro id of 100, a bend's point above 99 and an arpeggiator release's OFF all keep their last glyph while the instrument's half keeps room for its dash and two digits, and maxDigitsFor taking the three decimal digits at the keyboard everywhere so no letter can be invented by a number's spelling, valueString and instString drawing every value decimal with no setting and no row offering another spelling, the display's carry table having grown the argument beside the command number through the new file-local commandLeavesCarry so a row under a command that named one draws the carried letter and the carried argument both dim rather than the letter alone over a placeholder, and that same helper deciding carriedCommandNumber as well so the letter A with the argument 0 releases and leaves the column under it carrying neither a letter nor an argument while the value cell spells that release OFF rather than a bare 0.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source (the drag image is the item's cell), grid preview, rename, and the Alt pair answered in its keyPressed, which is what a press aimed at undo needs while the pool's own drag is still held by the DragAndDropContainer and has made that drag modal, and a focusRescue member it calls at the end of its own menu and of the rename alert, plus on the release of a drag, which ends whether or not the item ever landed on a target, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, since the same reason that made the undo pair unreachable gives the clipboard's steps to the host's own clipboard and cut as well, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects, so an Alt+S is heard even while the pool's drag is still modal and the editor is never offered the press at all, and its grid preview's command tick now painted lilac for the pitch bend beside the teal a plain CC and the orange a call keeps.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose as one semitone amount field (IncDecButtons slider with an editable text box, whole semitones 1-48 opening at 12) plus arrow direction buttons whose labels arrowUpGlyph/arrowDownGlyph build as explicit UTF-8, remap (source dropdown All/-0..-F -> target dropdown -0..-F), cell scope (cellInScope answers whether a cell is in reach and applyToCells walks the cells, so the wider scopes name whole patterns and only the "Selection only" scope consults the tracker through the isCellSelected hook), interpolation with its single field dropdown (Note/Instrument/Volume/Pan/CC number/CC value, ids following the InterpField enumerators, the mask being the selection so there is no channel dropdown any more), the getCursorChannel hook still wired but unread, the scope box defaulting to "Selection only", and the Alt pair of undo and redo answered in its keyPressed, as is the Alt clipboard steps through copyStep / pasteStep / cutStep members the editor injects, so an Alt+C / Alt+V / Alt+X aimed at the cells is heard while a menu belongs to this panel, and so is the Alt+S slice, answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls, including the Volume column CC and Pan column CC sliders and the Undo steps row (undoStepsSlider, 0-200 defaulting to 50, sitting with the input prefs ahead of the CC pair and pushed back by refresh() so an undo that moved the depth shows in the row), and the Alt pair answered in its keyPressed so a press aimed at undo is heard while a menu belongs to this panel, as is the Alt clipboard steps through the same copyStep / pasteStep / cutStep members the editor injects, and the Alt+S slice through a sliceStep member of the same shape answered by answerSliceKey, since a popup opened over this panel is what routes the press here rather than the editor, and the "Paste as unique pattern by default" row dropped along with the Settings member it read and the property it saved, which leaves the panel counting one row fewer and its refresh re-reading the rest in their order.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose as one semitone amount field (IncDecButtons slider with an editable text box, whole semitones 1-48 opening at 12) plus arrow direction buttons whose labels arrowUpGlyph/arrowDownGlyph build as explicit UTF-8, remap (source dropdown All/-0..-15 -> target dropdown -0..-15, the labels being the decimal ones the tracker's instrument column writes them in), cell scope (cellInScope answers whether a cell is in reach and applyToCells walks the cells, so the wider scopes name whole patterns and only the "Selection only" scope consults the tracker through the isCellSelected hook), interpolation with its single field dropdown (Note/Instrument/Volume/Pan/CC number/CC value, ids following the InterpField enumerators, the mask being the selection so there is no channel dropdown any more), the getCursorChannel hook still wired but unread, the scope box defaulting to "Selection only", and the Alt pair of undo and redo answered in its keyPressed, as is the Alt clipboard steps through copyStep / pasteStep / cutStep members the editor injects, so an Alt+C / Alt+V / Alt+X aimed at the cells is heard while a menu belongs to this panel, and so is the Alt+S slice, answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls, the row that used to switch the values between hex and decimal having been dropped outright along with its toggle member, its setting and its saved property, so every value the tab moves is decimal and its refresh guard now starts at the mid-row toggle, including the Volume column CC and Pan column CC sliders and the Undo steps row (undoStepsSlider, 0-200 defaulting to 50, sitting with the input prefs ahead of the CC pair and pushed back by refresh() so an undo that moved the depth shows in the row), and the Alt pair answered in its keyPressed so a press aimed at undo is heard while a menu belongs to this panel, as is the Alt clipboard steps through the same copyStep / pasteStep / cutStep members the editor injects, and the Alt+S slice through a sliceStep member of the same shape answered by answerSliceKey, since a popup opened over this panel is what routes the press here rather than the editor, and the "Paste as unique pattern by default" row dropped along with the Settings member it read and the property it saved, which leaves the panel counting one row fewer and its refresh re-reading the rest in their order.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: the arpeggiator macros the Command column's letter A calls, rewritten from the old name/kind/two-parameter editor: one card per macro that exists, named by the call a row writes (A 1) in orange, the tab painting nothing above the cards but its title and the one MACRO / LENGTH / LOOPED / STEPS label row at y 48 rather than the four dim caption lines that used to sit between the title and the cards, kContentTop taking them up from 92 to 70, since what the rules are belongs to the Commands map and to the README rather than to something a scrolled list has to be read under; each card's control line holding a LENGTH field, the plug-in's usual IncDecButtons Slider over 1..kMaxArpSteps with an editable text box, and a LOOPED ToggleButton, and the macro's own steps drawn beneath it 16 to a line as their signed semitones off the base note, arpStepText drawing -- for kArpEmptyStep, +N for a positive one and 0 for the base note, -- being the step that sounds nothing and sustains the one before, and a newly defined macro arriving with eight of them that all sound nothing rather than with the ramp kArpDefaultJump used to name; the step cursor (stepId / stepIndex) the arrows and a click on a drawn step move is what enters a step at the keyboard, and a step's number now living only in stepText until commitStepText lands it rather than being written by every press, so a sign and up to three digits accumulate into one value, the cell the cursor sits on draws that number while it lasts rather than the step's own value, commitStepText fires from keyPressed only when the incoming press is neither a further character of that number nor Escape, which is what lets setStepCursor, the arrows and a click of another card close it as well, one leading sign being kept with a repeat of it changing nothing, the other sign moving the number rather than trailing it and one typed after the digits it belongs to leading them, a number that is nothing but a sign meaning the base note, the value landing clamped to ±127 as one point of the undo line rather than one per keystroke and Escape dropping it altogether rather than leaving half of it behind; the bottom of the panel holding + Add macro (defineArp at firstUndefArpId) and - Remove selected rather than - Remove last, that one clearing the macro the step cursor sits on, falling back to lastDefArpId while there is no cursor yet and taking the cursor off the macro it cleared before rebuild parks it on another one, its bounds widened to 132 so the longer label fits, so the ids above and below a cleared macro keep naming the same macros; the vertical scrollbar the tab draws on its right edge having its geometry in one set of helpers, scrollbarX at getWidth() - 10, thumbHeight, thumbTop and scrollToPointer, so paint and the drag cannot drift apart and the thumb a drag centres on is the one that is visible, with mouseDown answering a pointer in that column ahead of the card hit-test loop, keeping the grab in draggingThumb through mouseDrag while mouseUp clears it - JUCE spelling that callback mouseDrag rather than the mouseDragged the panel first declared, an override of which does not compile - and mouseWheelMove still turning the list beside it, which is what the mouse alone needs where a host gives the plug-in no wheel, and a public getScrollY () so a test can read the scroll back rather than only see it painted, beside a public stepBand (which) naming a step's group as its index over the Settings row "Subticks per row" - six at the default - named the same way rather than by the 16 cells a drawn line wraps at, the strip's paint shading every second group at 0.58 alpha of whatever colour that step's own state asks for, theme::cmdMacro for a step the macro holds or the cursor pending, else theme::noteOff, which is what makes a macro longer than the row that called it read as row spans rather than as one run of numbers and is what the accessor is public for, so UiTest reads the boundary at steps 0, 5, 6 and 12 rather than a pixel; rebuild / syncValues / cardHeight / blockTop / contentHeight / clampScroll laying the cards out against the scrollY that wheel and the drawn thumb move, and every change the panel makes answering through onModelChanged so the undo line holds a point for a drag of a length field, a click of the looped tick, a typed step and a cleared one as it does for the two buttons, which is what lets Ctrl+Z and Alt+Z take each of them back rather than stepping over them in silence; both Alt pairs answered in its keyPressed, the undo one and the clipboard one through copyStep / pasteStep / cutStep members of the same shape answered by the 4-argument answerClipboardKey, since the macros panel's own context menu is what routes a press to it rather than to the editor, and the Alt+S slice answered after the clipboard one through answerSliceKey with a sliceStep member of the same shape.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/AltShortcutKeys.h: the shared body every panel answers the Alt pairs the hosts leave free with, renamed from UndoRedoKeys.h once it grew the second pair (the references to that name above are this header under its old name). matchUndoRedoKey / answerUndoRedoKey as before (reading Alt+Z / Alt+Y over both the key code and the printed character and refusing Command, Ctrl and Shift so the whole Alt+Shift family stays the host's, claiming the press only when that panel holds the step, and closePending naming the half-typed numeric buffer the tracker closes on the press before stepping); matchClipboardKey / answerClipboardKey the new steps added to it (a ClipboardKey of none, copy, paste or cut, the letters read the same two ways, Alt+C copying what the tracker holds selected, Alt+V pasting at the cursor with everything and Alt+X cutting, which is that copy followed by emptying exactly the cells it took so the paste after it moves them, and the answer claiming the press whenever that panel holds the step rather than only when the step did something, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor, next to copying, and a paste answered twice would walk the undo line twice); matchSliceKey / answerSliceKey the clip slice at the playhead added beside them, the s read the same two ways over the key code and the printed character, an Alt+Shift or Ctrl spelling refused so the whole Alt+Shift family and the host's own save stay the host's, and the press claimed whenever the panel holds the slice rather than only when the slice did something, since s is one of the note-entry letters and an Alt held s that fell through would type a C sharp at the cursor beside splitting a clip, while there is no Ctrl spelling of the slice left for a host and the plug-in to disagree about; matchSliceKey / answerSliceKey the clip slice at the playhead added beside them, the s read the same two ways over the key code and the printed character, Alt+Shift and Ctrl refused so the whole Alt+Shift family and the host's own save stay its, and the press claimed whenever the panel holds the slice rather than only when the slice did something, since s is one of the note-entry letters and an Alt held s that fell through would type a C sharp at the cursor beside splitting a clip, and there is no Ctrl spelling of the slice left in any panel for a host and the plug-in to disagree about.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel, unchanged this round: the Command column's three kinds already had the teal of theme::cmdCC and the orange of theme::cmdMacro, and theme::cmdOther, the lilac that had been going unused, is what the pitch bend's letter, its decimal argument and its carried spelling are now painted in.
@@ -2409,7 +2517,7 @@ dropped with the note, its steps measured off the note that row was releasing wh
 are counted and its release read through the RawEvent order as a note-off arriving ahead of that
 run's first note-on at one sample, and the release leaving the column carrying no call so a macro
 an argument written further down would have switched to is never played and the run above stopped
-rather than restarted below it, an empty step, the octave snap at both ends of the keyboard, the clip end closing a run that was still looping and the macro state round-tripping its id, its loop flag and all 64 signed steps with an older state's MACROS section dropped outright and an older row's command 140 landing on the letter A keeping its old argument, and an undo read taking an earlier state's steps, loop flag and absence of a macro back rather than what the macro still held; UiTest drives the letter's entry, its hex 0A neighbour and an argument-only row under a carried call through the tracker's own keyPressed, the letter and the
+rather than restarted below it, an empty step, the octave snap at both ends of the keyboard, the clip end closing a run that was still looping and the macro state round-tripping its id, its loop flag and all 64 signed steps with an older state's MACROS section dropped outright and an older row's command 140 landing on the letter A keeping its old argument, and an undo read taking an earlier state's steps, loop flag and absence of a macro back rather than what the macro still held; UiTest drives the letter's entry, a 10 typed as its own three decimal digits, the A typed after them claiming the field and dropping that number, and an argument-only row under a carried call through the tracker's own keyPressed, the letter and the
 carried argument both drawn dim under a row that named neither, that release drawn as OFF and the
 column read through the tracker's own carriedCommandNumber as still carrying the call above it and
 nothing at all under it - that read written into the pattern through the model and put back
@@ -2423,7 +2531,16 @@ A OFF with nothing carried under it and --arp-note-off=ROW putting the column's 
 0 at that row so a shot can show a call beside a === rather than only beside a note or an empty
 cell, so a shot can show a step strip of its own length, a tab whose cards do not fit and the
 scrollbar and thumb it draws there, and a channel's orange A with its decimal id rather than only a
-ramp the model no longer has; the bend at the layer below a host, its RawEvent growing a kind for the pitch wheel with the position read back as its pitch so a check can name the order the host is handed the pair in, and its ordering checks finding events by kind rather than assuming the first event of a block is the row's, since the host's own re-arm sends sixteen all-notes-offs ahead of them; a row that names the letter and an argument moving the wheel once to where that argument is read in steps of 128 and the note that same row strikes reaching the host after the wheel at the same block offset, a wheel moved once down a column not being straightened by anything before the note-off that also releases the note the channel was holding, argument-only rows under a carried letter moving that same wheel in turn, a note-off returning it to the centre and a further argument putting the bend back, a row that bends without striking keeping the wheel bent through the clip's own rows with only that clip's end taking it back while its instrument names the channel both the move and the return reach, and the read sending an older state's macro calls at both ends of the 128-143 range to the letter A rather than to the new bend value above it; UiTest driving the claim and the centre argument it leaves beside it, the argument typed next naming a point and playing where that point is read, an argument-only row under a carried letter staying implicit and moving the same wheel, the hex 0B neighbour still typing CC 11, a typed 144 giving the highest CC rather than the letter, the claim being one point of the undo line walked back and forward through the editor's Ctrl+Z and Ctrl+Y and a further sub-block taking the claim over a row that already held an argument, its undo checks reading the cell back through the song rather than through a held reference since restoring a state replaces the pattern objects, its writes kept at rows 20..23 so they do not grow the front pattern's row capacity the shortening checks below read, and the section ending with a Home press so the fixed-y clicks of the later sections land on the rows they name rather than on rows the view had scrolled past; and EditorShot gaining --bend=ROW / --bend-arg=VAL so one tracker shot can show the lilac B and its decimal point on the wheel beside the orange A and its macro id).
+ramp the model no longer has; the bend at the layer below a host, its RawEvent growing a kind for the pitch wheel with the position read back as its pitch so a check can name the order the host is handed the pair in, and its ordering checks finding events by kind rather than assuming the first event of a block is the row's, since the host's own re-arm sends sixteen all-notes-offs ahead of them; a row that names the letter and an argument moving the wheel once to where that argument is read in steps of 128 and the note that same row strikes reaching the host after the wheel at the same block offset, a wheel moved once down a column not being straightened by anything before the note-off that also releases the note the channel was holding, argument-only rows under a carried letter moving that same wheel in turn, a note-off returning it to the centre and a further argument putting the bend back, a row that bends without striking keeping the wheel bent through the clip's own rows with only that clip's end taking it back while its instrument names the channel both the move and the return reach, and the read sending an older state's macro calls at both ends of the 128-143 range to the letter A rather than to the new bend value above it; UiTest driving the claim and the centre argument it leaves beside it, the argument typed next naming a point and playing where that point is read, an argument-only row under a carried letter staying implicit and moving the same wheel, an 11 typed as its own three decimal digits still giving CC 11, a B typed after them claiming the field and dropping the number, a typed 144 giving the highest CC rather than the letter, the claim being one point of the undo line walked back and forward through the editor's Ctrl+Z and Ctrl+Y and a further sub-block taking the claim over a row that already held an argument, its undo checks reading the cell back through the song rather than through a held reference since restoring a state replaces the pattern objects, its writes kept at rows 20..23 so they do not grow the front pattern's row capacity the shortening checks below read, and the section ending with a Home press so the fixed-y clicks of the later sections land on the rows they name rather than on rows the view had scrolled past; and EditorShot gaining --bend=ROW / --bend-arg=VAL so one tracker shot can show the lilac B and its decimal point on the wheel beside the orange A and its macro id).
+This round they moved with the values' one spelling: CoreTest's state round trip writes the mid-row
+switch and reads it back rather than a hex one, its older-state fixture putting that dropped hex
+property back into the SETTINGS child to show it reloads and does not come back; UiTest drives the
+three decimal digits a command field takes, an A typed after a run of digits claiming the field and
+dropping them at one row and a B doing the same at another, the Settings tab exposing no toggle under that old
+name, and the Settings tab's Snap to grid row standing in for the row that used to switch the
+spelling on one undoable action and back on another - each of them still one point of the undo line,
+which is what keeps the undo caps the later sections ride where they were; and EditorShot lost the
+--hex flag its usage header and parse block used to carry.
 /media/data2/GameDev/Plugins/ReTrektor/JUCE: vendored framework.
 Important Context
 Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) (build dir currently configured and passing).
@@ -2437,7 +2554,46 @@ than the live song, so a test writing at the model layer hands it over with proc
 and trimUndoLine caps the undo line at the Settings' undoSteps by erasing the oldest states, so the
 depth checks that ride that cap move with every edit made upstream of them.
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git (newest first): 6a7c41e an arpeggiator call answered at a row holding the column's note-off, an
+Git (newest first): d978758 the values' one decimal spelling and the hex display option gone
+outright, the Settings tab, the drawing, the typing and the saved state agreeing that there is
+nothing left to choose: SettingsPanel stops adding the "Hexadecimal values" toggle and loses its
+hexToggle member with its refresh guard moving onto the mid-row toggle that is now the tab's first
+toggle, which is what leaves the tab one row shorter and opening at "Ignore mid-row start" rather
+than at a spelling row; Settings loses its hexDisplay member, the SETTINGS block neither writes
+nor reads that property, and an older state that still spells the choice reloads with nothing to
+read it into, leaves its pattern and clip counts alone and does not carry it on, the same one-way
+read the dropped paste row's property already showed and the two now checked in one fixture, which
+is what took Smoke's serialised state from 2396 to 2376 bytes; valueString and instString lost
+their hex branch rather than gaining a flag, valueString padding a shorter decimal number with
+spaces so its digits land in the same columns as a longer one's, and maxDigitsFor and fieldGlyphs
+naming one spelling - the instrument's two digits with room for the column's dash beside them and
+volume, pan, the command number and the command argument three glyphs each - so the release's OFF,
+a macro id of 100 and a bend's point above 99 keep their last glyph in the cell rather than in one
+spelling's favour, and the command cell's two halves still split by their own glyph counts since
+their pads differ rather than by a wider total being halved, the number's half taking a two-pixel
+inner trim and the argument's the wider kFieldPad; isHexDigitChar is gone and both numeric-key
+paths take digits only, so the CC 10 and CC 11 a column asks for are typed 10 and 11 and a letter
+typed after a run of digits claims the field with that number dropped rather than read, the
+command letters' own claim at a value field's first character being the only route to a command
+kind and clampValue still capping a typed number at kCcTop, the row gutter and every value cell
+drawing decimal only and the tools panel's remap dropdowns labelling their instruments -0 .. -15
+like the tracker's column does; CoreTest 265 checks, +1, reading the mid-row switch back rather
+than a hex one and the older state's two dropped properties, UiTest 614, +5, driving the three
+decimal digits a command field takes, an A typed last of a run of digits claiming it and dropping
+them at one row and a B doing the same at another, the dropdown labels and the Settings tab
+exposing no toggle under that old name - its Settings-section and undo-reverts-Settings undoable
+actions spending the tab's Snap to grid row instead of the row that used to switch the spelling,
+each of them still exactly one point of the undo line, which is what keeps the undo saturation the
+later sections ride at its cap where it was rather than moving it by one - and Smoke unchanged at
+13; EditorShot losing --hex, its usage header's mention of it and the parse block that read it,
+along with the setting it wrote; the bundle refreshed by rsync --checksum to sha256
+bd6de09edc6280312122738ec87630bb8cea91a64841b4a1f2c3b7078e6a7537 matching the built artefact and
+still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation, and
+the shots reading the Settings tab's twelve rows with the row gone above it rather than greyed, the
+release drawn A OFF with the rows under it carrying nothing, a macro id of 100 keeping all three
+glyphs over its dim carried pair, the Macros tab's 12-step strip still in two shaded bands of six
+and the remap dropdown opening at All -> -0; 6a7c41e an arpeggiator call answered at a row holding
+the column's note-off, an
 arpeggiator release leaving the column calling nothing and the view agreeing with both: processRow's
 note-off branch stopped walking the row away with a continue after releasing and clearing columnNote,
 so a command written beside a === never ran, and now computes the row's two facts up front, noteOff
