@@ -474,6 +474,13 @@ int main()
         // the run the row names plays over the row and the ones below it, a
         // sixth of a row per step in 64-sample blocks the way a host hands them
         {
+            // a fresh macro arrives holding steps that sound nothing, so this
+            // test says the shape it wants the run to step through
+            for (int i = 0; i < rtr::kArpDefaultSteps; ++i)
+                song.setArpStep (1, i, (std::int8_t) (i * 4));
+
+            proc.syncPlaybackModel (); // the hand-written steps reach the engine
+
             std::vector<int> ons;
 
             for (int i = 0; i < 140; ++i)
@@ -521,23 +528,47 @@ int main()
         check (song.arpDefined (2) && song.firstUndefArpId() == 3,
                "a defined macro brings the next free id up and takes that one further");
         check (song.peekArp (2) != nullptr && song.peekArp (2)->length() == rtr::kArpDefaultSteps
-                   && ! song.arpLooped (2),
-               "and it comes in as the default ramp, not looped");
+                   && song.peekArp (2)->steps[0] == rtr::kArpEmptyStep && ! song.arpLooped (2),
+               "and it comes in with steps that sound nothing, not looped");
 
-        if (auto* remove = findButton (*macros, "- Remove last"))
+        if (auto* remove = findButton (*macros, "- Remove selected"))
             remove->onClick();
 
         check (! song.arpDefined (2) && song.lastDefArpId() == 1,
-               "clearing takes the highest defined id back and leaves the ones below naming the same macros");
+               "clearing the macro the step cursor was left on takes it back and leaves the ones below naming the same macros");
 
         // the drawn steps are entered at the cursor the arrows and the buttons
         // leave on, so a typed sign and digits land on one step of that macro
         const int depthBefore = proc.getUndoDepth();
+
+        // a number is built up in the cell before any of it is written, so a
+        // digit typed and then dropped with Escape writes nothing and keeps the
+        // undo line alone: the press that closes the number is what lands, and
+        // it lands once
         macros->keyPressed (juce::KeyPress ('4', juce::ModifierKeys(), '4'));
+        check (song.peekArp (1) != nullptr && song.peekArp (1)->steps[0] == 0,
+               "a digit typed into the step the cursor sits on writes nothing until the number is closed");
+        check (proc.getUndoDepth() == depthBefore,
+               "and the number still being typed has no point of its own on the undo line");
+
+        macros->keyPressed (juce::KeyPress (juce::KeyPress::escapeKey, juce::ModifierKeys(), 0));
+        check (song.peekArp (1) != nullptr && song.peekArp (1)->steps[0] == 0,
+               "and Escape drops the number being typed rather than writing half of it");
+
+        // a step's number is typed one character at a time, so a sign and more
+        // than one digit reach one step rather than only its last figure
+        macros->keyPressed (juce::KeyPress ('-', juce::ModifierKeys(), '-'));
+        macros->keyPressed (juce::KeyPress ('2', juce::ModifierKeys(), '2'));
+        macros->keyPressed (juce::KeyPress ('5', juce::ModifierKeys(), '5'));
+        check (song.peekArp (1) != nullptr && song.peekArp (1)->steps[0] == 0,
+               "a sign and three digits still being typed keep the step's own value");
+        check (proc.getUndoDepth() == depthBefore,
+               "and none of those presses has a point of its own on the line");
+
         macros->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
-        check (song.peekArp (1) != nullptr && song.peekArp (1)->steps[0] == 4,
-               "typing 4 into the step the cursor sits on writes it into the macro");
-        check (proc.getUndoDepth() == depthBefore + 1, "and typing a step is one undoable action");
+        check (song.peekArp (1) != nullptr && song.peekArp (1)->steps[0] == -25,
+               "the press that closes them lands the whole number on the step the cursor sits on");
+        check (proc.getUndoDepth() == depthBefore + 1, "and typing that number is one undoable action");
 
         // the length field rewrites the macro the way the row does: the steps
         // already entered stay, growing pads with the base note itself
@@ -545,13 +576,13 @@ int main()
         {
             lengths[0]->setValue (3.0, juce::sendNotificationSync);
             check (song.peekArp (1) != nullptr && song.peekArp (1)->length() == 3
-                       && song.peekArp (1)->steps[0] == 4,
+                       && song.peekArp (1)->steps[0] == -25,
                    "shortening keeps the steps still inside it rather than shifting them");
 
             lengths[0]->setValue (8.0, juce::sendNotificationSync);
             check (song.peekArp (1) != nullptr && song.peekArp (1)->length() == 8
-                       && song.peekArp (1)->steps[7] == 0,
-                   "and growing back adds the base note at the end, so the steps already entered keep their places");
+                       && song.peekArp (1)->steps[7] == rtr::kArpEmptyStep,
+                   "and growing back adds steps that sound nothing, so the steps already entered keep their places");
         }
 
         check (findToggle (*macros, "LOOPED") != nullptr
@@ -585,7 +616,7 @@ int main()
 
             check (proc.undo() && song.peekArp (1) != nullptr && song.peekArp (1)->length() == 8,
                    "and Ctrl+Z takes the length back to what the earlier state held");
-            check (song.peekArp (1)->steps[7] == 0,
+            check (song.peekArp (1)->steps[7] == rtr::kArpEmptyStep,
                    "with the steps that state held rather than the ones the macro had kept");
 
             check (proc.redo() && song.peekArp (1) != nullptr && song.peekArp (1)->length() == 4,
@@ -1667,6 +1698,85 @@ int main()
             check (tracker->getCursorChannel() == chBefore && chBefore == 0,
                    "the narrow pattern has no strip to drag, so the channel is unchanged");
         }
+    }
+
+    //== The Macros tab's vertical scrollbar =================================
+    {
+        // the tab has to be the one showing before its own strip can be grabbed,
+        // which is what a host does by clicking the tab's name
+        if (auto* tab = findButton (*editor, "MACROS"))
+            tab->onClick();
+
+        // the fill and the scrolls are model writes and view changes rather than
+        // edits, which is what keeps the undo line the sections below lean on the
+        // same length it was at while this one is about
+        const int depthBeforeScroll = proc.getUndoDepth();
+
+        for (int id = 2; id <= 25; ++id)
+            song.defineArp (id);
+
+        macros->refresh();
+
+        check (song.arpDefined (25) && song.lastDefArpId() == 25 && song.firstUndefArpId() == 26,
+               "the tab holds as many macros as a row has ids to name");
+
+        std::vector<juce::Slider*> lens;
+        collectSliders (*macros, lens);
+        check (lens.size() == 25, "each macro the song defines gets its own length field");
+
+        const int pw = macros->getWidth();
+        const int ph = macros->getHeight();
+
+        check (lens.back()->isVisible() == false && lens[0]->isVisible(),
+               "with nothing scrolled the cards past the panel's foot are already scrolled out of view");
+
+        std::cout << "  macros panel is " << pw << "x" << ph
+                  << " with 25 cards of 50px each\n";
+
+        // the wheel has moved the list before, which is what the user could do
+        juce::MouseWheelDetails wheelDown { 0.0f, -1.0f, false, false, false };
+        macros->mouseWheelMove (makeEvent (*macros, { (float) (pw - 8), (float) (ph - 60) }), wheelDown);
+        check (macros->getScrollY() == 40, "turning the wheel moves the list by the amount it rolled");
+
+        // the strip's own column is grabbed rather than turned: a click near its
+        // bottom puts the drawn thumb at the pointer, which takes the list to
+        // full scroll and leaves the first macro out of view
+        macros->mouseDown (makeEvent (*macros, { (float) (pw - 8), (float) (ph - 42) }));
+        macros->mouseUp (makeEvent (*macros, { (float) (pw - 8), (float) (ph - 42) }));
+        check (macros->getScrollY() > 40, "a click of the strip's column jumps the thumb there rather than rolling a fixed amount");
+        check (lens[0]->isVisible() == false, "and the first macro is scrolled out while the last is on view");
+
+        // holding that grab and moving the mouse carries the thumb along, which
+        // is what lets the list be dragged to a chosen place by mouse
+        macros->mouseDown (makeEvent (*macros, { (float) (pw - 8), (float) (ph - 42) }));
+        macros->mouseDrag (makeEvent (*macros, { (float) (pw - 8), 82.0f }));
+        macros->mouseUp (makeEvent (*macros, { (float) (pw - 8), 82.0f }));
+        check (macros->getScrollY() == 0, "dragging the thumb back to the top of the track takes the list back to its head");
+        check (lens[0]->isVisible() && lens[1]->isVisible(), "and the macros at the head of the list are on view again");
+
+        // a drag that started away from the strip is a drag of a card, which
+        // picks a step cursor up rather than moving the list
+        macros->mouseDown (makeEvent (*macros, { (float) (pw / 2), 120.0f }));
+        macros->mouseDrag (makeEvent (*macros, { (float) (pw / 2), 300.0f }));
+        macros->mouseUp (makeEvent (*macros, { (float) (pw / 2), 300.0f }));
+        check (macros->getScrollY() == 0, "a drag of a card rather than of the strip leaves the list where it was");
+
+        for (int id = 2; id <= 25; ++id)
+            song.clearArp (id);
+
+        macros->refresh();
+
+        check (song.lastDefArpId() == 1 && song.firstUndefArpId() == 2,
+               "taking the macros back leaves the default one and nothing else a row can name");
+        check (lens[0]->isVisible() && lens.back()->isVisible() == false,
+               "and the fields the fill had built for the macros now gone keep their room but stay hidden");
+        check (macros->getScrollY() == 0, "with the list back to what fits, nothing is scrolled any more");
+        check (proc.getUndoDepth() == depthBeforeScroll,
+               "filling the tab and dragging its scroll are a fixture and a view rather than edits, so the undo line is left the same length");
+
+        // the tab the sections below click through is the tracker's again
+        if (auto* tab = findButton (*editor, "TRACKER"))
+            tab->onClick();
     }
 
     //== Settings ============================================================

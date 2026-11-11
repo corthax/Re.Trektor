@@ -24,6 +24,15 @@ void check (bool ok, const juce::String& what)
         ++failures;
 }
 
+/** Steps a playback test listens for: a macro a row calls now arrives holding
+    steps that sound nothing, so a fixture that wants a shape in one says for
+    itself which offsets it is asking for rather than trusting a built ramp. */
+void seedSteps (Song& s, int id, int jump)
+{
+    for (int i = 0; i < kArpDefaultSteps; ++i)
+        s.setArpStep (id, i, (std::int8_t) (i * jump));
+}
+
 struct NoteEvent
 {
     int offset;
@@ -263,8 +272,8 @@ int main()
         Song s;
         check (s.arpDefined (1) && ! s.arpLooped (1), "the default song defines arpeggiator id 1, not looped");
         const auto* m1 = s.peekArp (1);
-        check (m1 != nullptr && m1->length() == kArpDefaultSteps && m1->steps[7] == 7 * kArpDefaultJump,
-               "the default macro holds eight steps a fourth of an octave apart");
+        check (m1 != nullptr && m1->length() == kArpDefaultSteps && m1->steps[7] == kArpEmptyStep,
+               "a newly defined macro holds eight steps that sound nothing, which is what a call of it has to have entered into it");
         check (s.firstUndefArpId() == 2 && s.lastDefArpId() == 1,
                "the lowest free id and the highest defined one name the same gap");
         check (s.findArp (127) != nullptr && s.arps.size() == 127,
@@ -273,7 +282,7 @@ int main()
                "id 0 is the release call and there is no macro entry above the limit");
     }
     {
-        std::cout << "Arpeggiator playback (default ramp spilling past its row)\n";
+        std::cout << "Arpeggiator playback (a stepped macro spilling past its row)\n";
         Harness h;
         auto& p = h.song.patterns[0];
         p.setLength (16);
@@ -284,6 +293,10 @@ int main()
         c0.vol = 100;
         c0.cmd = kArpCmd; // A
         c0.cmdVal = 1;
+
+        // a macro is defined with steps that sound nothing, so the test says what
+        // shape it wants the run to step through
+        seedSteps (h.song, 1, 4);
 
         // a row is 6000 samples at these sizes and a step 1000: eight steps reach
         // 7000, so the two past the row's end wait for the blocks below it
@@ -312,6 +325,7 @@ int main()
         c0.vol = 100;
         c0.cmd = kArpCmd;
         c0.cmdVal = 1;
+        seedSteps (h.song, 1, 4);
         h.song.setArpLooped (1, true);
 
         // 20 blocks reach 10240 samples: eleven steps fit before the block edge
@@ -337,6 +351,7 @@ int main()
         c0.vol = 100;
         c0.cmd = kArpCmd;
         c0.cmdVal = 1;
+        seedSteps (h.song, 1, 4);
 
         h.runBlocks (30);
 
@@ -360,6 +375,7 @@ int main()
         c0.vol = 100;
         c0.cmd = kArpCmd;
         c0.cmdVal = 1;
+        seedSteps (h.song, 1, 4);
 
         h.song.defineArp (2);
         h.song.setArpLength (2, 4);
@@ -394,6 +410,7 @@ int main()
         c0.vol = 100;
         c0.cmd = kArpCmd;
         c0.cmdVal = 1;
+        seedSteps (h.song, 1, 4);
         h.song.setArpLooped (1, true);
 
         p.cell (3, 0).cmdVal = 0; // the carried call with the id 0 argument releases
@@ -511,6 +528,7 @@ int main()
         c0.vol = 100;
         c0.cmd = kArpCmd;
         c0.cmdVal = 1;
+        seedSteps (h.song, 1, 4);
         h.song.setArpLooped (1, true);
 
         h.runBlocks (24); // 12288 samples: the clip end at 12000 sits inside this run
@@ -539,6 +557,8 @@ int main()
 
         check (a.findArp (2) != nullptr && a.findArp (2)->length() == 64 && a.findArp (2)->steps[0] == -7,
                "growing a macro keeps the steps already entered");
+        check (a.findArp (2)->steps[1] == kArpEmptyStep && a.findArp (2)->steps[62] == kArpEmptyStep,
+               "and the steps growing adds sound nothing, so the macro's shape is only ever where it was entered");
 
         Song b;
         b.fromValueTree (a.toValueTree());
@@ -559,7 +579,7 @@ int main()
 
         kept.fromValueTree (juce::ValueTree::fromXml (keptXml));
         check (kept.arpDefined (1) && kept.findArp (1) != nullptr
-                   && kept.findArp (1)->length() == kArpDefaultSteps && kept.findArp (1)->steps[0] == 0,
+                   && kept.findArp (1)->length() == kArpDefaultSteps && kept.findArp (1)->steps[0] == kArpEmptyStep,
                "an earlier state's steps replace the ones the macro had kept rather than being added behind them");
         check (! kept.arpLooped (1), "and the loop flag reloads as the state has it, unset");
         check (! kept.arpDefined (2) && kept.lastDefArpId() == 1,
@@ -587,7 +607,7 @@ int main()
         g.clearArp (1);
         check (! g.arpDefined (1), "clearing a macro leaves it undefined, so no row can call it");
         g.defineArp (1);
-        check (g.arpDefined (1) && ! g.arpLooped (1), "defining it again restores the default ramp, not looped");
+        check (g.arpDefined (1) && ! g.arpLooped (1), "defining it again restores eight steps that sound nothing, not looped");
         g.setArpLength (1, 100);
         check (g.findArp (1)->length() == kMaxArpSteps, "asking past the step limit gives the limit");
         g.setArpLength (1, 0);

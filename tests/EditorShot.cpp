@@ -7,12 +7,15 @@
            [--click-timeline=PCT] [--hide=0v1c] [--expand-pool] [--hex]
            [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
            [--undo=N] [--redo=N] [--arp=0,+4,-8] [--arp-loop] [--arp-call=ROW]
-           [--bend=ROW] [--bend-arg=VAL]
+           [--bend=ROW] [--bend-arg=VAL] [--macros=N]
 
     --arp= writes signed semitone steps into arpeggiator id 1, so a Macros-tab
-    shot shows a step strip of its own length rather than the default ramp; a
-    step written as a lone dot stays empty, and --arp-loop marks that macro
-    looped so its card shows the looped tick. --arp-call=ROW names an arpeggiator
+    shot shows a step strip of its own length rather than one that is all empty;
+    a step written as a lone dot stays empty, and --arp-loop marks that macro
+    looped so its card shows the looped tick. --macros=N has the song define N
+    macros, ids 1..N, which is what makes a Macros-tab shot long enough that the
+    cards do not fit and the tab has to draw the scrollbar and thumb it offers.
+    --arp-call=ROW names an arpeggiator
     call in tracker channel 0 at that row, which is what paints the command
     column's orange letter A and its decimal id. --bend=ROW names a pitch bend in
     tracker channel 0 at that row, which paints the lilac letter B, and --bend-arg=VAL
@@ -160,6 +163,15 @@ int main (int argc, char** argv)
         if (args[i].startsWith ("--arp-call="))
         {
             arpCallRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    int macrosToDefine = 1; // how many macros to have defined, so a Macros-tab
+    // shot can be asked for a list long enough to need the scrollbar it draws
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--macros="))
+        {
+            macrosToDefine = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
             args.remove (i);
         }
 
@@ -357,6 +369,15 @@ int main (int argc, char** argv)
 
                 song.setArpStep (1, i, value);
             }
+        }
+
+        if (macrosToDefine > 1)
+        {
+            // the ids a row can name, all of them fresh and holding steps that
+            // sound nothing, which is what makes the list long enough that the
+            // cards do not fit and the tab has to draw its scrollbar and thumb
+            for (int id = 2; id <= macrosToDefine; ++id)
+                song.defineArp (id);
         }
 
         p.cell (20, 1).note = 48;

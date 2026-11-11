@@ -12,7 +12,7 @@ namespace
     constexpr int kControlH = 26; // a card's first line, which holds its controls
     constexpr int kStepLineH = 20; // one line of step cells
     constexpr int kCardGap = 4;
-    constexpr int kContentTop = 92; // where the first card starts, below the labels
+    constexpr int kContentTop = 70; // where the first card starts, below the labels
     constexpr int kSide = 20;
     constexpr int kBottom = 40; // the strip holding the two buttons
 
@@ -54,10 +54,14 @@ MacrosPanel::MacrosPanel (ReTrektorAudioProcessor& processor)
 
     removeButton.onClick = [this]
     {
-        // the button clears the highest id that has a macro, which is the last
-        // one a row can call; clearing rather than shrinking keeps the ids below
-        // it pointing at the same macros
-        const int id = song.lastDefArpId();
+        // the button clears the macro the step cursor sits on, which is the one
+        // a click of a card or the arrows last picked out; with no cursor yet it
+        // falls back to the highest one a row can call, keeping the ids below the
+        // cleared one pointing at the same macros
+        int id = stepId;
+
+        if (id <= 0 || ! song.arpDefined (id))
+            id = song.lastDefArpId();
 
         if (id <= 0)
             return;
@@ -65,7 +69,7 @@ MacrosPanel::MacrosPanel (ReTrektorAudioProcessor& processor)
         song.clearArp (id);
 
         if (stepId == id)
-            stepId = song.lastDefArpId();
+            stepId = 0;
 
         rebuild();
 
@@ -212,6 +216,49 @@ void MacrosPanel::clampScroll()
     scrollY = juce::jlimit (0, maxScroll, scrollY);
 }
 
+//==============================================================================
+// the drawn scrollbar, which the mouse is grabbed by as well as turned: its
+// bounds are asked for in one place so a drag answers on exactly what paint
+// draws and the thumb it centres on is the one that is visible
+int MacrosPanel::scrollbarX() const
+{
+    return getWidth() - 10;
+}
+
+int MacrosPanel::thumbHeight() const
+{
+    const int available = juce::jmax (0, getHeight() - kContentTop - kBottom);
+    const int total = contentHeight();
+    const int trackH = juce::jmax (1, available);
+    return juce::jmax (8, trackH * available / juce::jmax (1, total));
+}
+
+int MacrosPanel::thumbTop() const
+{
+    const int available = juce::jmax (0, getHeight() - kContentTop - kBottom);
+    const int total = contentHeight();
+    const int trackH = juce::jmax (1, available);
+    const int thumbH = thumbHeight();
+    return kContentTop + (trackH - thumbH) * scrollY / juce::jmax (1, total - available);
+}
+
+void MacrosPanel::scrollToPointer (int y)
+{
+    const int available = juce::jmax (0, getHeight() - kContentTop - kBottom);
+    const int total = contentHeight();
+    const int trackH = juce::jmax (1, available);
+    const int thumbH = thumbHeight();
+    const int maxScroll = juce::jmax (0, total - available);
+    const int span = juce::jmax (1, trackH - thumbH);
+
+    // the thumb is put under the pointer, its own middle at the pointer's height
+    const int offset = juce::jlimit (0, span, y - thumbH / 2 - kContentTop);
+    scrollY = (int) std::round ((double) offset * (double) maxScroll / (double) span);
+
+    resized();
+    repaint();
+}
+
 int MacrosPanel::prevDefArpId (int id) const
 {
     for (int below = id - 1; below >= 1; --below)
@@ -232,6 +279,11 @@ int MacrosPanel::nextDefArpId (int id) const
 
 void MacrosPanel::setStepCursor (int id, int index)
 {
+    // a number that was still being typed belongs to the step the cursor was on
+    // whatever gesture moves it away, so it closes ahead of the move
+    if (typingStep)
+        commitStepText();
+
     if (id < 1 || ! song.arpDefined (id))
         return;
 
@@ -248,9 +300,13 @@ void MacrosPanel::commitStepText()
 
     if (stepId > 0 && song.arpDefined (stepId))
     {
-        // a lone sign means the base note itself, which is what makes typing
-        // "-" on and then Enter a step of nothing but the note
-        const int value = stepText == "-" || stepText.isEmpty() ? 0 : stepText.getIntValue();
+        // a step that was only given a sign means the base note itself, which is
+        // what makes typing "-" on and then Enter a step of nothing but the note,
+        // and the number a sign and up to three digits typed is read as one value
+        // kept inside the jump the field can hold
+        const bool onlyASign = stepText.isEmpty()
+            || (stepText.length() == 1 && (stepText[0] == '-' || stepText[0] == '+'));
+        const int value = onlyASign ? 0 : stepText.getIntValue();
         song.setArpStep (stepId, stepIndex, (std::int8_t) juce::jlimit (-127, 127, value));
 
         if (onModelChanged)
@@ -264,10 +320,18 @@ void MacrosPanel::commitStepText()
 //==============================================================================
 bool MacrosPanel::keyPressed (const juce::KeyPress& key)
 {
+    const int code = key.getKeyCode();
+    const juce::juce_wchar text = key.getTextCharacter();
+
     // a step that is still half typed belongs to the cursor the press was aimed
     // at whatever the press turns out to be, so it closes before any other
-    // effect a press can have, which is what keeps one press one effect
-    if (typingStep)
+    // effect a press can have: one further character of that step's own number
+    // is the only thing that does not close it, which is what lets a sign and
+    // more than one digit be typed into a step rather than only its last figure
+    const bool anotherStepChar = stepId > 0 && song.arpDefined (stepId)
+        && (text == '-' || text == '+' || (text >= '0' && text <= '9'));
+
+    if (typingStep && ! anotherStepChar && code != juce::KeyPress::escapeKey)
         commitStepText();
 
     // the macros panel answers the Alt pair rather than handing it up, because a
@@ -290,9 +354,6 @@ bool MacrosPanel::keyPressed (const juce::KeyPress& key)
     // one of its menus still finds the slice somewhere
     if (answerSliceKey (key, sliceStep))
         return true;
-
-    const int code = key.getKeyCode();
-    const juce::juce_wchar text = key.getTextCharacter();
 
     //== Step cursor ==========================================================
     // the strip is drawn rather than built out of one control per step, so the
@@ -382,12 +443,34 @@ bool MacrosPanel::keyPressed (const juce::KeyPress& key)
     if (stepId <= 0 || ! song.arpDefined (stepId))
         return false;
 
-    if (text == '-' || (text >= '0' && text <= '9'))
+    if (text == '-' || text == '+' || (text >= '0' && text <= '9'))
     {
-        if (text == '-' && ! stepText.isEmpty())
-            return false; // only a leading sign is a sign
+        // a step's number is typed one character at a time into the cell the
+        // cursor sits on, so a sign and up to three digits build one value:
+        // three of them reach the jump the field can hold, and the sign leads
+        // whatever digits were typed, which is what puts a step below the base
+        // note rather than only taking its last figure
+        if (! typingStep)
+            stepText.clear();
 
-        if (stepText.length() < 4)
+        if (text == '-' || text == '+')
+        {
+            const juce::String sign = juce::String::charToString (text);
+
+            if (stepText.isEmpty())
+                stepText = sign; // the number starts with its sign
+            else if (stepText.startsWithChar (text))
+            {
+                // the sign that was meant is still there, and a repeat of it
+                // changes nothing, which is what keeps a step's number from
+                // losing its sign under a second press of the same key
+            }
+            else if (stepText.startsWithChar ('-') || stepText.startsWithChar ('+'))
+                stepText = sign + stepText.substring (1); // the other side of the base note
+            else
+                stepText = sign + stepText; // a sign typed after digits belongs to them
+        }
+        else if (stepText.length() < 4)
             stepText << juce::String::charToString (text);
 
         typingStep = true;
@@ -412,23 +495,15 @@ void MacrosPanel::paint (juce::Graphics& g)
     g.setFont (theme::uiFont (15.0f, true));
     g.drawText ("Arpeggiator macros", 20, 12, 400, 22, juce::Justification::centredLeft, false);
 
-    g.setColour (theme::textDim);
-    g.setFont (theme::monoFont (10.5f));
-    g.drawText ("Command letter A (command 128) calls a macro and the argument is its id, drawn orange in the tracker.",
-                20, 32, getWidth() - 40, 12, juce::Justification::centredLeft, false);
-    g.drawText ("A macro plays one step per subtick (a row over the Settings row \"Subticks per row\"), and steps past the",
-                20, 44, getWidth() - 40, 12, juce::Justification::centredLeft, false);
-    g.drawText ("row wait for the rows below, so a macro can be longer than one row. A step is signed semitones off the",
-                20, 56, getWidth() - 40, 12, juce::Justification::centredLeft, false);
-    g.drawText ("note, -- sounds nothing and sustains, A 0 releases, a looped macro runs until the clip or column stops it.",
-                20, 68, getWidth() - 40, 12, juce::Justification::centredLeft, false);
-
+    // the tab names only what its own rows hold, since the model's rules are
+    // what the Commands map and the README carry rather than something painted
+    // above the cards
     g.setColour (theme::text);
     g.setFont (theme::monoFont (10.0f));
-    g.drawText ("MACRO", kSide, 76, 70, 12, juce::Justification::centredLeft, false);
-    g.drawText ("LENGTH", 104, 76, 70, 12, juce::Justification::centredLeft, false);
-    g.drawText ("LOOPED", 224, 76, 70, 12, juce::Justification::centredLeft, false);
-    g.drawText ("STEPS, 16 to a line", 344, 76, getWidth() - 384, 12, juce::Justification::centredLeft, false);
+    g.drawText ("MACRO", kSide, 48, 70, 12, juce::Justification::centredLeft, false);
+    g.drawText ("LENGTH", 104, 48, 70, 12, juce::Justification::centredLeft, false);
+    g.drawText ("LOOPED", 224, 48, 70, 12, juce::Justification::centredLeft, false);
+    g.drawText ("STEPS, 16 to a line", 344, 48, getWidth() - 384, 12, juce::Justification::centredLeft, false);
 
     const int cellW = juce::jmax (1, (getWidth() - 2 * kSide) / kStepsPerLine);
 
@@ -484,9 +559,15 @@ void MacrosPanel::paint (juce::Graphics& g)
                 g.fillRoundedRectangle (juce::Rectangle<int> (x, sy, cellW - 1, kStepLineH - 2).toFloat(), 2.0f);
             }
 
-            g.setColour (m->steps[(size_t) i] == kArpEmptyStep ? theme::noteOff : theme::cmdMacro);
+            // the number being typed at the cursor is what the cell shows while
+            // it lasts, so a sign and its digits are read as they are entered
+            // rather than only once the press that closes them arrives
+            const bool pending = here && typingStep && stepText.isNotEmpty();
+            const juce::String shown = pending ? stepText : arpStepText (m->steps[(size_t) i]);
+
+            g.setColour (pending || m->steps[(size_t) i] != kArpEmptyStep ? theme::cmdMacro : theme::noteOff);
             g.setFont (theme::monoFont (11.0f));
-            g.drawText (arpStepText (m->steps[(size_t) i]), x + 2, sy + 3, cellW - 4, kStepLineH - 4,
+            g.drawText (shown, x + 2, sy + 3, cellW - 4, kStepLineH - 4,
                         juce::Justification::centredLeft, true);
         }
     }
@@ -512,18 +593,15 @@ void MacrosPanel::paint (juce::Graphics& g)
 
     if (total > available)
     {
-        const int trackX = getWidth() - 10;
+        const int trackX = scrollbarX();
         const int trackTop = kContentTop;
         const int trackH = juce::jmax (1, available);
 
         g.setColour (theme::outline);
         g.fillRect (trackX, trackTop, 4, trackH);
 
-        const int thumbH = juce::jmax (8, trackH * available / total);
-        const int thumbY = trackTop + (trackH - thumbH) * scrollY / juce::jmax (1, total - available);
-
         g.setColour (theme::textDim);
-        g.fillRect (trackX - 1, thumbY, 6, thumbH);
+        g.fillRect (trackX - 1, thumbTop(), 6, thumbHeight());
     }
 }
 
@@ -531,7 +609,7 @@ void MacrosPanel::paint (juce::Graphics& g)
 void MacrosPanel::resized()
 {
     addButton.setBounds (20, getHeight() - 34, 110, 22);
-    removeButton.setBounds (138, getHeight() - 34, 120, 22);
+    removeButton.setBounds (138, getHeight() - 34, 132, 22);
 
     const int bottomLimit = getHeight() - kBottom;
 
@@ -562,6 +640,26 @@ void MacrosPanel::resized()
 //==============================================================================
 void MacrosPanel::mouseDown (const juce::MouseEvent& e)
 {
+    // the strip is drawn rather than built, so the grab on it is answered here
+    // ahead of the cards: a pointer on its column takes the thumb to the click
+    // and keeps it on the pointer for as long as the button is held, which is
+    // what lets many macros be scrolled by mouse as well as by the wheel
+    const int available = juce::jmax (0, getHeight() - kContentTop - kBottom);
+    const int total = contentHeight();
+
+    if (total > available)
+    {
+        const int trackX = scrollbarX();
+        const int trackH = juce::jmax (1, available);
+
+        if (e.x >= trackX - 1 && e.x < trackX + 5 && e.y >= kContentTop && e.y < kContentTop + trackH)
+        {
+            draggingThumb = true;
+            scrollToPointer (e.y);
+            return;
+        }
+    }
+
     const int cellW = juce::jmax (1, (getWidth() - 2 * kSide) / kStepsPerLine);
 
     for (int id = 1; id <= kMaxArpMacros; ++id)
@@ -609,6 +707,17 @@ void MacrosPanel::mouseWheelMove (const juce::MouseEvent&, const juce::MouseWhee
     scrollY = juce::jlimit (0, maxScroll, scrollY + (int) std::round (-wheel.deltaY * 40.0f));
     resized();
     repaint();
+}
+
+void MacrosPanel::mouseDrag (const juce::MouseEvent& e)
+{
+    if (draggingThumb)
+        scrollToPointer (e.y);
+}
+
+void MacrosPanel::mouseUp (const juce::MouseEvent&)
+{
+    draggingThumb = false;
 }
 
 } // namespace rtr

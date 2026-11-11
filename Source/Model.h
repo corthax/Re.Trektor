@@ -36,7 +36,6 @@ constexpr int kBendCmd = 144;      // command value 144 bends the pitch, entered
 constexpr int kBendCentreVal = 64; // the bend argument that sits at the wheel's centre
 constexpr int kArpEmptyStep = -128; // a step that sounds nothing and sustains the one before
 constexpr int kArpDefaultSteps = 8; // steps a newly defined macro starts with
-constexpr int kArpDefaultJump = 4;  // semitones between those steps
 constexpr int kMaxUndoSteps = 200; // most undo steps the undo line can be asked for
 
 /** Column visibility bits: the chips above a channel toggle one field of one
@@ -374,14 +373,15 @@ struct ArpMacro
     int length() const noexcept { return (int) steps.size(); }
     bool defined() const noexcept { return ! steps.empty(); }
 
-    /** The equally spaced ramp a newly defined macro starts with, written into
-        the signed range the step field can hold. */
+    /** A newly defined macro starts with steps that sound nothing, so a call of
+        it plays the note its channel is holding until steps are entered into it,
+        which is what lets the tab be shown as it arrives without a shape in it. */
     void setDefault (int len = kArpDefaultSteps)
     {
         steps.resize ((size_t) juce::jlimit (1, kMaxArpSteps, len));
 
         for (int i = 0; i < (int) steps.size(); ++i)
-            steps[(size_t) i] = (std::int8_t) juce::jlimit (-127, 127, i * kArpDefaultJump);
+            steps[(size_t) i] = (std::int8_t) kArpEmptyStep;
     }
 };
 
@@ -498,7 +498,7 @@ public:
     bool arpLooped (int id) const noexcept;
     int firstUndefArpId() const noexcept; // 0 once every id is taken
     int lastDefArpId() const noexcept;    // 0 when nothing is defined
-    void defineArp (int id); // fresh macro with the default ramp, not looped
+    void defineArp (int id); // fresh macro with empty steps, not looped
     void clearArp (int id); // leaves it undefined, keeping its room
     void setArpLength (int id, int length); // keeps the steps already entered
     void setArpStep (int id, int index, std::int8_t value) noexcept;

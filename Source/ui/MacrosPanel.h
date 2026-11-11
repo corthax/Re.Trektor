@@ -18,9 +18,15 @@ public:
     void resized() override;
     bool keyPressed (const juce::KeyPress&) override;
     void mouseDown (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
 
     void refresh();
+
+    // where the scroll has got to, which is what a test reads back to see that a
+    // drag of the drawn strip moved the cards rather than only the wheel
+    int getScrollY() const { return scrollY; }
 
     std::function<void()> onModelChanged;
 
@@ -71,13 +77,23 @@ private:
 
     int scrollY = 0;
 
+    // the cards that do not fit scroll out, so the strip on the right is what
+    // shows where they are: the wheel moves it and so does a drag of its thumb,
+    // which is asked for in one place because a drag has to answer on exactly
+    // the bounds the panel draws
+    int scrollbarX() const; // x of the strip's drawn column
+    int thumbHeight() const; // height of the thumb drawn at the current scroll
+    int thumbTop() const; // y that thumb is drawn at
+    bool draggingThumb = false;
+    void scrollToPointer (int y); // the scroll that puts the thumb under a pointer
+
     void setStepCursor (int id, int index);
     void commitStepText();
     int prevDefArpId (int id) const; // nearest defined macro above a card
     int nextDefArpId (int id) const; // nearest defined macro below one
 
     juce::TextButton addButton { "+ Add macro" };
-    juce::TextButton removeButton { "- Remove last" };
+    juce::TextButton removeButton { "- Remove selected" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MacrosPanel)
 };

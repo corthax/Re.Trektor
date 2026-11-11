@@ -772,9 +772,10 @@ void Song::setArpLength (int id, int length)
 
     if ((int) m->steps.size() < length)
     {
-        // growing keeps the steps already entered and adds the base note itself
+        // growing keeps the steps already entered and adds steps that sound
+        // nothing, so the shape a macro has is only ever where it was entered
         for (int i = (int) m->steps.size(); i < length; ++i)
-            m->steps.push_back (0);
+            m->steps.push_back ((std::int8_t) kArpEmptyStep);
     }
     else
         m->steps.resize ((size_t) length);
