@@ -60,7 +60,6 @@ private:
     std::vector<Row> rows;
     std::vector<std::unique_ptr<juce::Component>> owned;
 
-    juce::ToggleButton* hexToggle = nullptr;
     juce::ToggleButton* midRowToggle = nullptr;
     juce::Slider* subticksSlider = nullptr;
     juce::Slider* rowsPerBeatSlider = nullptr;

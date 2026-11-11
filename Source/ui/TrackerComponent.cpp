@@ -10,11 +10,6 @@ namespace
     constexpr int kFieldPad = 5;
     constexpr int kChannelGap = 12;
 
-    bool isHexDigitChar (juce::juce_wchar c)
-    {
-        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-    }
-
     int noteOffsetForKey (juce::juce_wchar c)
     {
         switch (c)
@@ -208,9 +203,11 @@ void TrackerComponent::layoutFields()
         if (p.showColumn (ch, 3))
         {
             // the two halves each get room for their own widest spelling rather
-            // than sharing the cell by halves: an arpeggiator argument is always
-            // decimal, so in a hex view it is wider than the two digits a plain
-            // CC's shows, and the release's OFF needs the three of them
+            // than sharing the cell by halves: the number's own half keeps two
+            // digits plus a two-pixel inner trim and the argument's half keeps
+            // three, the release's OFF among them, each with its own pad, so
+            // halving one wider total would cut the number's cell and leave the
+            // argument's room in the wrong place
             const int numW = (int) (charW * (float) fieldGlyphs (Field::cmdNum) + 1.0f) + 2;
             const int valW = (int) (charW * (float) fieldGlyphs (Field::cmdVal) + 1.0f) + kFieldPad;
 
@@ -538,7 +535,6 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
 {
     auto& p = pattern();
     const int rowsPerBeat = juce::jmax (1, song.settings.rowsPerBeat);
-    const bool hex = song.settings.hexDisplay;
 
     // carry tables for display
     struct Eff { int inst = -1, vol = -1, pan = -1, cmd = -1, cmdVal = -1; };
@@ -609,8 +605,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
         // row number
         g.setColour (row % (rowsPerBeat * 4) == 0 ? theme::textDim.brighter (0.2f) : theme::textDim.withAlpha (0.7f));
         g.setFont (theme::monoFont (12.0f));
-        g.drawText (hex ? juce::String::toHexString (row).toUpperCase().paddedLeft ('0', 3)
-                        : juce::String (row).paddedLeft ('0', 3),
+        g.drawText (juce::String (row).paddedLeft ('0', 3),
                     4, y, gutterWidth - 10, rowHeight, juce::Justification::centredRight, false);
 
         // cursor row marker in gutter
@@ -692,12 +687,12 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                     case Field::inst:
                         if (cell.inst != kEmpty)
                         {
-                            text = "-" + instString (cell.inst, hex, ! hex);
+                            text = "-" + instString (cell.inst);
                             colour = theme::inst;
                         }
                         else if (carried.inst >= 0 && notePresent)
                         {
-                            text = "-" + instString (carried.inst, hex, ! hex);
+                            text = "-" + instString (carried.inst);
                             colour = theme::inst;
                             dim = true;
                         }
@@ -712,18 +707,18 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                     case Field::vol:
                         if (cell.vol != kEmpty)
                         {
-                            text = valueString (cell.vol, hex, fieldGlyphs (Field::vol));
+                            text = valueString (cell.vol, fieldGlyphs (Field::vol));
                             colour = theme::vol;
                         }
                         else if (carried.vol >= 0 && notePresent)
                         {
-                            text = valueString (carried.vol, hex, fieldGlyphs (Field::vol));
+                            text = valueString (carried.vol, fieldGlyphs (Field::vol));
                             colour = theme::vol;
                             dim = true;
                         }
                         else
                         {
-                            text = hex ? "--" : "---";
+                            text = "---";
                             colour = theme::textDim.withAlpha (0.45f);
                         }
 
@@ -732,12 +727,12 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                     case Field::pan:
                         if (cell.pan != kEmpty)
                         {
-                            text = valueString (cell.pan, hex, 3);
+                            text = valueString (cell.pan, 3);
                             colour = theme::pan;
                         }
                         else if (carried.pan >= 0 && notePresent)
                         {
-                            text = valueString (carried.pan, hex, 3);
+                            text = valueString (carried.pan, 3);
                             colour = theme::pan;
                             dim = true;
                         }
@@ -781,7 +776,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                 }
                                 else
                                 {
-                                    text = valueString (cmdNum, hex, fieldGlyphs (Field::cmdNum));
+                                    text = valueString (cmdNum, fieldGlyphs (Field::cmdNum));
                                     colour = theme::cmdCC;
                                 }
 
@@ -789,7 +784,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                             }
                             else
                             {
-                                text = hex ? "--" : "---";
+                                text = "---";
                                 colour = theme::textDim.withAlpha (0.45f);
                             }
                         }
@@ -797,12 +792,10 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                         {
                             if (cmdVal >= 0)
                             {
-                                // a macro id is the number the Macros tab shows
-                                // in decimal, so an arpeggiator argument keeps its
-                                // decimal spelling even when the rest of the view is
-                                // hex; so does a bend's, which is where on the wheel
-                                // its centre of 64 is read; the argument of a plain
-                                // CC keeps hex with it
+                                // a macro id is the number the Macros tab shows and a
+                                // bend's is where on the wheel its centre of 64 is read,
+                                // so both keep the decimal spelling the whole view is
+                                // written in; so does the argument of a plain CC
                                 const bool arpCall = cmdNum == kArpCmd;
                                 const bool bendCall = cmdNum == kBendCmd;
 
@@ -812,8 +805,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     // carrying the call on below it
                                     text = "OFF";
                                 else
-                                    text = valueString (cmdVal, hex && ! arpCall && ! bendCall,
-                                                        fieldGlyphs (Field::cmdVal));
+                                    text = valueString (cmdVal, fieldGlyphs (Field::cmdVal));
 
                                 colour = arpCall ? theme::cmdMacro
                                                  : bendCall ? theme::cmdOther
@@ -826,7 +818,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                             }
                             else
                             {
-                                text = hex ? "--" : "---";
+                                text = "---";
                                 colour = theme::textDim.withAlpha (0.45f);
                             }
                         }
@@ -1485,31 +1477,27 @@ void TrackerComponent::setCursorRow (int row)
 //==============================================================================
 int TrackerComponent::maxDigitsFor (Field field) const
 {
-    const bool hex = song.settings.hexDisplay;
-
     switch (field)
     {
-        case Field::inst: return hex ? 1 : 2;
-        case Field::vol: return hex ? 2 : 3;
-        case Field::pan: return hex ? 2 : 3;
-        case Field::cmdNum: return hex ? 2 : 3;
-        case Field::cmdVal: return hex ? 2 : 3;
+        case Field::inst: return 2; // -0 .. -15
+        case Field::vol: return 3; // 0-127
+        case Field::pan: return 3; // 0-127
+        case Field::cmdNum: return 3; // a plain CC 0-127
+        case Field::cmdVal: return 3; // 0-127, or the release's OFF
         default: return 0;
     }
 }
 
 int TrackerComponent::fieldGlyphs (Field field) const
 {
-    const bool hex = song.settings.hexDisplay;
-
     switch (field)
     {
         case Field::note: return 4; // "A#" plus an octave of up to two characters
-        case Field::inst: return hex ? 2 : 3; // "-" prefix plus one/two digits
-        case Field::vol: return hex ? 2 : 3; // 0-255 hex, 0-127 decimal
-        case Field::pan: return 3; // hex shows three padded digits, decimal up to 127
-        case Field::cmdNum: return hex ? 2 : 3; // CC number, or one letter for a command kind
-        case Field::cmdVal: return 3; // the argument is always written decimal, so a macro id, a point on the wheel or the release's OFF need three; a plain CC's hex argument pads in the first two of them
+        case Field::inst: return 3; // "-" prefix plus up to two digits
+        case Field::vol: return 3; // 0-127
+        case Field::pan: return 3; // 0-127
+        case Field::cmdNum: return 3; // a plain CC, or one letter for a command kind
+        case Field::cmdVal: return 3; // the argument is always decimal, so a macro id, a point on the wheel or the release's OFF need three
         default: return 1;
     }
 }
@@ -1595,8 +1583,7 @@ void TrackerComponent::commitEditBuffer()
         return;
     }
 
-    const bool hex = song.settings.hexDisplay;
-    const int value = hex ? editBuffer.getHexValue32() : editBuffer.getIntValue();
+    const int value = editBuffer.getIntValue();
     applyValue (cursorField, value);
 
     editing = false;
@@ -1767,9 +1754,7 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
             return true;
         }
 
-        const bool hex = song.settings.hexDisplay;
-        const bool validChar = hex ? (isHexDigitChar (text))
-                                   : juce::CharacterFunctions::isDigit (text);
+        const bool validChar = juce::CharacterFunctions::isDigit (text);
 
         if (validChar)
         {
@@ -1821,14 +1806,13 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
     //== Value fields =========================================================
     if (cursorField != Field::note)
     {
-        const bool hex = song.settings.hexDisplay;
-
         // the command letters are letters rather than numbers: as the first
-        // character of the command number field each claims that field, so the
-        // hex CC 10 or CC 11 a column asks for keeps its 0A and 0B spelling, a
-        // digit already being typed having been appended by the editing path
-        // above, and the argument typed next names what that letter's own field
-        // means: a macro id for A, a point on the wheel for B
+        // character of the command number field each claims that field, so a
+        // decimal field spells the CC 10 or CC 11 a column asks for as 10 and
+        // 11 and nothing about a typed number's spelling reaches one of the
+        // letters, a digit already being typed having been appended by the
+        // editing path above, and the argument typed next names what that
+        // letter's own field means: a macro id for A, a point on the wheel for B
         if (cursorField == Field::cmdNum)
         {
             const int letterCmd = text == 'a' || text == 'A' ? kArpCmd
@@ -1856,8 +1840,7 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
             }
         }
 
-        const bool validChar = hex ? isHexDigitChar (text)
-                                   : juce::CharacterFunctions::isDigit (text);
+        const bool validChar = juce::CharacterFunctions::isDigit (text);
 
         if (validChar)
         {

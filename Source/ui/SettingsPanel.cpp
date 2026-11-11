@@ -16,13 +16,9 @@ SettingsPanel::SettingsPanel (ReTrektorAudioProcessor& processor)
             onSettingsChanged();
     };
 
-    hexToggle = addToggle ("Hexadecimal values", "Show values as hex instead of decimal", song.settings.hexDisplay,
-                           [this, refresh] (bool v)
-                           {
-                               song.settings.hexDisplay = v;
-                               refresh();
-                           });
-
+    // the row that used to switch the values between hex and decimal is gone
+    // altogether: every number the plug-in shows and reads is decimal now, so the
+    // panel has nothing to offer for a spelling a host could second-guess
     midRowToggle = addToggle ("Ignore mid-row start", "When the transport starts in the middle of a row, skip that row's events",
                               song.settings.midRowIgnored,
                               [this, refresh] (bool v)
@@ -187,9 +183,8 @@ bool SettingsPanel::keyPressed (const juce::KeyPress& key)
 
 void SettingsPanel::refresh()
 {
-    if (hexToggle != nullptr)
+    if (midRowToggle != nullptr)
     {
-        hexToggle->setToggleState (song.settings.hexDisplay, juce::dontSendNotification);
         midRowToggle->setToggleState (song.settings.midRowIgnored, juce::dontSendNotification);
         subticksSlider->setValue ((double) song.settings.subticksPerRow, juce::dontSendNotification);
         rowsPerBeatSlider->setValue ((double) song.settings.rowsPerBeat, juce::dontSendNotification);

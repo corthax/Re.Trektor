@@ -25,11 +25,12 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
         box.setColour (juce::ComboBox::arrowColourId, theme::textDim);
     };
 
-    // dropdown items are labelled like the tracker's instrument column: -0 .. -F
+    // dropdown items are labelled like the tracker's instrument column: -0 .. -15,
+    // the decimal spelling the column shows them in now the hex view is gone
     auto addInstruments = [] (juce::ComboBox& box, int idOffset)
     {
         for (int i = 0; i < kMidiChannelCount; ++i)
-            box.addItem ("-" + juce::String::toHexString (i).toUpperCase(), i + 1 + idOffset);
+            box.addItem ("-" + juce::String (i), i + 1 + idOffset);
     };
 
     scopeBox.addItem ("Selection only", 1);

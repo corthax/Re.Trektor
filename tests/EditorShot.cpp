@@ -4,7 +4,7 @@
 
     Usage: ReTrektorEditorShot /path/out.png [width height] [--dump]
            [--tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
-           [--click-timeline=PCT] [--hide=0v1c] [--expand-pool] [--hex]
+           [--click-timeline=PCT] [--hide=0v1c] [--expand-pool]
            [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
            [--undo=N] [--redo=N] [--arp=0,+4,-8] [--arp-loop] [--arp-call=ROW]
            [--arp-call-id=VAL] [--arp-note-off=ROW] [--bend=ROW] [--bend-arg=VAL]
@@ -255,10 +255,6 @@ int main (int argc, char** argv)
             args.remove (i);
         }
 
-    // show values in hex, so the narrower hex field widths can be checked
-    const bool shotHex = args.contains ("--hex");
-    args.removeString ("--hex");
-
     // pool item index whose drag preview is composited into the shot: this is
     // the image JUCE floats at the cursor while a pattern is dragged out of the
     // pool, so the shot shows that only the item's cell follows the pointer
@@ -341,7 +337,6 @@ int main (int argc, char** argv)
         p.setChannels (2);
         p.setLength (64);
         p.name = "Main";
-        song.settings.hexDisplay = shotHex;
 
         const int notes[] = { 60, 63, 67, 63, 60, 63, 67, 70 };
 

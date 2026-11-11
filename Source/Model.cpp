@@ -19,24 +19,20 @@ juce::String noteName (int note)
     return juce::String (names[n % 12]) + juce::String (octave);
 }
 
-juce::String valueString (int value, bool hex, int digits)
+juce::String valueString (int value, int digits)
 {
     if (value == kEmpty)
         return juce::String::repeatedString ("-", juce::jmax (1, digits));
 
-    if (hex)
-        return juce::String::toHexString (value).toUpperCase().paddedLeft ('0', digits);
-
-    return juce::String (value).paddedLeft (digits == 2 ? '0' : ' ', digits);
+    // the one spelling the tracker shows values in: decimal, padded with spaces so
+    // a shorter number still lands on the same digit column as a longer one
+    return juce::String (value).paddedLeft (' ', digits);
 }
 
-juce::String instString (int inst, bool hex, bool decimalInstruments)
+juce::String instString (int inst)
 {
     if (inst == kEmpty)
         return "--";
-
-    if (hex && ! decimalInstruments)
-        return juce::String::toHexString (inst).toUpperCase();
 
     return juce::String (inst);
 }
@@ -806,7 +802,6 @@ juce::ValueTree Song::toValueTree() const
     juce::ValueTree root ("RETREKTOR");
 
     juce::ValueTree st ("SETTINGS");
-    st.setProperty ("hexDisplay", settings.hexDisplay, nullptr);
     st.setProperty ("midRowIgnored", settings.midRowIgnored, nullptr);
     st.setProperty ("subticksPerRow", settings.subticksPerRow, nullptr);
     st.setProperty ("rowsPerBeat", settings.rowsPerBeat, nullptr);
@@ -938,7 +933,6 @@ void Song::fromValueTree (const juce::ValueTree& root)
 
     if (auto st = root.getChildWithName ("SETTINGS"); st.isValid())
     {
-        settings.hexDisplay = st.getProperty ("hexDisplay", false);
         settings.midRowIgnored = st.getProperty ("midRowIgnored", true);
         settings.subticksPerRow = st.getProperty ("subticksPerRow", 6);
         settings.rowsPerBeat = juce::jmax (1, (int) st.getProperty ("rowsPerBeat", 4));

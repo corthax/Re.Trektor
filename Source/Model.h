@@ -18,8 +18,9 @@ constexpr int kMidiChannelCount = 16;
 /** The Command column's number field holds a plain CC number, 0..kCcTop, and
     above that the command letters: the letter A names kArpCmd and the letter B
     names kBendCmd, each claimed as the field's first character rather than
-    typed as a number, which is what keeps a hex spelling like 0A its own CC 10
-    and what stops a typed digit run from inventing a letter. kBendCmd sits
+    typed as a number, which is what stops a typed digit run from inventing a
+    letter - a decimal field spells CC 10 as 10, so nothing about a number's
+    spelling reaches one of the letters. kBendCmd sits
     above the command values 128-143 an older build used for its M0-M15 macro
     kinds, so the one value this build owns for a bend is a value that build
     could not have written, and an older state's macro calls can all land on the
@@ -388,7 +389,6 @@ struct ArpMacro
 //==============================================================================
 struct Settings
 {
-    bool hexDisplay = false;
     bool midRowIgnored = true;
     int subticksPerRow = 6;
     int rowsPerBeat = 4;
@@ -533,7 +533,7 @@ private:
 
 //==============================================================================
 juce::String noteName (int note);
-juce::String valueString (int value, bool hex, int digits = 2);
-juce::String instString (int inst, bool hex, bool decimalInstruments = false);
+juce::String valueString (int value, int digits = 3);
+juce::String instString (int inst);
 
 } // namespace rtr

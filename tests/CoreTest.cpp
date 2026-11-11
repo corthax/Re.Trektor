@@ -970,7 +970,7 @@ int main()
         Song a;
         a.settings.rowsPerBeat = 8;
         a.settings.defaultPatternRows = 32;
-        a.settings.hexDisplay = true;
+        a.settings.midRowIgnored = false;
         auto& p = a.patterns[0];
         p.setChannels (2);
         p.setLength (12);
@@ -986,7 +986,7 @@ int main()
 
         check (b.settings.rowsPerBeat == 8, "rows per beat restored");
         check (b.settings.defaultPatternRows == 32, "default pattern rows restored");
-        check (b.settings.hexDisplay, "hex setting restored");
+        check (b.settings.midRowIgnored == false, "the mid-row switch restored");
         check (b.patterns.size() == a.patterns.size(), "pattern count restored");
         check (b.clips.size() == a.clips.size(), "clip count restored");
         check (b.patterns[0].length == 12, "pattern length restored");
@@ -1409,21 +1409,28 @@ int main()
                "column controller numbers survive a state round trip");
 
         // an older saved state, one from before the pattern paste's default row
-        // was dropped, still reloads: the property nothing reads any more is
-        // simply ignored, so nothing beside it is lost and the reload does not
-        // carry the property on, which is what makes the older state one-way
+        // was dropped and before this build dropped the hex display row and its
+        // setting outright, still reloads: the properties nothing reads any more
+        // are simply ignored, so nothing beside them is lost and the reload does
+        // not carry them on, which is what makes the older state a one-way
+        // read
         auto older = tree;
         if (auto st = older.getChildWithName ("SETTINGS"); st.isValid())
+        {
             st.setProperty ("pasteAsUnique", true, nullptr);
+            st.setProperty ("hexDisplay", true, nullptr); // the spelling this build no longer has a row for
+        }
 
         Song then;
         then.fromValueTree (older);
         check (then.settings.volumeCc == 5 && then.settings.panCc == 11,
-               "an older saved state that still carries the dropped property reloads its other settings");
+               "an older saved state that still carries the dropped properties reloads its other settings");
         check (then.patterns.size() == back.patterns.size() && then.clips.size() == back.clips.size(),
-               "and nothing beside it is lost, the pattern and clip counts unchanged");
+               "and nothing beside them is lost, the pattern and clip counts unchanged");
         check (! then.toValueTree().toXmlString().contains ("pasteAsUnique"),
                "the property does not come back on a reload of it, which leaves the older state a one-way read");
+        check (! then.toValueTree().toXmlString().contains ("hexDisplay"),
+               "nor does the older state's hex spelling, which the current build has no setting to put it back into");
     }
 
     //== A command argument without a command number ===========================

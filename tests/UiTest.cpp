@@ -356,7 +356,10 @@ int main()
 
     //== A command argument without a command number ==========================
     {
-        check (! song.settings.hexDisplay, "command values are entered as three decimal digits here");
+        // the row that used to offer a hex spelling is gone, so the digits the
+        // command fields take are the three decimal ones whatever the view shows
+        check (findToggle (*settings, "Hexadecimal values") == nullptr,
+               "command values are entered as three decimal digits here, the Settings tab having no row that used to switch them");
 
         // park the cursor on the command value field of channel 0
         for (int i = 0; i < 32
@@ -453,37 +456,36 @@ int main()
         p.cell (12, 0).cmd = rtr::kEmpty;
         p.cell (12, 0).cmdVal = rtr::kEmpty; // the fixture's row is put back
 
-        // the letter only claims the field as its first character, so the hex
-        // CC 10 a column asks for keeps its 0A spelling
+        // the letter only claims the field as its first character, so the CC 10
+        // a column asks for keeps its own 10 spelling, typed as three digits at
+        // the keyboard the way the field is now written in decimal
         for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
             tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
 
         check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum,
                "one field back, the cursor is on the command number again");
 
-        // the Settings tab's own toggle is what changes the flag, so the point
-        // the undo line holds follows the model rather than surprising the next
-        // commit with a change that came from outside it
-        if (auto* hex = findToggle (*settings, "Hexadecimal values"))
-        {
-            hex->setToggleState (true, juce::dontSendNotification);
-            hex->onClick();
-        }
         tracker->setCursorRow (10);
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
         tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
-        tracker->keyPressed (juce::KeyPress ('A', juce::ModifierKeys(), 'A'));
-        check (p.cell (10, 0).cmd == 10, "with hex on, 0A still types CC 10 rather than the letter call");
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (p.cell (10, 0).cmd == 10, "typing 10 gives CC 10, the one spelling the number field has");
 
         tracker->keyPressed (juce::KeyPress (juce::KeyPress::deleteKey, juce::ModifierKeys(), 0));
         check (p.cell (10, 0).cmd == rtr::kEmpty, "and clearing that field leaves the row without a command");
 
-        if (auto* hex = findToggle (*settings, "Hexadecimal values"))
-        {
-            hex->setToggleState (false, juce::dontSendNotification);
-            hex->onClick();
-        }
+        // a letter typed after digits still only claims the field, which drops
+        // the number that was being typed rather than reading it as a command
+        tracker->setCursorRow (11);
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        tracker->keyPressed (juce::KeyPress ('A', juce::ModifierKeys(), 'A'));
+        check (p.cell (11, 0).cmd == rtr::kArpCmd,
+               "the A typed last claims the field on its own and writes the call, the 10 it interrupts having been dropped");
+        check (p.cell (11, 0).cmdVal == 0, "and the entry leaves the id 0 it has to write beside it");
 
-        check (! song.settings.hexDisplay, "and the hex display is back off, so the checks below read decimal");
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::deleteKey, juce::ModifierKeys(), 0));
+        check (p.cell (11, 0).cmd == rtr::kEmpty, "and clearing that row's field leaves nothing behind for the rows below");
 
         // the run the row names plays over the row and the ones below it, a
         // sixth of a row per step in 64-sample blocks the way a host hands them
@@ -731,34 +733,32 @@ int main()
                "which plays on the wheel the letter above is still carrying");
 
         // as with the other letter, the claim only owns the field's first
-        // character, so the hex CC 11 a column asks for keeps its 0B spelling
+        // character, so the CC 11 a column asks for keeps its own 11 spelling
         for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
             tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
 
         check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum,
                "one field back, the cursor is on the command number again");
 
-        if (auto* hex = findToggle (*settings, "Hexadecimal values"))
-        {
-            hex->setToggleState (true, juce::dontSendNotification);
-            hex->onClick();
-        }
-
         tracker->setCursorRow (22);
-        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
-        tracker->keyPressed (juce::KeyPress ('B', juce::ModifierKeys(), 'B'));
-        check (cmdAt (22) == 11, "with hex on, 0B still types CC 11 rather than the letter bend");
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (cmdAt (22) == 11, "typing 11 gives CC 11 rather than the letter bend, the number field having one spelling");
 
         tracker->keyPressed (juce::KeyPress (juce::KeyPress::deleteKey, juce::ModifierKeys(), 0));
         check (cmdAt (22) == rtr::kEmpty, "and clearing that field leaves the row without a command");
 
-        if (auto* hex = findToggle (*settings, "Hexadecimal values"))
-        {
-            hex->setToggleState (false, juce::dontSendNotification);
-            hex->onClick();
-        }
+        // the letter typed after a run of digits still only claims the field
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('B', juce::ModifierKeys(), 'B'));
+        check (cmdAt (22) == rtr::kBendCmd,
+               "the B typed last claims the field and writes the bend, the 11 it interrupts having been dropped");
+        check (argAt (22) == rtr::kBendCentreVal, "and the entry leaves the wheel's centre as its argument");
 
-        check (! song.settings.hexDisplay, "and the hex display is back off");
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::deleteKey, juce::ModifierKeys(), 0));
+        check (cmdAt (22) == rtr::kEmpty, "and clearing that row's field leaves nothing behind for the rows below");
 
         // a digit run cannot reach the letter's value: the number field tops at
         // the highest CC, so the letters are the only way to name a command kind
@@ -949,13 +949,13 @@ int main()
             check (fromBox->getNumItems() == rtr::kMidiChannelCount + 1
                        && fromBox->getItemText (0) == "All"
                        && fromBox->getItemText (1) == "-0"
-                       && fromBox->getItemText (rtr::kMidiChannelCount) == "-F",
+                       && fromBox->getItemText (rtr::kMidiChannelCount) == "-15",
                    "the source dropdown offers All plus every instrument");
 
             check (toBox->getNumItems() == rtr::kMidiChannelCount
                        && toBox->getItemText (0) == "-0"
-                       && toBox->getItemText (rtr::kMidiChannelCount - 1) == "-F",
-                   "the target dropdown offers only instruments, in the tracker's hex style");
+                       && toBox->getItemText (rtr::kMidiChannelCount - 1) == "-15",
+                   "the target dropdown offers only instruments, in the tracker's own dash-and-number style");
 
             check (fromBox->getSelectedId() == 1 && toBox->getSelectedId() == 1,
                    "the remap dropdowns default to All sources and -0 as target");
@@ -1800,16 +1800,24 @@ int main()
     }
 
     //== Settings ============================================================
-    if (auto* hex = findToggle (*settings, "Hexadecimal values"))
+    if (auto* snap = findToggle (*settings, "Snap to grid"))
     {
-        hex->setToggleState (true, juce::dontSendNotification);
-        hex->onClick();
-        check (song.settings.hexDisplay, "settings toggle writes the hex display flag");
+        snap->setToggleState (false, juce::dontSendNotification);
+        snap->onClick();
+        check (! song.settings.snapEnabled, "the settings tab's own row writes the state it names");
     }
     else
     {
-        check (false, "settings panel exposes the hex toggle");
+        check (false, "the settings panel exposes the snap row");
     }
+
+    // the row that used to switch the values between hex and decimal is gone
+    // altogether, as is the setting it wrote: every number the plug-in reads
+    // and draws is decimal now, so an older state that still carries the hex
+    // property simply has nothing to read it into, the way the dropped paste
+    // row's property does just below
+    check (findToggle (*settings, "Hexadecimal values") == nullptr,
+           "the Settings tab no longer shows the row that used to switch values to hex");
 
     // the pattern paste's default row is dropped rather than left saved and
     // shown: its only reader went away with the pattern clipboard's dropped
@@ -2038,21 +2046,21 @@ int main()
         }
 
         //== undo also reverts the Settings tab =============================
-        if (auto* hex = findToggle (*settings, "Hexadecimal values"))
+        if (auto* snap = findToggle (*settings, "Snap to grid"))
         {
-            hex->setToggleState (false, juce::dontSendNotification);
-            hex->onClick();
-            check (! song.settings.hexDisplay, "switching the hex display off is an undoable action");
+            snap->setToggleState (true, juce::dontSendNotification);
+            snap->onClick();
+            check (song.settings.snapEnabled, "switching the grid snap back on is an undoable action");
 
             pressUndo();
-            check (song.settings.hexDisplay, "Ctrl+Z puts it back on, the Settings tab included");
+            check (! song.settings.snapEnabled, "Ctrl+Z puts it back off, the Settings tab included");
 
             pressRedo();
-            check (! song.settings.hexDisplay, "Ctrl+Y switches it off again");
+            check (song.settings.snapEnabled, "Ctrl+Y switches it on again");
         }
         else
         {
-            check (false, "the settings tab's hex toggle is out of reach for the undo check");
+            check (false, "the settings tab's snap row is out of reach for the undo check");
         }
 
         //== the bottom bar changes the model on its own ====================
@@ -2218,12 +2226,10 @@ int main()
             // the half-typed buffer is closed by either spelling first, which
             // is what keeps one press one effect whichever pair was used
             //
-            // the Alt walking above moved the hex display along with the rest
-            // of the song, and how many digits a field wants follows that flag,
-            // so the display is fixed here rather than assumed: a digit still
-            // in its buffer behaves the same in either spelling
-            song.settings.hexDisplay = false;
-
+            // nothing about the walk above has to be fixed here any more: the
+            // digits a field takes at the keyboard are its three decimal ones
+            // whatever state the song is walked back into, so a digit still in
+            // its buffer behaves the same on either spelling
             for (int i = 0; i < 8
                      && tracker->getCursorField() != rtr::TrackerComponent::Field::inst; ++i)
                 tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
