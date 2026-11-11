@@ -80,13 +80,19 @@ private:
             last named, which is the call row's own note where it had one: a
             further call in a column steps from the note its rows named rather
             than from whatever note the run above happened to be sounding when
-            the switch came. A note entering further down the column re-bases
-            a run that is still going, and the notes a run entered are tracked
-            in arpNote so closing a run releases only those. */
+            the switch came. A call at a row whose note column holds a note-off
+            is answered too, against the note that row is releasing, and keeps it
+            in arpCallNote for as long as the column has none of its own - a note
+            entering further down the column re-bases the run by being that note,
+            and a further note-off below takes the answer away again. The notes a
+            run entered are tracked in arpNote so closing a run releases only
+            those. */
         int arpId = 0;             // macro id in force (0 = no run)
         int arpCount = 0;          // steps of the run already played
         double arpOrigin = -1.0;   // where the run's first step sits, in transport beats
         int arpNote = -1;          // the note the run last entered, -1 when it entered none
+        int arpCallNote = -1;      // the note the run's call answered against, which the
+                                    // column's own note takes over as soon as it has one
         juce::Uuid arpClip;        // clip whose rows own the run, so its end closes it
         double arpRowEnd = -1.0;   // end of the row the engine last processed
 
@@ -105,6 +111,7 @@ private:
             arpCount = 0;
             arpOrigin = -1.0;
             arpNote = -1;
+            arpCallNote = -1;
             arpClip = juce::Uuid();
         }
 
@@ -138,12 +145,16 @@ private:
                    const Song& song);
 
     /** A row naming the arpeggiator command: id 0 releases what the run is
-        holding and ends it, another id stops the run above it and starts or
-        restarts that macro's run. Its steps measure from the note the column
-        last named, which is the call row's own note where it had one, so a new
-        call never picks its base off a note another run was left sounding. A
-        row that also names a note has already played its first step, so its run
-        starts at the next one. */
+        holding and ends it, and leaves the column not calling a macro below it,
+        which is what stops a further row naming only an argument being answered
+        there and stops the tracker drawing a carried call over those rows;
+        another id stops the run above it and starts or restarts that macro's
+        run. Its steps measure from the note the column last named, which is the
+        call row's own note where it had one, and the note a note-off row is
+        releasing where its cell holds a note-off instead - such a row's call is
+        answered, not ignored, and the note-off takes the note away for the rows
+        below it. A row that also names a note has already played its first step,
+        so its run starts at the next one. */
     void arpCommand (std::vector<PendingEvent>& events, int ch, int id,
                      int offset, double rowPpq, const juce::Uuid& clipUid,
                      bool noteOnRow, const Song& song);

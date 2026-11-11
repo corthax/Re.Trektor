@@ -439,6 +439,20 @@ int main()
                "under the carried call an argument-only row stays implicit");
         check (p.cell (8, 0).cmdVal == 7, "and names arpeggiator id 7, which nothing defined");
 
+        // the release written as its letter and its 0 leaves the column calling
+        // nothing rather than calling id 0: a fixture write rather than a typed
+        // edit, so the undo line the sections below lean on stays the same length
+        p.cell (12, 0).cmd = rtr::kArpCmd;
+        p.cell (12, 0).cmdVal = 0; // A 0: the release the letter A names
+
+        check (tracker->carriedCommandNumber (8, 0) == rtr::kArpCmd,
+               "above the release the call is still carried down the column");
+        check (tracker->carriedCommandNumber (13, 0) == rtr::kEmpty,
+               "below it the column carries no command at all, which is what stops a letter and an argument being drawn over those rows");
+
+        p.cell (12, 0).cmd = rtr::kEmpty;
+        p.cell (12, 0).cmdVal = rtr::kEmpty; // the fixture's row is put back
+
         // the letter only claims the field as its first character, so the hex
         // CC 10 a column asks for keeps its 0A spelling
         for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
@@ -1719,6 +1733,12 @@ int main()
 
         check (song.arpDefined (25) && song.lastDefArpId() == 25 && song.firstUndefArpId() == 26,
                "the tab holds as many macros as a row has ids to name");
+
+        // the card shades its step strip in groups of "Subticks per row" steps
+        // rather than in the lines of cells the strip wraps at
+        check (macros->stepBand (0) == 0 && macros->stepBand (5) == 0
+               && macros->stepBand (6) == 1 && macros->stepBand (12) == 2,
+               "the step strip's shade changes every Subticks per row steps, six here, rather than every line of sixteen cells");
 
         std::vector<juce::Slider*> lens;
         collectSliders (*macros, lens);

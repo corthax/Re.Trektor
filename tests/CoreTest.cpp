@@ -446,6 +446,50 @@ int main()
                "the run carried onto the note that entered below it steps from that note");
     }
     {
+        std::cout << "A call at a row holding a note-off answers the note that row is releasing\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        p.cell (0, 0).note = 60; // the column's note
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+        seedSteps (h.song, 1, 4);
+
+        p.cell (1, 0).note = kNoteOff; // the note the column named is off at this row
+        p.cell (1, 0).cmd = kArpCmd;
+        p.cell (1, 0).cmdVal = 1; // the call written beside it rather than below it
+
+        h.runBlocks (40); // rows 1 and below sit from 6000 samples on
+
+        std::vector<int> ons;
+        for (auto& n : h.notes)
+            if (n.on)
+                ons.push_back (n.note);
+
+        check (std::count (ons.begin(), ons.end(), 64) == 1 && std::count (ons.begin(), ons.end(), 68) == 1,
+               "the call beside a note-off is answered, its steps walking from the note that row was releasing");
+        check (ons.size() == 9, "the note the column named and the run's own steps all sound, got " + juce::String ((int) ons.size()));
+
+        // the release the row named reaches the host ahead of the step that
+        // answers against the note it was releasing, at the same sample
+        int firstOff60 = -1;
+        int secondOn60 = -1;
+        int seenOn60 = 0;
+
+        for (size_t i = 0; i < h.raw.size(); ++i)
+        {
+            if (h.raw[i].kind == 1 && h.raw[i].pitch == 60 && ++seenOn60 == 2)
+                secondOn60 = (int) i;
+
+            if (firstOff60 < 0 && h.raw[i].kind == 0 && h.raw[i].pitch == 60)
+                firstOff60 = (int) i;
+        }
+
+        check (firstOff60 >= 0 && secondOn60 > firstOff60,
+               "the note-off arrives as a note-off, ordered ahead of the run's first note-on at that sample");
+    }
+    {
         std::cout << "A 0 releases the note the run holds\n";
         Harness h;
         auto& p = h.song.patterns[0];
@@ -487,6 +531,40 @@ int main()
         check (onCount == 18, "the kill stops the run at its row, got " + juce::String (onCount));
         check (off64 == 5, "the note the last step held is released at the kill along the re-articulations");
         check (soundOff == 0, "the release reaches the synth as a plain note-off, not as an All Sound Off");
+    }
+    {
+        std::cout << "The release leaves the column carrying no call\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 1;
+        seedSteps (h.song, 1, 4);
+        h.song.setArpLooped (1, true); // the run would keep cycling past its last step
+
+        h.song.defineArp (2);
+        h.song.setArpLength (2, 2);
+        h.song.setArpStep (2, 0, 36);
+        h.song.setArpStep (2, 1, 40);
+
+        p.cell (2, 0).cmdVal = 0; // the carried call with the id 0 argument: the release
+        p.cell (3, 0).cmdVal = 2; // only an argument, below a call that is no longer in force
+
+        h.runBlocks (40); // the rows below the release are reached well inside it
+
+        std::vector<int> ons;
+        for (auto& n : h.notes)
+            if (n.on)
+                ons.push_back (n.note);
+
+        check (std::find (ons.begin(), ons.end(), 96) == ons.end() && std::find (ons.begin(), ons.end(), 100) == ons.end(),
+               "a row naming only an argument under a release answers nothing, so the macro it would have switched to stays unplayed");
+        check (ons.size() == 12, "the release stops the run at its row and nothing restarts below it, got " + juce::String ((int) ons.size()));
     }
     {
         std::cout << "Empty steps sustain and out-of-range steps snap by octaves\n";

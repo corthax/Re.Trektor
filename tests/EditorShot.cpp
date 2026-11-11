@@ -3,21 +3,31 @@
     the component tree so the layout can be verified without looking at pixels.
 
     Usage: ReTrektorEditorShot /path/out.png [width height] [--dump]
-           [tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
+           [--tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
            [--click-timeline=PCT] [--hide=0v1c] [--expand-pool] [--hex]
            [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
            [--undo=N] [--redo=N] [--arp=0,+4,-8] [--arp-loop] [--arp-call=ROW]
-           [--bend=ROW] [--bend-arg=VAL] [--macros=N]
+           [--arp-call-id=VAL] [--arp-note-off=ROW] [--bend=ROW] [--bend-arg=VAL]
+           [--macros=N]
 
     --arp= writes signed semitone steps into arpeggiator id 1, so a Macros-tab
     shot shows a step strip of its own length rather than one that is all empty;
     a step written as a lone dot stays empty, and --arp-loop marks that macro
-    looped so its card shows the looped tick. --macros=N has the song define N
+    looped so its card shows the looped tick. The strip's steps are one subtick
+    wide and a subtick is a row over the Settings row "Subticks per row", so the
+    card shades every second group of that many steps a little darker, which is
+    what makes a macro that reaches past its own row read as row spans rather than
+    as one long run of numbers. --macros=N has the song define N
     macros, ids 1..N, which is what makes a Macros-tab shot long enough that the
     cards do not fit and the tab has to draw the scrollbar and thumb it offers.
     --arp-call=ROW names an arpeggiator
     call in tracker channel 0 at that row, which is what paints the command
-    column's orange letter A and its decimal id. --bend=ROW names a pitch bend in
+    column's orange letter A and its decimal id; --arp-call-id=VAL names the id
+    that call writes, so --arp-call-id=0 makes it the release, whose argument is
+    drawn OFF rather than as a 0 and which leaves the rows below it carrying no
+    command at all. --arp-note-off=ROW holds the column's note-off in channel 0
+    at that row, which is what puts a call beside a note-off rather than beside a
+    note or an empty cell. --bend=ROW names a pitch bend in
     tracker channel 0 at that row, which paints the lilac letter B, and --bend-arg=VAL
     names the point on the wheel it bends to so the argument is drawn in decimal
     beside it; with no --bend-arg the row bends to 96, above the wheel's centre
@@ -163,6 +173,24 @@ int main (int argc, char** argv)
         if (args[i].startsWith ("--arp-call="))
         {
             arpCallRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    int arpCallId = 1; // the macro id the call names, so --arp-call-id=0 makes the
+    // shot's call a release: the letter A with the 0 the release writes, drawn OFF
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--arp-call-id="))
+        {
+            arpCallId = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    int noteOffRow = -1; // a row holding the column's note-off, which is what makes
+    // a shot's call sit beside a note-off rather than beside a note or an empty cell
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--arp-note-off="))
+        {
+            noteOffRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
             args.remove (i);
         }
 
@@ -338,8 +366,11 @@ int main (int argc, char** argv)
         if (arpCallRow >= 0)
         {
             p.cell (arpCallRow, 0).cmd = rtr::kArpCmd;
-            p.cell (arpCallRow, 0).cmdVal = 1; // A 1: the letter command and its macro id
+            p.cell (arpCallRow, 0).cmdVal = arpCallId; // A 1: the letter command and its macro id
         }
+
+        if (noteOffRow >= 0)
+            p.cell (noteOffRow, 0).note = rtr::kNoteOff; // === : the note the column held is off
 
         if (bendRow >= 0)
         {

@@ -565,7 +565,17 @@ void MacrosPanel::paint (juce::Graphics& g)
             const bool pending = here && typingStep && stepText.isNotEmpty();
             const juce::String shown = pending ? stepText : arpStepText (m->steps[(size_t) i]);
 
-            g.setColour (pending || m->steps[(size_t) i] != kArpEmptyStep ? theme::cmdMacro : theme::noteOff);
+            // the steps are one subtick wide, so a group of them is one row's
+            // span: the strip alternates the groups' shades, which is what makes
+            // a macro that reaches past its row read as spans rather than as one
+            // long run of numbers
+            const bool band = (stepBand (i) % 2) != 0;
+
+            const juce::Colour stepColour = pending || m->steps[(size_t) i] != kArpEmptyStep
+                                                ? theme::cmdMacro
+                                                : theme::noteOff;
+
+            g.setColour (band ? stepColour.withAlpha (0.58f) : stepColour);
             g.setFont (theme::monoFont (11.0f));
             g.drawText (shown, x + 2, sy + 3, cellW - 4, kStepLineH - 4,
                         juce::Justification::centredLeft, true);

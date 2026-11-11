@@ -205,7 +205,13 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
                                              (int) std::llround ((stepTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
 
             const std::int8_t step = macro->steps[(size_t) (macro->looped ? c.arpCount % len : c.arpCount)];
-            const int base = c.columnNote;
+
+            // the steps measure from the note the column last named, which a note
+            // entering further down the column re-bases by being that note; a run
+            // whose call was answered at a note-off row steps from the note that
+            // row was releasing, which the note-off took from the column for the
+            // rows below it, until a note enters or another note-off ends it
+            const int base = c.columnNote >= 0 ? c.columnNote : c.arpCallNote;
 
             if (step != kArpEmptyStep && base >= 0 && base <= 127)
             {
@@ -246,12 +252,20 @@ void PlaybackEngine::arpCommand (std::vector<PendingEvent>& events, int ch, int 
 
     if (id == 0)
     {
-        // the release call: a row that names a note has already released what it
-        // was holding before striking its own, so only a row without one has to
+        // the release call: a row that named a note had already released what it
+        // was holding before striking its own, and a row that names a note-off
+        // released it as the note-off itself, so only a bare row has to
         if (! noteOnRow && c.activeNote >= 0)
             stopNote (events, offset, ch, c.activeMidiCh, c.activeNote);
 
         c.endArp();
+
+        // a release leaves the column calling nothing rather than calling id 0,
+        // which is what the tracker stops drawing a carried letter and argument
+        // over the rows below it and what stops a further row naming only an
+        // argument from starting a run there
+        c.lastCmd = -1;
+        c.lastCmdVal = -1;
         return;
     }
 
@@ -263,13 +277,18 @@ void PlaybackEngine::arpCommand (std::vector<PendingEvent>& events, int ch, int 
     // the new one: the note its last step entered is released at this row's
     // first subtick, so the new run steps from the note the column named instead
     // of continuing from whatever note that run happened to be sounding. A row
-    // that struck a note of its own had already released it above this call, so
-    // only a row without one has to close the run.
+    // that struck a note of its own had already released it above this call, and
+    // a row that names a note-off released the note as the note-off before
+    // getting here, so in both those cases this close has nothing left to do.
     if (! noteOnRow)
         closeArp (events, offset, ch);
 
-    // the run's steps measure from columnNote: the call row's own note where it
-    // named one, and where it did not, the note the column above left named
+    // the run's steps measure from the note the column named - the call row's own
+    // note where it named one, the note its rows above left named where it did
+    // not - and the run keeps that note as its own answer for as long as the
+    // column has none, which is what a call written beside a note-off walks the
+    // note that row released rather than sounding nothing at all
+    c.arpCallNote = c.columnNote;
     c.arpOrigin = rowPpq;
 
     if (noteOnRow)
@@ -348,20 +367,21 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                                 juce::MidiMessage::controllerEvent (midiCh + 1, panCc,
                                                                     juce::jlimit (0, 127, cell.pan)) });
 
-        if (cell.note == kNoteOff)
+        const bool noteOff = cell.note == kNoteOff;
+        const bool noteHere = ! noteOff && cell.note != kEmpty && cell.note >= 0 && cell.note <= 127;
+
+        if (noteOff)
         {
             if (state.activeNote >= 0)
                 stopNote (events, offset, ch, state.activeMidiCh, state.activeNote);
 
-            // the note the column named is gone here, which is what a call
-            // further down this column has no note to step from until a note
-            // enters below the note-off
-            state.columnNote = -1;
-
-            continue;
+            // a run the rows above left in force has no note to sound again below
+            // a note-off: its steps go silent until a note enters the column, which
+            // is what ends a looped run there rather than only at the clip's end
+            if (state.arpId > 0)
+                state.arpCallNote = -1;
         }
-
-        if (cell.note != kEmpty && cell.note >= 0 && cell.note <= 127)
+        else if (noteHere)
         {
             // this is the note the column last named: a call at this row steps
             // from it, a call lower down steps from it too while nothing else
@@ -371,19 +391,23 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
 
             const std::pair<int, int> key { midiCh, cell.note };
 
-            if (! notesThisRow.insert (key).second)
-                continue; // same note already triggered on this row - ignore duplicate
-
-            const int velocity = cell.vol != kEmpty ? cell.vol : juce::jlimit (1, 127, state.lastVol > 0 ? state.lastVol : 100);
-            startNote (events, offset, ch, midiCh, cell.note, velocity);
-            state.activeClip = clip.uid;
+            if (notesThisRow.insert (key).second)
+            {
+                const int velocity = cell.vol != kEmpty ? cell.vol : juce::jlimit (1, 127, state.lastVol > 0 ? state.lastVol : 100);
+                startNote (events, offset, ch, midiCh, cell.note, velocity);
+                state.activeClip = clip.uid;
+            }
         }
 
         if (cell.cmd != kEmpty)
         {
+            // a row naming a note-off gets its command answered too: the release
+            // that row asked for went out above as the note-off itself, so the
+            // call written beside it is answered against the note the column had
+            // named rather than being skipped along with the note
             if (cell.cmd == kArpCmd)
                 arpCommand (events, ch, cell.cmdVal, offset, rowPpq, clip.uid,
-                            cell.note != kEmpty, song);
+                            noteHere, song);
             else if (cell.cmd == kBendCmd)
                 bendTo (events, ch, midiCh, cell.cmdVal, offset, clip.uid);
             else
@@ -417,9 +441,15 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // under a carried call names a new one: id 0 releases what the
                 // run was holding and ends it, another starts that macro
                 arpCommand (events, ch, cell.cmdVal, offset, rowPpq, clip.uid,
-                            cell.note != kEmpty, song);
+                            noteHere, song);
             }
         }
+
+        // the note-off takes the note the column named away for the rows below it,
+        // which happens after the row's own command had the note it was releasing
+        // to answer against
+        if (noteOff)
+            state.columnNote = -1;
 
         uiRow[(size_t) ch].store (row);
     }

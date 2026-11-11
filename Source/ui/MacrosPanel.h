@@ -28,6 +28,17 @@ public:
     // drag of the drawn strip moved the cards rather than only the wheel
     int getScrollY() const { return scrollY; }
 
+    /** Which group of "Subticks per row" steps a step sits in: a step is one
+        subtick wide and a subtick is a row over the Settings row "Subticks per
+        row", so one group is the steps that fit inside one row's span. The card
+        shades its step strip alternate group by group, which is what makes how
+        far a macro reaches past the row that called it readable off the strip
+        rather than by counting cells. */
+    int stepBand (int which) const
+    {
+        return which / juce::jmax (1, song.settings.subticksPerRow);
+    }
+
     std::function<void()> onModelChanged;
 
     // the Alt pair is answered here as well as in the editor, so a press aimed

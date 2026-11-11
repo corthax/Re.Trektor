@@ -46,6 +46,17 @@ namespace
             default: return -1;
         }
     }
+
+    /** Whether a row that named a command leaves one in force for the rows
+        below it: the arpeggiator release, the letter A with its 0, releases the
+        run the column was calling and leaves the column calling nothing, which
+        is what stops the tracker drawing a carried letter and argument over the
+        rows below it and matches the engine answering no row there that names
+        only an argument. */
+    bool commandLeavesCarry (const Cell& cell)
+    {
+        return cell.cmd != kEmpty && ! (cell.cmd == kArpCmd && cell.cmdVal == 0);
+    }
 }
 
 //==============================================================================
@@ -170,7 +181,6 @@ void TrackerComponent::layoutFields()
     const int instW = (int) (charW * (float) fieldGlyphs (Field::inst)) + kFieldPad;
     const int volW = (int) (charW * (float) fieldGlyphs (Field::vol)) + kFieldPad;
     const int panW = (int) (charW * (float) fieldGlyphs (Field::pan)) + kFieldPad;
-    const int cmdW = (int) (charW * (float) (fieldGlyphs (Field::cmdNum) + fieldGlyphs (Field::cmdVal))) + kFieldPad;
 
     int x = gutterWidth - scrollX;
 
@@ -197,10 +207,16 @@ void TrackerComponent::layoutFields()
 
         if (p.showColumn (ch, 3))
         {
-            const int half = cmdW / 2;
-            fieldRects.push_back ({ Field::cmdNum, ch, { x, 0, half, rowHeight } });
-            fieldRects.push_back ({ Field::cmdVal, ch, { x + half, 0, cmdW - half, rowHeight } });
-            x += cmdW;
+            // the two halves each get room for their own widest spelling rather
+            // than sharing the cell by halves: an arpeggiator argument is always
+            // decimal, so in a hex view it is wider than the two digits a plain
+            // CC's shows, and the release's OFF needs the three of them
+            const int numW = (int) (charW * (float) fieldGlyphs (Field::cmdNum) + 1.0f) + 2;
+            const int valW = (int) (charW * (float) fieldGlyphs (Field::cmdVal) + 1.0f) + kFieldPad;
+
+            fieldRects.push_back ({ Field::cmdNum, ch, { x, 0, numW, rowHeight } });
+            fieldRects.push_back ({ Field::cmdVal, ch, { x + numW, 0, valW, rowHeight } });
+            x += numW + valW;
         }
 
         // the channel's cell spans the fields it shows, and stops before the
@@ -525,7 +541,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
     const bool hex = song.settings.hexDisplay;
 
     // carry tables for display
-    struct Eff { int inst = -1, vol = -1, pan = -1, cmd = -1; };
+    struct Eff { int inst = -1, vol = -1, pan = -1, cmd = -1, cmdVal = -1; };
     std::vector<std::vector<Eff>> eff ((size_t) p.channels);
 
     for (int ch = 0; ch < p.channels; ++ch)
@@ -540,7 +556,23 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
             if (cell.inst != kEmpty) c.inst = cell.inst;
             if (cell.vol != kEmpty) c.vol = cell.vol;
             if (cell.pan != kEmpty) c.pan = cell.pan;
-            if (cell.cmd != kEmpty) c.cmd = cell.cmd;
+
+            // the argument is part of what the column carries, which is what a
+            // row under a command that named one shows it as well as the letter,
+            // and a release leaves the column carrying neither
+            if (cell.cmd != kEmpty)
+            {
+                if (commandLeavesCarry (cell))
+                {
+                    c.cmd = cell.cmd;
+                    c.cmdVal = cell.cmdVal;
+                }
+                else
+                {
+                    c.cmd = -1;
+                    c.cmdVal = -1;
+                }
+            }
 
             eff[(size_t) ch][(size_t) r] = c;
         }
@@ -720,11 +752,13 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                     case Field::cmdNum:
                     case Field::cmdVal:
                     {
-                        const bool hasOwn = cell.cmd != kEmpty;
-                        const int cmdNum = hasOwn ? cell.cmd : carried.cmd;
-                        // a row that names only an argument still shows it, under
-                        // the command number the column carries down from above
-                        const int cmdVal = cell.cmdVal;
+                        const bool hasOwnNum = cell.cmd != kEmpty;
+                        const bool hasOwnVal = cell.cmdVal != kEmpty;
+                        const int cmdNum = hasOwnNum ? cell.cmd : carried.cmd;
+                        // the argument belongs to what the column carries as much
+                        // as the letter does, so a row under a command that named
+                        // one shows both dim rather than only the letter
+                        const int cmdVal = hasOwnVal ? cell.cmdVal : carried.cmdVal;
 
                         if (fr.field == Field::cmdNum)
                         {
@@ -751,7 +785,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     colour = theme::cmdCC;
                                 }
 
-                                dim = ! hasOwn;
+                                dim = ! hasOwnNum;
                             }
                             else
                             {
@@ -771,10 +805,24 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                 // CC keeps hex with it
                                 const bool arpCall = cmdNum == kArpCmd;
                                 const bool bendCall = cmdNum == kBendCmd;
-                                text = valueString (cmdVal, hex && ! arpCall && ! bendCall, fieldGlyphs (Field::cmdVal));
+
+                                if (arpCall && cmdVal == 0)
+                                    // the release reads as what it does rather than
+                                    // as a bare 0, which is why the column stops
+                                    // carrying the call on below it
+                                    text = "OFF";
+                                else
+                                    text = valueString (cmdVal, hex && ! arpCall && ! bendCall,
+                                                        fieldGlyphs (Field::cmdVal));
+
                                 colour = arpCall ? theme::cmdMacro
                                                  : bendCall ? theme::cmdOther
                                                             : theme::cmdCC;
+
+                                // an argument the row did not name is the one the
+                                // column carries down from above, drawn dimmer like
+                                // every other carried value
+                                dim = ! hasOwnVal;
                             }
                             else
                             {
@@ -1461,7 +1509,7 @@ int TrackerComponent::fieldGlyphs (Field field) const
         case Field::vol: return hex ? 2 : 3; // 0-255 hex, 0-127 decimal
         case Field::pan: return 3; // hex shows three padded digits, decimal up to 127
         case Field::cmdNum: return hex ? 2 : 3; // CC number, or one letter for a command kind
-        case Field::cmdVal: return hex ? 2 : 3; // argument 0-127
+        case Field::cmdVal: return 3; // the argument is always written decimal, so a macro id, a point on the wheel or the release's OFF need three; a plain CC's hex argument pads in the first two of them
         default: return 1;
     }
 }
@@ -1497,8 +1545,10 @@ int TrackerComponent::carriedCommandNumber (int row, int ch) const
     {
         const auto& cell = p.rows[(size_t) r][(size_t) ch];
 
+        // a release call leaves the column calling nothing rather than calling
+        // its id, which is what stops an argument typed below one being implicit
         if (cell.cmd != kEmpty)
-            return cell.cmd;
+            return commandLeavesCarry (cell) ? cell.cmd : -1;
     }
 
     return -1;
