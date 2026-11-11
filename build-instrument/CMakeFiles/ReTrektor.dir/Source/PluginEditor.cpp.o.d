@@ -735,6 +735,7 @@ CMakeFiles/ReTrektor.dir/Source/PluginEditor.cpp.o: \
  /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_processors/utilities/ARA/juce_ARA_utils.h \
  /media/data2/GameDev/Plugins/ReTrektor/Source/Model.h \
  /media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h \
+ /usr/include/c++/16/bitset \
  /media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h \
  /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h \
  /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h \

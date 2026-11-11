@@ -735,4 +735,5 @@ CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o: \
  /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_processors/utilities/ARA/juce_ARA_utils.h \
  /media/data2/GameDev/Plugins/ReTrektor/Source/ui/../Model.h \
  /media/data2/GameDev/Plugins/ReTrektor/Source/ui/../PlaybackEngine.h \
+ /usr/include/c++/16/bitset \
  /media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h

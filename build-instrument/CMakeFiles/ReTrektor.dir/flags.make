@@ -15,3 +15,5 @@ CXX_INCLUDES = -I/media/data2/GameDev/Plugins/ReTrektor/build-instrument/ReTrekt
 
 CXX_FLAGS = -O3 -DNDEBUG -std=gnu++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -pthread -DWITH_GZFILEOP -O3 -flto -Wall -Wextra -Wpedantic -Wstrict-aliasing -Wuninitialized -Wunused-parameter -Wsign-compare -Wsign-conversion -Wunreachable-code -Wcast-align -Wno-implicit-fallthrough -Wno-maybe-uninitialized -Wno-ignored-qualifiers -Wno-multichar -Wswitch-enum -Wredundant-decls -Wno-strict-overflow -Wshadow -Wfloat-equal -Wmissing-field-initializers -Woverloaded-virtual -Wreorder -Wzero-as-null-pointer-constant
 
+# Custom flags: CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o_FLAGS = -fno-lto
+

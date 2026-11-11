@@ -910,6 +910,30 @@ Source/PluginProcessor.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor.dir/build.make CMakeFiles/ReTrektor.dir/Source/PluginProcessor.cpp.s
 .PHONY : Source/PluginProcessor.cpp.s
 
+Source/Portability.o: Source/Portability.cpp.o
+.PHONY : Source/Portability.o
+
+# target to build an object file
+Source/Portability.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor.dir/build.make CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o
+.PHONY : Source/Portability.cpp.o
+
+Source/Portability.i: Source/Portability.cpp.i
+.PHONY : Source/Portability.i
+
+# target to preprocess a source file
+Source/Portability.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor.dir/build.make CMakeFiles/ReTrektor.dir/Source/Portability.cpp.i
+.PHONY : Source/Portability.cpp.i
+
+Source/Portability.s: Source/Portability.cpp.s
+.PHONY : Source/Portability.s
+
+# target to generate assembly for a file
+Source/Portability.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor.dir/build.make CMakeFiles/ReTrektor.dir/Source/Portability.cpp.s
+.PHONY : Source/Portability.cpp.s
+
 Source/ui/MacrosPanel.o: Source/ui/MacrosPanel.cpp.o
 .PHONY : Source/ui/MacrosPanel.o
 
@@ -1157,6 +1181,9 @@ help:
 	@echo "... Source/PluginProcessor.o"
 	@echo "... Source/PluginProcessor.i"
 	@echo "... Source/PluginProcessor.s"
+	@echo "... Source/Portability.o"
+	@echo "... Source/Portability.i"
+	@echo "... Source/Portability.s"
 	@echo "... Source/ui/MacrosPanel.o"
 	@echo "... Source/ui/MacrosPanel.i"
 	@echo "... Source/ui/MacrosPanel.s"

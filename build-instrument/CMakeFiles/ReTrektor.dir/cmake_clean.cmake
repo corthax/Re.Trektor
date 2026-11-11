@@ -39,6 +39,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/ReTrektor.dir/Source/PluginEditor.cpp.o.d"
   "CMakeFiles/ReTrektor.dir/Source/PluginProcessor.cpp.o"
   "CMakeFiles/ReTrektor.dir/Source/PluginProcessor.cpp.o.d"
+  "CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o"
+  "CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o.d"
   "CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o"
   "CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o.d"
   "CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o"

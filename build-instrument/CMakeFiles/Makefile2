@@ -175,12 +175,12 @@ JUCE/modules/clean:
 CMakeFiles/ReTrektor.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor.dir/build.make CMakeFiles/ReTrektor.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor.dir/build.make CMakeFiles/ReTrektor.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28 "Built target ReTrektor"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29 "Built target ReTrektor"
 .PHONY : CMakeFiles/ReTrektor.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/ReTrektor.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles 28
+	$(CMAKE_COMMAND) -E cmake_progress_start /media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles 29
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/ReTrektor.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles 0
 .PHONY : CMakeFiles/ReTrektor.dir/rule
@@ -192,7 +192,7 @@ ReTrektor: CMakeFiles/ReTrektor.dir/rule
 # codegen rule for target.
 CMakeFiles/ReTrektor.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor.dir/build.make CMakeFiles/ReTrektor.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28 "Finished codegen for target ReTrektor"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29 "Finished codegen for target ReTrektor"
 .PHONY : CMakeFiles/ReTrektor.dir/codegen
 
 # clean rule for target.
@@ -212,7 +212,7 @@ CMakeFiles/ReTrektor_All.dir/all: CMakeFiles/ReTrektor_VST3.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/ReTrektor_All.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles 39
+	$(CMAKE_COMMAND) -E cmake_progress_start /media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles 40
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/ReTrektor_All.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles 0
 .PHONY : CMakeFiles/ReTrektor_All.dir/rule
@@ -240,12 +240,12 @@ CMakeFiles/ReTrektor_VST3.dir/all: CMakeFiles/ReTrektor.dir/all
 CMakeFiles/ReTrektor_VST3.dir/all: CMakeFiles/ReTrektor_vst3_helper.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor_VST3.dir/build.make CMakeFiles/ReTrektor_VST3.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor_VST3.dir/build.make CMakeFiles/ReTrektor_VST3.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=29,30,31,32,33,34,35,36,37 "Built target ReTrektor_VST3"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=30,31,32,33,34,35,36,37,38 "Built target ReTrektor_VST3"
 .PHONY : CMakeFiles/ReTrektor_VST3.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/ReTrektor_VST3.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles 39
+	$(CMAKE_COMMAND) -E cmake_progress_start /media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles 40
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/ReTrektor_VST3.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles 0
 .PHONY : CMakeFiles/ReTrektor_VST3.dir/rule
@@ -257,7 +257,7 @@ ReTrektor_VST3: CMakeFiles/ReTrektor_VST3.dir/rule
 # codegen rule for target.
 CMakeFiles/ReTrektor_VST3.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor_VST3.dir/build.make CMakeFiles/ReTrektor_VST3.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=29,30,31,32,33,34,35,36,37 "Finished codegen for target ReTrektor_VST3"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=30,31,32,33,34,35,36,37,38 "Finished codegen for target ReTrektor_VST3"
 .PHONY : CMakeFiles/ReTrektor_VST3.dir/codegen
 
 # clean rule for target.
@@ -272,7 +272,7 @@ CMakeFiles/ReTrektor_VST3.dir/clean:
 CMakeFiles/ReTrektor_vst3_helper.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor_vst3_helper.dir/build.make CMakeFiles/ReTrektor_vst3_helper.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor_vst3_helper.dir/build.make CMakeFiles/ReTrektor_vst3_helper.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=38,39 "Built target ReTrektor_vst3_helper"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=39,40 "Built target ReTrektor_vst3_helper"
 .PHONY : CMakeFiles/ReTrektor_vst3_helper.dir/all
 
 # Build rule for subdir invocation for target.
@@ -289,7 +289,7 @@ ReTrektor_vst3_helper: CMakeFiles/ReTrektor_vst3_helper.dir/rule
 # codegen rule for target.
 CMakeFiles/ReTrektor_vst3_helper.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ReTrektor_vst3_helper.dir/build.make CMakeFiles/ReTrektor_vst3_helper.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=38,39 "Finished codegen for target ReTrektor_vst3_helper"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=39,40 "Finished codegen for target ReTrektor_vst3_helper"
 .PHONY : CMakeFiles/ReTrektor_vst3_helper.dir/codegen
 
 # clean rule for target.

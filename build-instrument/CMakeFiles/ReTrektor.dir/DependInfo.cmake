@@ -28,6 +28,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.cpp" "CMakeFiles/ReTrektor.dir/Source/PlaybackEngine.cpp.o" "gcc" "CMakeFiles/ReTrektor.dir/Source/PlaybackEngine.cpp.o.d"
   "/media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.cpp" "CMakeFiles/ReTrektor.dir/Source/PluginEditor.cpp.o" "gcc" "CMakeFiles/ReTrektor.dir/Source/PluginEditor.cpp.o.d"
   "/media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.cpp" "CMakeFiles/ReTrektor.dir/Source/PluginProcessor.cpp.o" "gcc" "CMakeFiles/ReTrektor.dir/Source/PluginProcessor.cpp.o.d"
+  "/media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp" "CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o" "gcc" "CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o.d"
   "/media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.cpp" "CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o" "gcc" "CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o.d"
   "/media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.cpp" "CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o" "gcc" "CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o.d"
   "/media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.cpp" "CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o" "gcc" "CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o.d"

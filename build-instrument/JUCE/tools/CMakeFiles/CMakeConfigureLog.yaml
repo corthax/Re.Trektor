@@ -2130,3 +2130,41 @@ events:
         
       exitCode: 0
 ...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "extras/Build/CMake/JUCECheckAtomic.cmake:73 (try_compile)"
+      - "extras/Build/CMake/JUCECheckAtomic.cmake:128 (_juce_create_atomic_target)"
+      - "extras/Build/CMake/JUCEModuleSupport.cmake:57 (include)"
+      - "CMakeLists.txt:50 (include)"
+    directories:
+      source: "/media/data2/GameDev/Plugins/ReTrektor/build-instrument/JUCE/tools/check_atomic_dir_vgrVqtP66g7EW2i5/CMakeFiles/CMakeTmp"
+      binary: "/media/data2/GameDev/Plugins/ReTrektor/build-instrument/JUCE/tools/check_atomic_dir_vgrVqtP66g7EW2i5/CMakeFiles/CMakeTmp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_CXX_STDLIB_MODULES_JSON: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "compile_result"
+      cached: true
+      stdout: |
+        Change Dir: '/media/data2/GameDev/Plugins/ReTrektor/build-instrument/JUCE/tools/check_atomic_dir_vgrVqtP66g7EW2i5/CMakeFiles/CMakeTmp'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_aa6ed/fast
+        gmake[1]: Entering directory '/media/data2/GameDev/Plugins/ReTrektor/build-instrument/JUCE/tools/check_atomic_dir_vgrVqtP66g7EW2i5/CMakeFiles/CMakeTmp'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_aa6ed.dir/build.make CMakeFiles/cmTC_aa6ed.dir/build
+        gmake[2]: Entering directory '/media/data2/GameDev/Plugins/ReTrektor/build-instrument/JUCE/tools/check_atomic_dir_vgrVqtP66g7EW2i5/CMakeFiles/CMakeTmp'
+        Building CXX object CMakeFiles/cmTC_aa6ed.dir/check_atomic_TNwhYjcBrNymQC1R.cpp.o
+        /usr/bin/c++   -std=c++17 -o CMakeFiles/cmTC_aa6ed.dir/check_atomic_TNwhYjcBrNymQC1R.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/build-instrument/JUCE/tools/check_atomic_TNwhYjcBrNymQC1R.cpp
+        Linking CXX executable cmTC_aa6ed
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_aa6ed.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_aa6ed.dir/check_atomic_TNwhYjcBrNymQC1R.cpp.o -o cmTC_aa6ed
+        gmake[2]: Leaving directory '/media/data2/GameDev/Plugins/ReTrektor/build-instrument/JUCE/tools/check_atomic_dir_vgrVqtP66g7EW2i5/CMakeFiles/CMakeTmp'
+        gmake[1]: Leaving directory '/media/data2/GameDev/Plugins/ReTrektor/build-instrument/JUCE/tools/check_atomic_dir_vgrVqtP66g7EW2i5/CMakeFiles/CMakeTmp'
+        
+      exitCode: 0
+...

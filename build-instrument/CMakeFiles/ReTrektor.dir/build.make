@@ -132,10 +132,24 @@ CMakeFiles/ReTrektor.dir/Source/PlaybackEngine.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/ReTrektor.dir/Source/PlaybackEngine.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.cpp -o CMakeFiles/ReTrektor.dir/Source/PlaybackEngine.cpp.s
 
+CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
+CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp
+CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -fno-lto -MD -MT CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o -MF CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o.d -o CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp
+
+CMakeFiles/ReTrektor.dir/Source/Portability.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/ReTrektor.dir/Source/Portability.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -fno-lto -E /media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp > CMakeFiles/ReTrektor.dir/Source/Portability.cpp.i
+
+CMakeFiles/ReTrektor.dir/Source/Portability.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/ReTrektor.dir/Source/Portability.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -fno-lto -S /media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp -o CMakeFiles/ReTrektor.dir/Source/Portability.cpp.s
+
 CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.cpp
 CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.o -MF CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.o.d -o CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.cpp
 
 CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.i: cmake_force
@@ -149,7 +163,7 @@ CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.s: cmake_force
 CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.cpp
 CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.o -MF CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.o.d -o CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.cpp
 
 CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.i: cmake_force
@@ -163,7 +177,7 @@ CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.s: cmake_force
 CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.cpp
 CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o -MF CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o.d -o CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.cpp
 
 CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.i: cmake_force
@@ -177,7 +191,7 @@ CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.s: cmake_force
 CMakeFiles/ReTrektor.dir/Source/ui/ToolsPanel.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/Source/ui/ToolsPanel.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.cpp
 CMakeFiles/ReTrektor.dir/Source/ui/ToolsPanel.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/ToolsPanel.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/ToolsPanel.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/Source/ui/ToolsPanel.cpp.o -MF CMakeFiles/ReTrektor.dir/Source/ui/ToolsPanel.cpp.o.d -o CMakeFiles/ReTrektor.dir/Source/ui/ToolsPanel.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.cpp
 
 CMakeFiles/ReTrektor.dir/Source/ui/ToolsPanel.cpp.i: cmake_force
@@ -191,7 +205,7 @@ CMakeFiles/ReTrektor.dir/Source/ui/ToolsPanel.cpp.s: cmake_force
 CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.cpp
 CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o -MF CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o.d -o CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.cpp
 
 CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.i: cmake_force
@@ -205,7 +219,7 @@ CMakeFiles/ReTrektor.dir/Source/ui/SettingsPanel.cpp.s: cmake_force
 CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.cpp
 CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o -MF CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o.d -o CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.cpp
 
 CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.i: cmake_force
@@ -219,7 +233,7 @@ CMakeFiles/ReTrektor.dir/Source/ui/MacrosPanel.cpp.s: cmake_force
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp.i: cmake_force
@@ -233,7 +247,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processor
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.i: cmake_force
@@ -247,7 +261,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processor
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.i: cmake_force
@@ -261,7 +275,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_processors/juce_audio_processor
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.i: cmake_force
@@ -275,7 +289,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.s: cmake
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.i: cmake_force
@@ -289,7 +303,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.s: cma
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_graphics/juce_graphics.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_graphics/juce_graphics.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics.cpp.i: cmake_force
@@ -303,7 +317,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics.cpp.s: cmake_f
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.i: cmake_force
@@ -317,7 +331,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.s
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building C object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building C object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.i: cmake_force
@@ -331,7 +345,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.s:
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_events/juce_events.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_events/juce_events.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_events/juce_events.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_events/juce_events.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_events/juce_events.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_events/juce_events.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_events/juce_events.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_events/juce_events.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_events/juce_events.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_events/juce_events.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_events/juce_events.cpp.i: cmake_force
@@ -345,7 +359,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_events/juce_events.cpp.s: cmake_force
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_core/juce_core.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_core/juce_core.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core.cpp.i: cmake_force
@@ -359,7 +373,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core.cpp.s: cmake_force
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_core/juce_core_CompilationTime.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_core/juce_core_CompilationTime.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.i: cmake_force
@@ -373,7 +387,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.s:
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_data_structures/juce_data_structures.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_data_structures/juce_data_structures.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_data_structures/juce_data_structures.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_data_structures/juce_data_structures.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_data_structures/juce_data_structures.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_data_structures/juce_data_structures.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_data_structures/juce_data_structures.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_data_structures/juce_data_structures.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_data_structures/juce_data_structures.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_data_structures/juce_data_structures.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_data_structures/juce_data_structures.cpp.i: cmake_force
@@ -387,7 +401,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_data_structures/juce_data_structures.
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.i: cmake_force
@@ -401,7 +415,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.s:
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.i: cmake_force
@@ -415,7 +429,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.s: c
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.i: cmake_force
@@ -429,7 +443,7 @@ CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.o: CMakeFiles/ReTrektor.dir/flags.make
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.o: /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.o: CMakeFiles/ReTrektor.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building CXX object CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.o -MF CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.o.d -o CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.o -c /media/data2/GameDev/Plugins/ReTrektor/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp
 
 CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.i: cmake_force
@@ -446,6 +460,7 @@ ReTrektor_OBJECTS = \
 "CMakeFiles/ReTrektor.dir/Source/PluginEditor.cpp.o" \
 "CMakeFiles/ReTrektor.dir/Source/Model.cpp.o" \
 "CMakeFiles/ReTrektor.dir/Source/PlaybackEngine.cpp.o" \
+"CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o" \
 "CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.o" \
 "CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.o" \
 "CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o" \
@@ -476,6 +491,7 @@ ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir
 ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir/Source/PluginEditor.cpp.o
 ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir/Source/Model.cpp.o
 ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir/Source/PlaybackEngine.cpp.o
+ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir/Source/Portability.cpp.o
 ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir/Source/ui/TimelineComponent.cpp.o
 ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir/Source/ui/TrackerComponent.cpp.o
 ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir/Source/ui/PoolComponent.cpp.o
@@ -500,7 +516,7 @@ ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir
 ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.o
 ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir/build.make
 ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a: CMakeFiles/ReTrektor.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Linking CXX static library ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/media/data2/GameDev/Plugins/ReTrektor/build-instrument/CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Linking CXX static library ReTrektor_artefacts/Release/libRe.Trektor_SharedCode.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/ReTrektor.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/ReTrektor.dir/link.txt --verbose=$(VERBOSE)
 
