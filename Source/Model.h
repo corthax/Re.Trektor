@@ -16,25 +16,39 @@ constexpr int kMaxRows = 1024;
 constexpr int kMaxTrackerChannels = 127;
 constexpr int kMidiChannelCount = 16;
 /** The Command column's number field holds a plain CC number, 0..kCcTop, and
-    above that the command letters: the letter A names kArpCmd and the letter B
-    names kBendCmd, each claimed as the field's first character rather than
-    typed as a number, which is what stops a typed digit run from inventing a
-    letter - a decimal field spells CC 10 as 10, so nothing about a number's
-    spelling reaches one of the letters. kBendCmd sits
-    above the command values 128-143 an older build used for its M0-M15 macro
-    kinds, so the one value this build owns for a bend is a value that build
-    could not have written, and an older state's macro calls can all land on the
-    letter they now means without any of them becoming a bend.
+    above that the command letters: the letter A names kArpCmd, the letter B
+    names kBendCmd and the letters U and D name a slide of the pitch wheel to
+    its top and to its bottom, each claimed as the field's first character
+    rather than typed as a number, which is what stops a typed digit run from
+    inventing a letter - a decimal field spells CC 10 as 10, so nothing about a
+    number's spelling reaches one of the letters. kBendCmd and the two slide
+    values sit above kOlderCmdTop, the highest value an older build could write
+    for its M0-M15 macro kinds, so the three values this build owns for the
+    pitch wheel are values that build could not have written, and an older
+    state's macro calls can all land on the letter they now means without any
+    of them becoming a bend or a slide.
 
     A bend's argument names a point on the 14-bit pitch wheel in 128s: 0 is the
     wheel's bottom, kBendCentreVal its exact centre and 127 near its top, so the
-    argument keeps the decimal spelling its centre is read in. */
+    argument keeps the decimal spelling its centre is read in.
+
+    A slide's argument says how many rows the slide takes rather than where on
+    that wheel it goes: the row that named the letter leaves the wheel where it
+    already is and the extreme sits that many rows below it, so an argument of 0
+    jumps there on the naming row itself and the widest slide the field can name
+    takes 127 rows. A row that names the letter and leaves the argument empty
+    takes the default span of kSlideDefaultSpan rows, the number the entry
+    writes so the cell spells the slide it asks for. */
 constexpr int kMaxArpMacros = 127; // arpeggiator macros, ids 1..127; the id 0 call releases
 constexpr int kMaxArpSteps = 64;   // most steps one arpeggiator macro can hold
 constexpr int kArpCmd = 128;       // command value 128 calls an arpeggiator, entered as A
 constexpr int kCcTop = 127;        // highest plain CC number a column can hold
+constexpr int kOlderCmdTop = 143;  // highest command value an older build could write, one of its M0-M15 macro kinds
 constexpr int kBendCmd = 144;      // command value 144 bends the pitch, entered as B
 constexpr int kBendCentreVal = 64; // the bend argument that sits at the wheel's centre
+constexpr int kSlideUpCmd = 145;   // command value 145 slides the wheel to its top, entered as U
+constexpr int kSlideDownCmd = 146; // command value 146 slides the wheel to its bottom, entered as D
+constexpr int kSlideDefaultSpan = 8; // rows a slide takes when its row leaves the argument empty
 constexpr int kArpTopStep = 127;      // a step's jump is clamped to this far off the base note
 constexpr int kArpEmptyStep = -128; // a step that sounds nothing and sustains the one before
 constexpr int kArpNoteOffStep = -129; // a step that opens the note it would have held
@@ -57,8 +71,8 @@ struct Cell
     int inst = kEmpty;    // kEmpty or 0..15 (MIDI output channel)
     int vol = kEmpty;     // kEmpty or 0..127
     int pan = kEmpty;     // kEmpty or 0..127
-    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B)
-    int cmdVal = kEmpty;  // kEmpty or 0..127
+    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D)
+    int cmdVal = kEmpty;  // kEmpty or 0..127: a macro id, a point on the wheel, or a slide's rows
 
     bool empty() const noexcept
     {

@@ -8,6 +8,7 @@
            [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
            [--undo=N] [--redo=N] [--arp=0,+4,off,-8] [--arp-loop] [--arp-call=ROW]
            [--arp-call-id=VAL] [--arp-note-off=ROW] [--bend=ROW] [--bend-arg=VAL]
+           [--slide=ROW] [--slide-down=ROW] [--slide-arg=VAL]
            [--macros=N] [--cmd-carry]
 
     --arp= writes signed semitone steps into arpeggiator id 1, so a Macros-tab
@@ -33,7 +34,13 @@
     tracker channel 0 at that row, which paints the lilac letter B, and --bend-arg=VAL
     names the point on the wheel it bends to so the argument is drawn in decimal
     beside it; with no --bend-arg the row bends to 96, above the wheel's centre
-    rather than sitting on it.
+    rather than sitting on it. --slide=ROW names a wheel slide up in tracker
+    channel 0 at that row, which paints the lilac letter U, and --slide-down=ROW
+    names a slide down there, the letter D, whose command value is one the number
+    field cannot be typed as and only the letter itself can name; --slide-arg=VAL
+    says how many rows the slide takes to reach its extreme, so the argument is
+    drawn in decimal beside the letter, and with no --slide-arg the row slides
+    over 12 rows rather than over the default 8 its letter entry leaves.
 
     --cmd-carry writes the command column's carried case in both channels: a row
     that names only an argument under the explicit CC the demo already has at row
@@ -229,6 +236,33 @@ int main (int argc, char** argv)
             args.remove (i);
         }
 
+    int slideRow = -1; // a wheel slide up, so a shot paints the lilac letter U
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--slide="))
+        {
+            slideRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    int slideDownRow = -1; // and a slide down, the letter D, which is a value the
+    // number field cannot be typed as and only the letter itself can name
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--slide-down="))
+        {
+            slideDownRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    int slideArg = 12; // how many rows the slide takes to reach its extreme, so
+    // the argument beside the letter is drawn in decimal like every other
+    // command's, the row above the wheel's centre rather than on it
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--slide-arg="))
+        {
+            slideArg = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
     int shotChannels = 0;
     for (int i = args.size(); --i >= 0;)
         if (args[i].startsWith ("--channels="))
@@ -388,6 +422,18 @@ int main (int argc, char** argv)
         {
             p.cell (bendRow, 0).cmd = rtr::kBendCmd;
             p.cell (bendRow, 0).cmdVal = bendArg; // B 96: the lilac letter and the point on the wheel
+        }
+
+        if (slideRow >= 0)
+        {
+            p.cell (slideRow, 0).cmd = rtr::kSlideUpCmd;
+            p.cell (slideRow, 0).cmdVal = slideArg; // U 12: the lilac letter and the span to its top
+        }
+
+        if (slideDownRow >= 0)
+        {
+            p.cell (slideDownRow, 0).cmd = rtr::kSlideDownCmd;
+            p.cell (slideDownRow, 0).cmdVal = slideArg; // D 12: and the span down to its bottom
         }
 
         if (arpStepsList.isNotEmpty())

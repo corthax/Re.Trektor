@@ -52,6 +52,10 @@ void PlaybackEngine::allNotesOff (std::vector<PendingEvent>& events, int offset,
             events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (c.activeMidiCh + 1, kBendCentrePos) });
             c.endBend();
         }
+        else if (c.slideRunning())
+            c.endBend(); // a ramp whose rows the column stopped having has nothing
+                         // left to reach its extreme, which is what takes it back
+                         // even before the wheel had moved off the centre
 
         c.activeNote = -1;
         c.lastRow = -1;
@@ -121,6 +125,10 @@ void PlaybackEngine::stopNote (std::vector<PendingEvent>& events, int offset, in
         events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh + 1, kBendCentrePos) });
         c.endBend();
     }
+    else if (c.slideRunning())
+        c.endBend(); // a slide the column was climbing is over at a note-off even
+                     // when the ramp had not moved the wheel off the centre yet,
+                     // which is why nothing keeps climbing underneath the note-off
 
     if (c.activeNote == note)
         c.activeNote = -1;
@@ -341,6 +349,69 @@ void PlaybackEngine::bendTo (std::vector<PendingEvent>& events, int ch, int midi
 }
 
 //==============================================================================
+void PlaybackEngine::slideCommand (std::vector<PendingEvent>& events, int ch, int midiCh,
+                                   int argument, bool up, int row, int offset,
+                                   const juce::Uuid& clipUid)
+{
+    auto& c = channels[(size_t) ch];
+
+    // the argument says how many rows the slide takes rather than where on the
+    // wheel it goes: a row that left it empty takes the default span, and the
+    // field's own widest is the slowest slide it can ask for
+    const int span = argument >= 0 ? juce::jlimit (0, 127, argument) : kSlideDefaultSpan;
+
+    c.slideOn = true;
+    c.slideClip = clipUid;
+    c.slideRow0 = row;
+    c.slideSpan = span;
+    c.slideLastRow = row - 1; // the naming row is the ramp's own first step
+    c.slideFrom = c.lastBendPos;
+    c.slideTo = up ? kBendTopPos : kBendBottomPos;
+
+    // the row that named the slide is answered through the same step as any other
+    // row of its ramp, which is what a span of 0 has to hold to: the wheel is left
+    // where it is unless this row is already at the extreme the letter names
+    slideStep (events, ch, midiCh, row, offset, clipUid);
+}
+
+void PlaybackEngine::slideStep (std::vector<PendingEvent>& events, int ch, int midiCh,
+                                int row, int offset, const juce::Uuid& clipUid)
+{
+    auto& c = channels[(size_t) ch];
+
+    if (! c.slideOn || row <= c.slideLastRow)
+        return; // no ramp in force, or this row already moved it, which is what a
+                // row a transport jump makes this block play again leaves on the
+                // same point of the ramp rather than advancing it twice
+
+    c.slideLastRow = row;
+
+    const int steps = row - c.slideRow0; // rows travelled since the ramp was armed
+
+    // measured in whole wheel positions counting from where the slide left the
+    // wheel, so the row that reaches the extreme lands on it exactly and the rows
+    // before it hold the whole position at or short of the way through its ramp
+    const int position = steps >= c.slideSpan
+                             ? c.slideTo
+                             : c.slideFrom + (c.slideTo - c.slideFrom) * steps / juce::jmax (1, c.slideSpan);
+
+    if (position != c.lastBendPos)
+    {
+        // the same standard pair a bend row sends, and ahead of the note its own
+        // row strikes, which is what a note entering while the wheel is climbing
+        // is played at the point this row reached rather than the one before it
+        events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh + 1, position) });
+        c.lastBendPos = position;
+        c.bendClip = clipUid;
+    }
+
+    if (steps >= c.slideSpan)
+        c.slideOn = false; // the extreme is reached: the wheel then sits at a point
+                            // of the column's own, like a bend row left it, so a
+                            // release point below is what puts it back
+}
+
+//==============================================================================
 void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int row,
                                  std::vector<PendingEvent>& events, int offset,
                                  const Song& song, double rowPpq)
@@ -366,6 +437,16 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
         {
             state.lastCmd = cell.cmd;
             state.lastCmdVal = cell.cmdVal;
+
+            if (cell.cmd != kSlideUpCmd && cell.cmd != kSlideDownCmd)
+            {
+                // a row naming a command that is not a slide leaves no ramp in
+                // force: the wheel such a row asks for is a point rather than a
+                // climb, so the climb the column had is over and the wheel stays
+                // where that row left it; a slide row arms its own ramp below, at
+                // the point this left the wheel at
+                state.endSlide();
+            }
         }
 
         const int midiCh = juce::jlimit (0, kMidiChannelCount - 1, state.lastInst);
@@ -426,6 +507,11 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                             noteHere, song);
             else if (cell.cmd == kBendCmd)
                 bendTo (events, ch, midiCh, cell.cmdVal, offset, clip.uid);
+            else if (cell.cmd == kSlideUpCmd || cell.cmd == kSlideDownCmd)
+                // a slide names an extreme rather than a point on the wheel, so its
+                // argument arms a ramp the rows below it walk toward that extreme
+                slideCommand (events, ch, midiCh, cell.cmdVal, cell.cmd == kSlideUpCmd,
+                              row, offset, clip.uid);
             else
                 events.push_back ({ offset, 3, juce::MidiMessage::controllerEvent (midiCh + 1,
                                                                                   juce::jlimit (0, kCcTop, cell.cmd),
@@ -451,6 +537,14 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // below the row that asked for it had just taken back
                 bendTo (events, ch, midiCh, cell.cmdVal, offset, clip.uid);
             }
+            else if (state.lastCmd == kSlideUpCmd || state.lastCmd == kSlideDownCmd)
+            {
+                // under a carried slide the argument is a new span rather than a
+                // new point, so the row arms a ramp of its own from where the
+                // wheel had got to: a slide can be retargeted as it climbs
+                slideCommand (events, ch, midiCh, cell.cmdVal, state.lastCmd == kSlideUpCmd,
+                              row, offset, clip.uid);
+            }
             else
             {
                 // the argument of an arpeggiator call is its macro id, so a row
@@ -460,6 +554,18 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                             noteHere, song);
             }
         }
+
+        // a slide the column has in force moves one step of its ramp on this row,
+        // whether or not this row named anything of its own: the rows under the
+        // one that named a letter keep the wheel climbing until the extreme sits
+        // under the column, which is what a slide is a state the column carries
+        // down like a bend rather than one its own row only. The step reads the
+        // row rather than counting it, so a row this block already advanced is
+        // not advanced again, and a row the ramp lands on the position the wheel
+        // is already at sends nothing. The wheel moves before the note its own
+        // row strikes, so a note entering while the wheel climbs is bent by where
+        // the climb had got to rather than by the point above it
+        slideStep (events, ch, midiCh, row, offset, clip.uid);
 
         // the note-off takes the note the column named away for the rows below it,
         // which happens after the row's own command had the note it was releasing
@@ -676,11 +782,23 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 // not bent by a row that ended this one. A row that struck a note
                 // already had its wheel taken back by the note-off above, so this
                 // is what only a row that bent without striking needs, and the
-                // message goes to the channel the bend row's own instrument named
-                if (c.bendClip == clip.uid && c.lastBendPos != kBendCentrePos)
+                // message goes to the channel the bend row's own instrument named.
+                // A ramp this clip armed that had not reached its extreme yet has
+                // no rows below the clip left to finish it either: its own wheel
+                // may still sit at the centre, in which case only the ramp needs
+                // putting away and no message is what takes it back
+                const bool wheelBent = c.lastBendPos != kBendCentrePos;
+                const bool clipBentIt = c.bendClip == clip.uid && wheelBent;
+                const bool clipRampedIt = c.slideClip == clip.uid && c.slideRunning();
+
+                if (clipBentIt || clipRampedIt)
                 {
-                    const int bendMidiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst) + 1;
-                    events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (bendMidiCh, kBendCentrePos) });
+                    if (wheelBent)
+                    {
+                        const int bendMidiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst) + 1;
+                        events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (bendMidiCh, kBendCentrePos) });
+                    }
+
                     c.endBend();
                 }
             }

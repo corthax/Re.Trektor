@@ -12,10 +12,13 @@ namespace rtr
 /** The pitch wheel's own positions. A row naming the bend letter holds an
     argument 0..127 that names a point on the wheel in steps of kBendStep, which
     is what puts the argument's centre kBendCentreVal on the wheel's exact
-    centre kBendCentrePos rather than a hair off it. */
-constexpr int kBendStep = 128;      // one argument step, in wheel positions
+    centre kBendCentrePos rather than a hair off it. A row naming a slide letter
+    instead heads the wheel for one of the two extremes below it, so both ends of
+    the wheel are named here rather than written as bare numbers. */
+constexpr int kBendStep = 128;       // one argument step, in wheel positions
 constexpr int kBendCentrePos = 8192; // the wheel's centre
-constexpr int kBendTopPos = 0x3fff;  // the wheel's highest position
+constexpr int kBendBottomPos = 0;    // the wheel's lowest position, where a D slide ends
+constexpr int kBendTopPos = 0x3fff;  // the wheel's highest position, where a U slide ends
 
 static_assert (kBendCentreVal * kBendStep == kBendCentrePos,
                "the argument's centre names the wheel's centre exactly");
@@ -102,6 +105,29 @@ private:
             had no note of its own. */
         juce::Uuid bendClip;
 
+        /** A slide this channel's column has in force: the ramp from where the
+            wheel already was to the extreme the letter names, read off the row
+            rather than counted from it, so a row a transport jump makes this
+            block play again lands on the same point of the ramp instead of
+            advancing it twice. The row that named the letter is the ramp's start,
+            so the wheel sits where it was there and the extreme sits slideSpan
+            rows below it; a span of 0 jumps there on the naming row itself.
+            slideLastRow is the row the ramp last moved for, which is what makes
+            a release point able to tell whether the ramp still has rows left to
+            run, the wheel having reached the extreme being told on its own. */
+        bool slideOn = false;                    // a slide is in force in this column
+        int slideRow0 = -1;                      // the row the ramp starts from
+        int slideSpan = 1;                       // rows the ramp takes to reach slideTo
+        int slideLastRow = -1;                   // the row the ramp last moved for
+        int slideFrom = kBendCentrePos;          // where the ramp leaves the wheel
+        int slideTo = kBendCentrePos;            // the extreme it heads for
+
+        /** The clip whose rows armed the slide this channel is in, so that clip's
+            end has a ramp to stop: a ramp a further clip armed belongs to that
+            clip rather than to this one, and its rows are not the ones this clip
+            ran out of. */
+        juce::Uuid slideClip;
+
         /** Ends a run: an arpeggiator that no longer has steps or no longer has
             a clip to hold it leaves nothing to play. The note the column last
             named is not part of the run, so it stays: a call further down the
@@ -116,13 +142,40 @@ private:
             arpClip = juce::Uuid();
         }
 
-        /** Takes the channel's idea of the wheel back to the centre, which is
-            what every release point does once it has sent the message that says
-            so: a wheel left bent has no clip below it to put it right again. */
+        /** Leaves no slide in force: the ramp's rows the column stopped having
+            have nothing left to reach the extreme, and a wheel a row left at a
+            point of its own is not a ramp any more, which is what naming another
+            command kind ends. The wheel itself is left where it is, which is what
+            makes a row that bent it stay bent until a release point below. */
+        void endSlide() noexcept
+        {
+            slideOn = false;
+            slideRow0 = -1;
+            slideSpan = 1;
+            slideLastRow = -1;
+            slideFrom = kBendCentrePos;
+            slideTo = kBendCentrePos;
+            slideClip = juce::Uuid();
+        }
+
+        /** Takes the channel's idea of the wheel back to the centre and leaves
+            no slide in force, which is what every release point does once it has
+            sent the message that says so: a wheel left bent has no clip below it
+            to put it right again, and a slide whose rows the column stopped
+            having has no rows left to reach its extreme. */
         void endBend() noexcept
         {
             lastBendPos = kBendCentrePos;
             bendClip = juce::Uuid();
+            endSlide();
+        }
+
+        /** Whether the slide this channel is in still has rows of its ramp left
+            to run, which is what a release point asks before it decides that a
+            wheel sitting at the centre has nothing to take back. */
+        bool slideRunning() const noexcept
+        {
+            return slideOn && slideLastRow < slideRow0 + slideSpan;
         }
     };
 
@@ -177,6 +230,28 @@ private:
         asked for it, so a release point below can take it back. */
     void bendTo (std::vector<PendingEvent>& events, int ch, int midiCh,
                  int argument, int offset, const juce::Uuid& clipUid);
+
+    /** Arms the ramp of one row that named a slide letter: the argument says how
+        many rows the slide takes, the empty one taking the default span and one
+        below 0 being clamped, and the ramp runs from where the wheel already is
+        to the extreme the letter names. The row that named the letter is the
+        ramp's own start, so arming leaves the wheel where it was rather than
+        moving it, which is what keeps that row's own note straight and puts the
+        extreme span rows below. A further row under a carried letter re-arms the
+        ramp with its own span, so a slide can be retargeted as it runs. */
+    void slideCommand (std::vector<PendingEvent>& events, int ch, int midiCh,
+                       int argument, bool up, int row, int offset,
+                       const juce::Uuid& clipUid);
+
+    /** Moves the wheel for one step of the slide this channel has in force, which
+        every row the engine processes for that channel gets whether it named
+        anything or not: the step is read off the row, so a row a transport jump
+        makes this block play again does not advance the ramp twice, and a row
+        that lands the ramp on the position the wheel is already at emits nothing.
+        The message goes out ahead of the note the same row strikes, so a note
+        entering while the wheel climbs is bent by where the climb had got to. */
+    void slideStep (std::vector<PendingEvent>& events, int ch, int midiCh,
+                    int row, int offset, const juce::Uuid& clipUid);
 
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,

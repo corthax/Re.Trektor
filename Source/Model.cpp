@@ -1049,11 +1049,13 @@ void Song::fromValueTree (const juce::ValueTree& root)
                         // an older state's macro calls (command values 128-143, the
                         // M0-M15 kinds) land on the one letter this build has for that
                         // half of the column's history, the arpeggiator call, so their
-                        // old argument keeps naming an id. This build's own bend letter
-                        // is a value that build could not have written, so only that one
-                        // reads back as a bend, and nothing else can reach it by accident
+                        // old argument keeps naming an id. This build's own wheel values
+                        // are the bend letter and the two slide letters, all values above
+                        // the highest one that build could have written, so only those
+                        // read back as themselves and nothing else can reach them by
+                        // accident
                         const int rawCmd = (int) src[i2++];
-                        cell.cmd = rawCmd > kCcTop && rawCmd != kBendCmd ? kArpCmd : rawCmd;
+                        cell.cmd = rawCmd >= kArpCmd && rawCmd <= kOlderCmdTop ? kArpCmd : rawCmd;
                         cell.cmdVal = src[i2++];
                     }
                 }

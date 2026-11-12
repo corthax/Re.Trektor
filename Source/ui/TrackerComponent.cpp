@@ -47,7 +47,9 @@ namespace
         run the column was calling and leaves the column calling nothing, which
         is what stops the tracker drawing a carried letter and argument over the
         rows below it and matches the engine answering no row there that names
-        only an argument. */
+        only an argument. Every other command, a bend letter or a slide letter,
+        leaves its letter and its argument in force, so the rows under a slide
+        carry the span that slide is still taking toward its extreme. */
     bool commandLeavesCarry (const Cell& cell)
     {
         return cell.cmd != kEmpty && ! (cell.cmd == kArpCmd && cell.cmdVal == 0);
@@ -811,6 +813,15 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     text = "B";
                                     colour = theme::cmdOther;
                                 }
+                                else if (cmdNum == kSlideUpCmd || cmdNum == kSlideDownCmd)
+                                {
+                                    // a slide of the wheel is drawn as its letter too,
+                                    // in the same lilac: U slides up to the wheel's
+                                    // top and D down to its bottom, the argument beside
+                                    // it naming how many rows the slide takes
+                                    text = cmdNum == kSlideUpCmd ? "U" : "D";
+                                    colour = theme::cmdOther;
+                                }
                                 else
                                 {
                                     text = valueString (cmdNum, fieldGlyphs (Field::cmdNum));
@@ -832,9 +843,12 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                 // a macro id is the number the Macros tab shows and a
                                 // bend's is where on the wheel its centre of 64 is read,
                                 // so both keep the decimal spelling the whole view is
-                                // written in; so does the argument of a plain CC
+                                // written in; so does the argument of a plain CC and a
+                                // slide's rows, which are just a count
                                 const bool arpCall = cmdNum == kArpCmd;
                                 const bool bendCall = cmdNum == kBendCmd;
+                                const bool slideCall = cmdNum == kSlideUpCmd
+                                                      || cmdNum == kSlideDownCmd;
 
                                 if (arpCall && cmdVal == 0)
                                     // the release reads as what it does rather than
@@ -845,8 +859,8 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     text = valueString (cmdVal, fieldGlyphs (Field::cmdVal));
 
                                 colour = arpCall ? theme::cmdMacro
-                                                 : bendCall ? theme::cmdOther
-                                                            : theme::cmdCC;
+                                                 : ( bendCall || slideCall ) ? theme::cmdOther
+                                                                            : theme::cmdCC;
 
                                 // an argument the row did not name is the one the
                                 // column carries down from above, drawn dimmer like
@@ -1548,7 +1562,7 @@ int TrackerComponent::clampValue (Field field, int value) const
         case Field::pan: return juce::jlimit (0, 127, value);
 
         case Field::cmdNum:
-            // digits stay a plain CC: the two command letters are written by the
+            // digits stay a plain CC: the command letters are written by the
             // letters themselves, so typing a bigger number than the column asks
             // for cannot invent one of them and an older build's macro values
             // cannot be typed back at all
@@ -1871,10 +1885,13 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
         // letters, a digit already being typed having been appended by the
         // editing path above, and the argument typed next names what that
         // letter's own field means: a macro id for A, a point on the wheel for B
+        // and a span in rows for U and D
         if (cursorField == Field::cmdNum)
         {
             const int letterCmd = text == 'a' || text == 'A' ? kArpCmd
                                 : text == 'b' || text == 'B' ? kBendCmd
+                                : text == 'u' || text == 'U' ? kSlideUpCmd
+                                : text == 'd' || text == 'D' ? kSlideDownCmd
                                                              : kEmpty;
 
             if (letterCmd != kEmpty)
@@ -1886,11 +1903,15 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
                 claim.cmd = letterCmd;
 
                 // an entry has to leave an argument behind: a call starts at the
-                // release, id 0, and a bend starts at the wheel's centre, so a
-                // row that names only the letter bends nowhere rather than locking
-                // the wheel to its bottom
+                // release, id 0, a bend starts at the wheel's centre and a slide
+                // starts at the default span of rows its extreme is counted over,
+                // so a row that names only the letter spells the command it asks
+                // for rather than locking the wheel to its bottom, bending nowhere
+                // or sliding over no rows at all
                 if (claim.cmdVal == kEmpty)
-                    claim.cmdVal = letterCmd == kBendCmd ? kBendCentreVal : 0;
+                    claim.cmdVal = letterCmd == kBendCmd ? kBendCentreVal
+                                 : letterCmd == kSlideUpCmd || letterCmd == kSlideDownCmd ? kSlideDefaultSpan
+                                                                                         : 0;
 
                 markChanged();
                 repaint();

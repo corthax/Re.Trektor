@@ -391,8 +391,9 @@ void PoolComponent::drawGridPreview (juce::Graphics& g, const Pattern& p,
             if (cell.cmd != kEmpty)
             {
                 g.setColour (cell.cmd == kArpCmd ? theme::cmdMacro
-                                : cell.cmd == kBendCmd ? theme::cmdOther
-                                                       : theme::cmdCC);
+                                : cell.cmd == kBendCmd || cell.cmd == kSlideUpCmd
+                                      || cell.cmd == kSlideDownCmd ? theme::cmdOther
+                                                                  : theme::cmdCC);
                 g.fillRect (x + cellW - 3, y + 1, 2, 2);
             }
         }

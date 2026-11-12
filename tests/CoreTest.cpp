@@ -1090,6 +1090,184 @@ int main()
         check (channelNamed, "the row's instrument names the MIDI channel its command reaches, which is also where the take-back goes");
     }
 
+    //== Pitch slide ==========================================================
+    {
+        std::cout << "Pitch slide model (an argument naming rows rather than a point)\n";
+        check (kSlideUpCmd > kOlderCmdTop && kSlideDownCmd > kOlderCmdTop,
+               "the two slide letters' command values sit above the highest value an older build could write, so no older row can already be a slide");
+        check (kSlideUpCmd > kCcTop && kSlideDownCmd > kCcTop,
+               "they sit above the highest plain CC the number field can hold, so a typed digit run cannot reach either of them");
+
+        Song s;
+        s.patterns[0].cell (3, 0).cmd = kSlideUpCmd;
+        s.patterns[0].cell (3, 0).cmdVal = 12;
+        s.patterns[0].cell (4, 0).cmd = kSlideDownCmd;
+        s.patterns[0].cell (4, 0).cmdVal = 3;
+        Song r;
+        r.fromValueTree (s.toValueTree());
+        check (r.patterns[0].cell (3, 0).cmd == kSlideUpCmd && r.patterns[0].cell (3, 0).cmdVal == 12
+               && r.patterns[0].cell (4, 0).cmd == kSlideDownCmd && r.patterns[0].cell (4, 0).cmdVal == 3,
+               "both slide letters and their row counts survive the saved form unchanged");
+
+        Song o;
+        o.patterns[0].cell (0, 0).cmd = 140; // an older build's M12 call
+        o.patterns[0].cell (1, 0).cmd = kOlderCmdTop; // its M15, the highest value that build could write
+        o.patterns[0].cell (2, 0).cmd = kBendCmd;
+        o.patterns[0].cell (3, 0).cmd = kSlideUpCmd;
+        o.patterns[0].cell (4, 0).cmd = kSlideDownCmd;
+        Song q;
+        q.fromValueTree (o.toValueTree());
+        check (q.patterns[0].cell (0, 0).cmd == kArpCmd && q.patterns[0].cell (1, 0).cmd == kArpCmd,
+               "an older state's macro calls at either end of its range land on the arpeggiator letter rather than turning into a bend or a slide");
+        check (q.patterns[0].cell (2, 0).cmd == kBendCmd && q.patterns[0].cell (3, 0).cmd == kSlideUpCmd
+               && q.patterns[0].cell (4, 0).cmd == kSlideDownCmd,
+               "this build's own three wheel values read back as themselves, the letters being the only way to name them");
+    }
+    {
+        std::cout << "Pitch slide up (the wheel climbing to its top over the rows its argument names)\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kSlideUpCmd;
+        c0.cmdVal = 4; // four rows to reach the wheel's top
+
+        p.cell (8, 0).note = kNoteOff;
+
+        // 94 blocks reach 2.005 ppq, past the row 8 that sits at 2.0
+        h.runBlocks (94);
+
+        // from the centre 8192 toward the top 16383 in four rows, measured in
+        // whole positions: 10239, 12287, 14335 and the top itself
+        static const int wheel[] = { 10239, 12287, 14335, kBendTopPos, kBendCentrePos };
+        check (h.bends.size() == 5 && h.bends == std::vector<int> (wheel, wheel + 5),
+               "the wheel moves once on each of the four rows under the one that named the slide, lands on its top exactly, and returns only at the note-off below");
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false && h.notes[1].note == 60,
+               "the note that row struck is held until the note-off releases it, the slide being a state the column carries rather than one that ends with the row");
+
+        auto indexOfKind = [] (const Harness& hw, int kind)
+        {
+            for (size_t i = 0; i < hw.raw.size(); ++i)
+                if (hw.raw[i].kind == kind)
+                    return (int) i;
+
+            return -1;
+        };
+
+        const int onAt = indexOfKind (h, 1);
+        const int wheelAt = indexOfKind (h, 5);
+        check (onAt >= 0 && wheelAt > onAt && h.raw[onAt].offset < h.raw[wheelAt].offset,
+               "the row that named the slide sends no message of its own, so the note it struck is played straight and the wheel first moves on the row below");
+    }
+    {
+        std::cout << "Pitch slide down (an argument of 0 reaching the wheel's bottom on its own row)\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (2, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kSlideDownCmd;
+        c0.cmdVal = 0; // no rows to travel over: the wheel jumps to the bottom here
+
+        p.cell (6, 0).note = 61; // a note further down, played at the bottom it jumped to
+        p.cell (8, 0).note = kNoteOff;
+
+        // 94 blocks reach 2.005 ppq, past the row 8 that sits at 2.0
+        h.runBlocks (94);
+
+        check (h.bends.size() == 2 && h.bends[0] == kBendBottomPos && h.bends[1] == kBendCentrePos,
+               "an argument of 0 puts the wheel at its bottom on the naming row itself, and a note-off below takes it back");
+        check (h.notes.size() == 4 && h.notes[1].on == false && h.notes[3].on == false,
+               "the two notes of the column are released as usual, so a slide that reached its extreme leaves the wheel held like a bend does");
+    }
+    {
+        std::cout << "Pitch slide retargeted by argument rows under a carried letter\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kSlideUpCmd;
+        c0.cmdVal = 8; // eight rows toward the wheel's top
+
+        p.cell (2, 0).cmdVal = 2; // the letter carries, so this is a new span from where the wheel got to
+        p.cell (5, 0).cmdVal = 1; // and a span of one over a wheel already at the top, which names nothing
+
+        p.cell (8, 0).note = kNoteOff;
+
+        h.runBlocks (94);
+
+        // one step of eight over the centre is 9215, and the row that named a span
+        // of 2 there climbs from that point to the top in two rows: 12799 then 16383
+        static const int wheel[] = { 9215, 12799, kBendTopPos, kBendCentrePos };
+        check (h.bends.size() == 4 && h.bends == std::vector<int> (wheel, wheel + 4),
+               "the row that named only an argument retargets the span from where the wheel had got to, a further one over a wheel already at the extreme moves nothing, and the note-off still takes the wheel back");
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false,
+               "the rows naming only an argument still belong to the letter above, the note the column struck being held across them");
+    }
+    {
+        std::cout << "Pitch slide a note-off ends before the wheel moved\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kSlideDownCmd;
+        c0.cmdVal = 4; // four rows toward the wheel's bottom
+
+        p.cell (1, 0).note = kNoteOff; // the slide's first step had not reached the wheel yet
+        p.cell (4, 0).note = 61; // and a note below it, played straight
+
+        h.runBlocks (94);
+
+        check (h.bends.empty (),
+               "a note-off ends the slide before its first step, so nothing is sent and nothing keeps climbing under the note-off");
+        check (h.notes.size() == 3 && h.notes[0].on && h.notes[1].on == false && h.notes[2].on,
+               "the column's own note-offs still release what it entered, and the note below plays against a wheel left at the centre");
+    }
+    {
+        std::cout << "A slide the clip runs out of, taken back at that clip's end\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (4); // the clip ends at 1.0 ppq, four rows below its first one
+
+        auto& c0 = p.cell (0, 0);
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kSlideUpCmd;
+        c0.cmdVal = 8; // a slide wider than the clip that named it, striking no note of its own
+
+        // block 46 straddles 1.0 ppq, the clip's own end
+        h.runBlocks (47);
+
+        // three of the eight rows it asks for fit inside a four-row clip: 9215,
+        // 10239 and 11263, and the clip's end takes the wheel back to the centre
+        static const int wheel[] = { 9215, 10239, 11263, kBendCentrePos };
+        check (h.bends.size() == 4 && h.bends == std::vector<int> (wheel, wheel + 4),
+               "the wheel climbs over the rows the clip has and its end takes it back, which is what a slide that never reached its extreme leaves no wheel bent for the clip below");
+        check (h.notes.empty (), "no note of that channel was ever playing, so only the clip's end could put the wheel right");
+
+        bool channelNamed = false;
+        for (const auto& e : h.controllers)
+            if (e.channel == 1 && e.number == 7 && e.value == 100)
+                channelNamed = true;
+
+        check (channelNamed, "the row's instrument names the MIDI channel its command reaches, which is also where the take-back goes");
+    }
+
     //== Grid snapping ========================================================
     {
         std::cout << "Grid snapping\n";

@@ -3045,6 +3045,206 @@ int main()
                "and that clear is an undoable action of its own");
     }
 
+    //== The slide letters and their spans =====================================
+    {
+        auto cmdAt = [&] (int row)
+        {
+            auto* pp = song.activePattern();
+            return pp != nullptr ? pp->cell (row, 0).cmd : rtr::kEmpty;
+        };
+        auto argAt = [&] (int row)
+        {
+            auto* pp = song.activePattern();
+            return pp != nullptr ? pp->cell (row, 0).cmdVal : rtr::kEmpty;
+        };
+        // a slide only moves the wheel if something plays its rows, and the
+        // pattern the tracker holds by this point sits on a clip far along the
+        // timeline that the shared play helper never reaches, so the section
+        // gives itself a pattern and a clip of its own, parked clear of every
+        // other clip: the tracker edits the pattern it holds, so that fixture
+        // is the one its rows type into
+        const double slideStart = 4400.0;
+        const int slidePattern = song.addPattern ("slide fixture", 64, 1).id;
+
+        check (song.addClip (slidePattern, slideStart) != nullptr,
+               "the fixture gets a clip to play its rows under");
+        song.activePatternId = slidePattern;
+        check (song.findPattern (slidePattern) != nullptr
+                   && song.activePattern() != nullptr
+                   && song.activePattern()->id == slidePattern,
+               "and the tracker is handed that fixture as the pattern it edits");
+
+        // the rows of a ramp have to be played as one continuous run rather than
+        // jumped to: a transport jump releases what the synth was holding, which
+        // is what ends a slide the host jumped out of, so the blocks move the
+        // playhead on by each block's own width, the way a host hands them, and
+        // every row under the one that named the letter gets its own step
+        auto playWheelsThrough = [&] (int lastRow)
+        {
+            std::vector<int> wheels;
+
+            const double runStart = slideStart - 0.001;
+            const double runEnd = slideStart
+                                    + (double) lastRow / (double) juce::jmax (1, song.settings.rowsPerBeat);
+
+            for (int i = 0; i < 1400; ++i)
+            {
+                const double blockStart = runStart + (double) (i * 64) / 48000.0 * 2.0;
+
+                if (blockStart > runEnd + 0.001)
+                    break;
+
+                juce::AudioBuffer<float> audio (2, 64);
+                juce::MidiBuffer midi;
+
+                head->playing = true;
+                head->ppq = blockStart;
+                proc.processBlock (audio, midi);
+
+                for (const auto m : midi)
+                    if (m.getMessage().isPitchWheel())
+                        wheels.push_back (m.getMessage().getPitchWheelValue());
+            }
+
+            head->playing = false;
+            return wheels;
+        };
+
+        // a run's own release points say nothing about a wheel an earlier section
+        // left bent, so the transport is first put past the end of every clip the
+        // sections above parked along the timeline: the release there takes those
+        // wheels back, which is what leaves the run below answering only with its
+        // own rows
+        auto clearWheels = [&] (double atBeats)
+        {
+            juce::AudioBuffer<float> audio (2, 64);
+            juce::MidiBuffer midi;
+            head->playing = true;
+            head->ppq = atBeats;
+            proc.processBlock (audio, midi);
+            head->playing = false;
+        };
+
+        for (int i = 0; i < 32
+             && ! (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum
+                   && tracker->getCursorChannel() == 0); ++i)
+        {
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        }
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum
+                   && tracker->getCursorChannel() == 0,
+               "the cursor sits on the command number field of the fixture's only channel");
+
+        tracker->setCursorRow (0);
+        check (cmdAt (0) == rtr::kEmpty && argAt (0) == rtr::kEmpty,
+               "the fresh row names no command and holds no argument to start from");
+
+        const int depthBeforeLetter = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('U', juce::ModifierKeys(), 'U'));
+        check (cmdAt (0) == rtr::kSlideUpCmd,
+               "the letter U claims the command number and writes command 145");
+        check (argAt (0) == rtr::kSlideDefaultSpan,
+               "and leaves the default span of rows beside it, so the cell spells the slide it asks for");
+        check (proc.getUndoDepth() == depthBeforeLetter + 1, "and claiming the letter is one undoable action");
+
+        clearWheels (slideStart + 200.0);
+
+        check (playWheelsThrough (0).empty (),
+               "the row that named the slide sends no wheel message of its own, the ramp starting where the wheel already is");
+
+        // typing over the argument the letter left behind asks for a span of its
+        // own, and the argument field takes the digits on its own rather than
+        // going through the number field, which is what keeps the letter the
+        // letter
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('2', juce::ModifierKeys(), '2'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (argAt (0) == 12, "twelve rows typed into the argument field are how far the slide reaches its extreme below");
+
+        // from the centre 8192 toward the top 16383 in twelve rows, measured in
+        // whole wheel positions: a twelfth of the 8191 the two are apart each row
+        // is 682, 1365, 2047 and so on, the whole 8191 being reached exactly on
+        // the twelfth row below the one that named the slide
+        static const int climb[] = { 8874, 9557, 10239, 10922, 11604, 12287, 12970,
+                                     13652, 14335, 15017, 15700, 16383 };
+        const auto wheels = playWheelsThrough (12);
+
+        check (wheels == std::vector<int> (climb, climb + 12),
+               "the wheel moves once on each of the twelve rows under the one that named the slide, the rows in between naming nothing of their own");
+        check (wheels.size() == 12 && wheels.back() == rtr::kBendTopPos,
+               "and the twelfth row under the one that named the slide lands on the wheel's top exactly");
+
+        // as with the other letters, a row under the carried letter stays
+        // implicit: the letter is still in force above it, so the digits there
+        // name a new span over the same extreme rather than a command of their
+        // own, which is what lets a slide be retargeted while it runs
+        tracker->setCursorRow (20);
+        tracker->keyPressed (juce::KeyPress ('3', juce::ModifierKeys(), '3'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (cmdAt (20) == rtr::kEmpty,
+               "under the carried letter an argument-only row stays implicit");
+        check (argAt (20) == 3, "and names a span of its own over that same extreme");
+
+        // back on the number field, where a letter is what names a command kind
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum,
+               "one field back, the cursor is on the command number again");
+
+        // as with the other letters, a claim only owns the field's first
+        // character, so a run of digits a slide would otherwise sit inside keeps
+        // its own spelling until a letter interrupts it
+        tracker->setCursorRow (21);
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('D', juce::ModifierKeys(), 'D'));
+        check (cmdAt (21) == rtr::kSlideDownCmd,
+               "the D typed last claims the field and writes the slide down, the 11 it interrupts having been dropped");
+        check (argAt (21) == rtr::kSlideDefaultSpan, "and the entry leaves the default span as its argument");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::deleteKey, juce::ModifierKeys(), 0));
+        check (cmdAt (21) == rtr::kEmpty, "and clearing that row's field leaves no letter behind for the rows below");
+
+        // a digit run cannot reach either slide letter: the number field tops at
+        // the highest plain CC, so the letters are the only way to name a command
+        // kind
+        tracker->setCursorRow (22);
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('4', juce::ModifierKeys(), '4'));
+        tracker->keyPressed (juce::KeyPress ('6', juce::ModifierKeys(), '6'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (cmdAt (22) == rtr::kCcTop, "typing 146 into the number field gives the highest CC rather than the letter slide");
+
+        // the note column's own D keeps meaning a note, the claim being only the
+        // command number field's first character. the octave is named so the
+        // pitch the letter enters is one that can be written out rather than read
+        // off whatever the sections above left behind
+        song.settings.recordOctave = 4;
+        check (song.settings.recordOctave == 4, "the octave the note column enters at is the one asked for");
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::note; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::note,
+               "all the way back, the cursor is on the note column again");
+
+        tracker->setCursorRow (23);
+        tracker->keyPressed (juce::KeyPress ('D', juce::ModifierKeys(), 'D'));
+        check (song.activePattern() != nullptr && song.activePattern()->cell (23, 0).note == 63,
+               "the same letter enters a D natural where the note column is asked for");
+        check (cmdAt (23) == rtr::kEmpty, "and leaves that row's command column alone, the slide letter being only the command number's");
+
+        if (auto* pat = song.activePattern())
+            check (pat->length > 23, "the fixture reaches past the rows this section typed into");
+
+        // the rows this section parked the cursor on are below the window the
+        // checks after it click into, so the view is brought back to the top
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::homeKey, juce::ModifierKeys(), 0));
+    }
+
     //== Floating window size ==========================================
     {
         // Reaper closes a floating plug-in window by destroying the editor and
