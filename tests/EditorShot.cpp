@@ -6,14 +6,16 @@
            [--tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
            [--click-timeline=PCT] [--hide=0v1c] [--expand-pool]
            [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
-           [--undo=N] [--redo=N] [--arp=0,+4,-8] [--arp-loop] [--arp-call=ROW]
+           [--undo=N] [--redo=N] [--arp=0,+4,off,-8] [--arp-loop] [--arp-call=ROW]
            [--arp-call-id=VAL] [--arp-note-off=ROW] [--bend=ROW] [--bend-arg=VAL]
            [--macros=N] [--cmd-carry]
 
     --arp= writes signed semitone steps into arpeggiator id 1, so a Macros-tab
     shot shows a step strip of its own length rather than one that is all empty;
-    a step written as a lone dot stays empty, and --arp-loop marks that macro
-    looped so its card shows the looped tick. The strip's steps are one subtick
+    a step written as a lone dot stays empty, one written off steps as the note-off
+    the note column's backtick writes so the cell reads OFF, and --arp-loop marks
+    that macro looped so its card shows the looped tick. The strip's steps are one
+    subtick
     wide and a subtick is a row over the Settings row "Subticks per row", so the
     card shades every second group of that many steps a little darker, which is
     what makes a macro that reaches past its own row read as row spans rather than
@@ -404,9 +406,14 @@ int main (int argc, char** argv)
             {
                 const juce::String token = steps[i].removeCharacters ("+");
 
-                const std::int8_t value = (token.isEmpty() || token == ".")
-                    ? (std::int8_t) rtr::kArpEmptyStep
-                    : (std::int8_t) juce::jlimit (-127, 127, token.getIntValue());
+                int value = rtr::kArpEmptyStep;
+
+                if (token.equalsIgnoreCase ("off") || token == "`")
+                    // a step that opens whatever the run was holding there: the
+                    // note column's own note-off, written by its backtick
+                    value = rtr::kArpNoteOffStep;
+                else if (! token.isEmpty() && token != ".")
+                    value = token.getIntValue(); // the setter keeps it inside the jump
 
                 song.setArpStep (1, i, value);
             }

@@ -771,21 +771,28 @@ void Song::setArpLength (int id, int length)
         // growing keeps the steps already entered and adds steps that sound
         // nothing, so the shape a macro has is only ever where it was entered
         for (int i = (int) m->steps.size(); i < length; ++i)
-            m->steps.push_back ((std::int8_t) kArpEmptyStep);
+            m->steps.push_back ((std::int16_t) kArpEmptyStep);
     }
     else
         m->steps.resize ((size_t) length);
 }
 
-void Song::setArpStep (int id, int index, std::int8_t value) noexcept
+void Song::setArpStep (int id, int index, int value) noexcept
 {
     auto* m = findArp (id);
 
     if (m == nullptr)
         return;
 
+    // a step is one jump off the base note, kept inside how far a step can reach,
+    // or one of the two sentinels, which stand for themselves: the step that
+    // sounds nothing, and the note-off that opens whatever the run was holding
+    // there rather than stepping anywhere of its own
+    if (value != kArpEmptyStep && value != kArpNoteOffStep)
+        value = juce::jlimit (-kArpTopStep, kArpTopStep, value);
+
     if (index >= 0 && index < (int) m->steps.size())
-        m->steps[(size_t) index] = value;
+        m->steps[(size_t) index] = (std::int16_t) value;
 }
 
 void Song::setArpLooped (int id, bool looped) noexcept
@@ -902,14 +909,20 @@ juce::ValueTree Song::toValueTree() const
         av.setProperty ("loop", m->looped, nullptr);
         av.setProperty ("len", m->length(), nullptr); // readable alongside the block
 
-        // the steps are signed semitone offsets, one byte each, so a macro of
-        // 64 of them costs 64 bytes rather than one property per step
+        // a step is a signed semitone jump or one of the two sentinels, and a
+        // note-off sits below what a single byte could name, so the block is two
+        // bytes a step, little endian: the reader tells that from the one-byte
+        // blocks older states wrote by the step count it reads beside it
         juce::MemoryBlock packed;
-        packed.setSize ((size_t) m->length());
-        auto* sdst = static_cast<std::int8_t*> (packed.getData());
+        packed.setSize ((size_t) m->length() * 2);
+        auto* bdst = static_cast<std::uint8_t*> (packed.getData());
 
         for (int i = 0; i < m->length(); ++i)
-            sdst[i] = m->steps[(size_t) i];
+        {
+            const std::uint16_t raw = (std::uint16_t) (std::int16_t) m->steps[(size_t) i];
+            bdst[i * 2] = (std::uint8_t) (raw & 0xff);
+            bdst[i * 2 + 1] = (std::uint8_t) (raw >> 8);
+        }
 
         av.setProperty ("steps", packed.toBase64Encoding(), nullptr);
         at.appendChild (av, nullptr);
@@ -1104,22 +1117,47 @@ void Song::fromValueTree (const juce::ValueTree& root)
 
             m->looped = av.getProperty ("loop", false);
 
+            // len names the step count beside the block, which is what says how
+            // the steps were packed: this build writes two bytes a step, since a
+            // note-off is a value below what a single byte could name, and the
+            // one-byte blocks older states wrote are widened step by step with
+            // their own values intact rather than re-read as pairs
+            const int declared = (int) av.getProperty ("len", 0);
+
             juce::MemoryBlock packed;
             const juce::String stepsText = av.getProperty ("steps").toString();
 
             if (stepsText.isNotEmpty() && packed.fromBase64Encoding (stepsText))
             {
-                const auto* ssrc = static_cast<const std::int8_t*> (packed.getData());
-                const int steps = juce::jmin ((int) packed.getSize(), kMaxArpSteps);
+                const int size = (int) packed.getSize();
+                const auto* bsrc = static_cast<const std::uint8_t*> (packed.getData());
 
-                for (int s = 0; s < steps; ++s)
-                    m->steps.push_back (ssrc[s]);
+                if (declared > 0 && size == declared * 2)
+                {
+                    const int steps = juce::jmin (size / 2, kMaxArpSteps);
+
+                    for (int s = 0; s < steps; ++s)
+                    {
+                        const int raw = (int) bsrc[s * 2] | ((int) bsrc[s * 2 + 1] << 8);
+                        m->steps.push_back ((std::int16_t) (raw >= 0x8000 ? raw - 0x10000 : raw));
+                    }
+                }
+                else
+                {
+                    const int steps = juce::jmin (size, kMaxArpSteps);
+
+                    // an older state's steps come back as the same jumps it could
+                    // write, and its step that sounds nothing keeps its place, so
+                    // widening gives the macro it had rather than a new shape
+                    for (int s = 0; s < steps; ++s)
+                        m->steps.push_back ((std::int16_t) (std::int8_t) bsrc[s]);
+                }
             }
 
             // len names the step count beside the block, so a state whose steps
             // block came up short is padded with the base note rather than played
             // with fewer steps than it says
-            const int claimed = juce::jlimit (1, kMaxArpSteps, (int) av.getProperty ("len", (int) m->steps.size()));
+            const int claimed = juce::jlimit (1, kMaxArpSteps, declared > 0 ? declared : (int) m->steps.size());
 
             while ((int) m->steps.size() < claimed)
                 m->steps.push_back (0);

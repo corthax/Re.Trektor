@@ -39,6 +39,12 @@ public:
         return which / juce::jmax (1, song.settings.subticksPerRow);
     }
 
+    /** A step as the tab draws it: a jump's own signed number, the step that
+        sounds nothing as --, and the step that opens what it would have held as
+        OFF, the spelling the note column gives its note-offs, which is what a
+        test reads back rather than a second copy of the drawing. */
+    juce::String stepLabel (int step) const;
+
     std::function<void()> onModelChanged;
 
     // the Alt pair is answered here as well as in the editor, so a press aimed

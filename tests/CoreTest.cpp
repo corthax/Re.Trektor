@@ -642,6 +642,176 @@ int main()
         check (std::find (ons3.begin(), ons3.end(), 8) != ons3.end(), "a step below the bottom snaps up by whole octaves");
     }
     {
+        std::cout << "Note-off steps open what the run was holding\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 2;
+
+        h.song.defineArp (2);
+        h.song.setArpLength (2, 5);
+        h.song.setArpStep (2, 0, 4);
+        h.song.setArpStep (2, 1, 8);
+        h.song.setArpStep (2, 2, kArpNoteOffStep); // a step that opens the note it would have held
+        h.song.setArpStep (2, 3, 12);
+        h.song.setArpStep (2, 4, kArpNoteOffStep);
+
+        h.runBlocks (10); // the row sits at 0, so its steps reach 4000 samples
+
+        std::vector<int> ons;
+        int on68 = -1;
+        int off68 = -1;
+        int on72 = -1;
+        int off72 = -1;
+        int offs68 = 0;
+        int offs72 = 0;
+
+        for (auto& n : h.notes)
+        {
+            if (n.on)
+                ons.push_back (n.note);
+            else if (n.note == 68)
+                ++offs68;
+            else if (n.note == 72)
+                ++offs72;
+        }
+
+        for (int i = 0; i < (int) h.raw.size(); ++i)
+        {
+            const auto& e = h.raw[i];
+
+            if (e.pitch == 68 && e.kind == 1 && on68 < 0)
+                on68 = i;
+            else if (e.pitch == 68 && e.kind == 0 && off68 < 0)
+                off68 = i;
+            else if (e.pitch == 72 && e.kind == 1 && on72 < 0)
+                on72 = i;
+            else if (e.pitch == 72 && e.kind == 0 && off72 < 0)
+                off72 = i;
+        }
+
+        check (ons.size() == 3, "a note-off step sounds nothing while the stepped steps do, got " + juce::String ((int) ons.size()));
+        check (std::count (ons.begin(), ons.end(), 68) == 1 && std::count (ons.begin(), ons.end(), 72) == 1,
+               "the steps either side of a note-off step land on their own pitches, so the run keeps its step count");
+        check (on68 >= 0 && off68 > on68 && on72 > off68,
+               "the note the run was holding opens at the note-off step's own subtick, ahead of the step that sounds the next one");
+        check (on72 >= 0 && off72 > on72 && offs68 == 1 && offs72 == 1,
+               "and the note the run stepped to opens at the next note-off step, once each, rather than at whatever ends the run below");
+    }
+    {
+        std::cout << "A note-off step at a run's head and its tail\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (2); // the clip is two rows: 12000 samples
+
+        p.cell (0, 0).note = 60; // the column's note
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+        p.cell (1, 0).cmd = kArpCmd; // a call with no note of its own, one row below
+        p.cell (1, 0).cmdVal = 2;
+
+        h.song.defineArp (2);
+        h.song.setArpLength (2, 3);
+        h.song.setArpStep (2, 0, kArpNoteOffStep); // a head step with nothing of its own to open
+        h.song.setArpStep (2, 1, 4);
+        h.song.setArpStep (2, 2, kArpNoteOffStep); // a tail step that opens its own note
+
+        h.runBlocks (24); // 12288 samples: the clip end at 12000 sits inside this run
+
+        std::vector<int> ons;
+        int offs60 = 0;
+        int offs64 = 0;
+        int off60 = -1;
+        int on64 = -1;
+        int off64 = -1;
+
+        for (auto& n : h.notes)
+        {
+            if (n.on)
+                ons.push_back (n.note);
+            else if (n.note == 60)
+                ++offs60;
+            else if (n.note == 64)
+                ++offs64;
+        }
+
+        for (int i = 0; i < (int) h.raw.size(); ++i)
+        {
+            const auto& e = h.raw[i];
+
+            if (e.pitch == 60 && e.kind == 0 && off60 < 0)
+                off60 = i;
+            else if (e.pitch == 64 && e.kind == 1 && on64 < 0)
+                on64 = i;
+            else if (e.pitch == 64 && e.kind == 0 && off64 < 0)
+                off64 = i;
+        }
+
+        check (ons.size() == 2, "the head and tail note-off steps sound nothing, so only the note the column named and the stepped step sound, got " + juce::String ((int) ons.size()));
+        check (off60 >= 0 && on64 == off60 + 1, "a head note-off step opens nothing of its own, so the note the column named opens right ahead of the note the stepped step sounds");
+        check (on64 >= 0 && off64 > on64 && offs64 == 1 && offs60 == 1, "the tail note-off step opens the note its own step entered once, and the clip end has nothing left to release, got " + juce::String (offs64 + offs60));
+    }
+    {
+        std::cout << "A looped cycle steps through its note-off steps\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 2;
+
+        h.song.defineArp (2);
+        h.song.setArpLength (2, 3);
+        h.song.setArpStep (2, 0, 4);
+        h.song.setArpStep (2, 1, kArpNoteOffStep);
+        h.song.setArpStep (2, 2, 8);
+        h.song.setArpLooped (2, true);
+
+        h.runBlocks (10); // 5120 samples: the cycle reaches its third pass before 5000
+
+        std::vector<int> ons;
+        int on64 = -1;
+        int off64 = -1;
+        int nextOn = -1;
+        int offs64 = 0;
+
+        for (auto& n : h.notes)
+            if (n.on)
+                ons.push_back (n.note);
+
+        for (int i = 0; i < (int) h.raw.size(); ++i)
+        {
+            const auto& e = h.raw[i];
+
+            if (e.pitch == 64 && e.kind == 1 && on64 < 0)
+                on64 = i;
+            else if (e.pitch == 64 && e.kind == 0)
+            {
+                ++offs64;
+
+                if (off64 < 0)
+                    off64 = i;
+            }
+            else if (e.kind == 1 && on64 >= 0 && off64 >= 0 && nextOn < 0)
+                nextOn = i;
+        }
+
+        check (std::count (ons.begin(), ons.end(), 68) == 2 && std::count (ons.begin(), ons.end(), 64) == 1,
+               "the cycle passes its last step and back to its first, and a note-off step in the cycle opens what the cycle was holding there rather than ending the run, got " + juce::String ((int) ons.size()));
+        check (on64 >= 0 && off64 > on64 && offs64 == 1 && nextOn > off64,
+               "the note the second pass stepped to is opened at the note-off step inside that pass, and the cycle steps on again past it");
+    }
+    {
         std::cout << "The clip end closes a looping run\n";
         Harness h;
         auto& p = h.song.patterns[0];
@@ -679,17 +849,55 @@ int main()
         a.setArpLength (2, 64); // keeps the step already entered
         a.setArpLooped (2, true);
         a.setArpStep (2, 63, -40);
+        a.setArpStep (2, 40, kArpNoteOffStep); // a step that opens what the run holds there
 
         check (a.findArp (2) != nullptr && a.findArp (2)->length() == 64 && a.findArp (2)->steps[0] == -7,
                "growing a macro keeps the steps already entered");
         check (a.findArp (2)->steps[1] == kArpEmptyStep && a.findArp (2)->steps[62] == kArpEmptyStep,
                "and the steps growing adds sound nothing, so the macro's shape is only ever where it was entered");
+        check (a.findArp (2)->steps[40] == kArpNoteOffStep,
+               "a step below every jump a step can name is kept as it is, so a macro can hold a note-off");
 
         Song b;
         b.fromValueTree (a.toValueTree());
         check (b.arpDefined (2) && b.arpLooped (2) && b.findArp (2)->length() == 64 && b.findArp (2)->steps[63] == -40,
                "the id, the loop flag and all 64 signed steps reload from the state");
+        check (b.findArp (2)->steps[40] == kArpNoteOffStep && b.findArp (2)->steps[41] == kArpEmptyStep,
+               "a note-off step reloads from the saved form, which is why the block is two bytes a step");
         check (b.arpDefined (1), "the default macro survives a round trip as the default macro");
+
+        // what an older build saved is one byte a step: its jumps and its step
+        // that sounds nothing all fit inside that byte, so reading those blocks
+        // as pairs would give half as many steps, and the loader has the step
+        // count beside the block to tell the two spellings apart
+        juce::ValueTree oldRoot ("RETREKTOR");
+        juce::ValueTree oldArps ("ARPS");
+        juce::ValueTree oldArp ("ARP");
+        oldArp.setProperty ("id", 3, nullptr);
+        oldArp.setProperty ("loop", true, nullptr);
+        oldArp.setProperty ("len", 4, nullptr);
+
+        juce::MemoryBlock older;
+        older.setSize (4);
+        auto* ob = static_cast<std::uint8_t*> (older.getData());
+        ob[0] = 4;
+        ob[1] = (std::uint8_t) kArpEmptyStep;
+        ob[2] = (std::uint8_t) -6; // a jump an older build could write below the base note
+        ob[3] = 12;
+        oldArp.setProperty ("steps", older.toBase64Encoding(), nullptr);
+        oldArps.appendChild (oldArp, nullptr);
+        oldRoot.appendChild (oldArps, nullptr);
+
+        Song o;
+        o.fromValueTree (oldRoot);
+        check (o.arpDefined (3) && o.arpLooped (3) && o.findArp (3) != nullptr
+                   && o.findArp (3)->length() == 4,
+               "an older state's one-byte block comes back with as many steps as it says it has");
+        check (o.findArp (3) != nullptr && o.findArp (3)->steps[0] == 4
+                   && o.findArp (3)->steps[2] == -6 && o.findArp (3)->steps[3] == 12,
+               "widened by sign, so the jumps it could write keep their own values and their sides");
+        check (o.findArp (3) != nullptr && o.findArp (3)->steps[1] == kArpEmptyStep,
+               "and its step that sounds nothing keeps the place it had rather than leaning on a pair");
 
         // what an undo hands back is the song the changes are in rather than a
         // fresh one, so the read has to drop what that song holds ahead of the

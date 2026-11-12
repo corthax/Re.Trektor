@@ -86,11 +86,12 @@ private:
             entering further down the column re-bases the run by being that note,
             and a further note-off below takes the answer away again. The notes a
             run entered are tracked in arpNote so closing a run releases only
-            those. */
+            those, and a note-off step is what lets go of the one it sits at. */
         int arpId = 0;             // macro id in force (0 = no run)
         int arpCount = 0;          // steps of the run already played
         double arpOrigin = -1.0;   // where the run's first step sits, in transport beats
-        int arpNote = -1;          // the note the run last entered, -1 when it entered none
+        int arpNote = -1;          // the note the run last entered, -1 when it entered
+                                    // none or its last step opened the note instead
         int arpCallNote = -1;      // the note the run's call answered against, which the
                                     // column's own note takes over as soon as it has one
         juce::Uuid arpClip;        // clip whose rows own the run, so its end closes it

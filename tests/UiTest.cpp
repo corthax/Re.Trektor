@@ -2996,6 +2996,55 @@ int main()
         }
     }
 
+    //== The Macros tab's note-off step ======================================
+    {
+        // the step cursor is left wherever the tab work above left it, so the
+        // button that defines a macro is what puts it on a known step of a known
+        // id: the id the model calls next free, and the first step of the macro
+        // that comes with the cursor already on it
+        const int id = song.firstUndefArpId();
+        check (id > 0, "an arpeggiator id a row can still name is free");
+
+        if (auto* add = findButton (*macros, "+ Add macro"))
+            add->onClick();
+
+        check (song.arpDefined (id) && song.peekArp (id) != nullptr
+                   && song.peekArp (id)->length() == rtr::kArpDefaultSteps
+                   && song.peekArp (id)->steps[0] == rtr::kArpEmptyStep,
+               "the macro the button defines comes in with steps that sound nothing, and the cursor sits on its first one");
+
+        // a step is opened with the note column's own note-off key: there are no
+        // digits to build up, so the press lands whole, which is what makes it an
+        // undoable action rather than a number waiting to be closed
+        const int depthBeforeOff = proc.getUndoDepth();
+        const bool claimed = macros->keyPressed (juce::KeyPress ('`', juce::ModifierKeys(), '`'));
+
+        check (claimed, "the Macros tab answers the note column's note-off key itself");
+        check (song.peekArp (id) != nullptr && song.peekArp (id)->steps[0] == rtr::kArpNoteOffStep,
+               "and that key writes a step that opens whatever the run was holding there");
+        check (proc.getUndoDepth() == depthBeforeOff + 1,
+               "and the press is one undoable action, since a note-off has no digits to close");
+        check (macros->stepLabel (rtr::kArpNoteOffStep) == "OFF"
+                   && macros->stepLabel (rtr::kArpEmptyStep) == "--",
+               "the tab draws that step OFF, the spelling the note column gives its note-offs, while a step that sounds nothing keeps reading --");
+
+        check (proc.undo() && song.peekArp (id) != nullptr && song.peekArp (id)->steps[0] == rtr::kArpEmptyStep,
+               "Ctrl+Z takes the note-off step back to the step that sounds nothing");
+        check (proc.redo() && song.peekArp (id) != nullptr && song.peekArp (id)->steps[0] == rtr::kArpNoteOffStep,
+               "and Ctrl+Y puts it back");
+
+        // clearing a step makes it sound nothing, which sustains the step before
+        // it rather than the base note, so it goes back to empty rather than to a
+        // jump of nothing
+        const int depthBeforeClear = proc.getUndoDepth();
+        macros->keyPressed (juce::KeyPress (juce::KeyPress::backspaceKey, juce::ModifierKeys(), 0));
+
+        check (song.peekArp (id) != nullptr && song.peekArp (id)->steps[0] == rtr::kArpEmptyStep,
+               "and Delete or Backspace clears a note-off step to the step that sounds nothing");
+        check (proc.getUndoDepth() == depthBeforeClear + 1,
+               "and that clear is an undoable action of its own");
+    }
+
     //== Floating window size ==========================================
     {
         // Reaper closes a floating plug-in window by destroying the editor and

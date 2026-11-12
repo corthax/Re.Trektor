@@ -15,19 +15,6 @@ namespace
     constexpr int kContentTop = 70; // where the first card starts, below the labels
     constexpr int kSide = 20;
     constexpr int kBottom = 40; // the strip holding the two buttons
-
-    /** A step as it is drawn: signed semitones off the base note, and a step
-        that sounds nothing, which sustains the one before it. */
-    juce::String arpStepText (std::int8_t step)
-    {
-        if (step == kArpEmptyStep)
-            return "--";
-
-        if (step > 0)
-            return "+" + juce::String ((int) step);
-
-        return juce::String ((int) step);
-    }
 }
 
 MacrosPanel::MacrosPanel (ReTrektorAudioProcessor& processor)
@@ -277,6 +264,20 @@ int MacrosPanel::nextDefArpId (int id) const
     return 0;
 }
 
+juce::String MacrosPanel::stepLabel (int step) const
+{
+    if (step == kArpNoteOffStep)
+        return "OFF"; // the note column's own spelling, so the step reads as the note-off it is
+
+    if (step == kArpEmptyStep)
+        return "--";
+
+    if (step > 0)
+        return "+" + juce::String (step);
+
+    return juce::String (step);
+}
+
 void MacrosPanel::setStepCursor (int id, int index)
 {
     // a number that was still being typed belongs to the step the cursor was on
@@ -303,11 +304,11 @@ void MacrosPanel::commitStepText()
         // a step that was only given a sign means the base note itself, which is
         // what makes typing "-" on and then Enter a step of nothing but the note,
         // and the number a sign and up to three digits typed is read as one value
-        // kept inside the jump the field can hold
+        // that the step's setter keeps inside the jump the field can hold
         const bool onlyASign = stepText.isEmpty()
             || (stepText.length() == 1 && (stepText[0] == '-' || stepText[0] == '+'));
         const int value = onlyASign ? 0 : stepText.getIntValue();
-        song.setArpStep (stepId, stepIndex, (std::int8_t) juce::jlimit (-127, 127, value));
+        song.setArpStep (stepId, stepIndex, value);
 
         if (onModelChanged)
             onModelChanged();
@@ -439,6 +440,25 @@ bool MacrosPanel::keyPressed (const juce::KeyPress& key)
         return true;
     }
 
+    //== A note-off step ======================================================
+    if (text == '`' || text == '~')
+    {
+        // the note column's own note-off key, so a step is opened the way a note
+        // is unstruck elsewhere: one press writes it and lands it whole, since a
+        // note-off has no digits to build up, and the cursor stays on the step so
+        // the cell can be read and cleared the way a typed one can
+        if (stepId > 0 && song.arpDefined (stepId))
+        {
+            song.setArpStep (stepId, stepIndex, kArpNoteOffStep);
+
+            if (onModelChanged)
+                onModelChanged();
+        }
+
+        repaint();
+        return true;
+    }
+
     //== Typing a step value ==================================================
     if (stepId <= 0 || ! song.arpDefined (stepId))
         return false;
@@ -561,9 +581,11 @@ void MacrosPanel::paint (juce::Graphics& g)
 
             // the number being typed at the cursor is what the cell shows while
             // it lasts, so a sign and its digits are read as they are entered
-            // rather than only once the press that closes them arrives
+            // rather than only once the press that closes them arrives; a step
+            // that was opened reads OFF, the note column's own spelling, and one
+            // that sounds nothing reads --
             const bool pending = here && typingStep && stepText.isNotEmpty();
-            const juce::String shown = pending ? stepText : arpStepText (m->steps[(size_t) i]);
+            const juce::String shown = pending ? stepText : stepLabel (m->steps[(size_t) i]);
 
             // the steps are one subtick wide, so a group of them is one row's
             // span: the strip alternates the groups' shades, which is what makes

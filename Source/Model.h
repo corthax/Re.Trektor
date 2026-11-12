@@ -35,7 +35,9 @@ constexpr int kArpCmd = 128;       // command value 128 calls an arpeggiator, en
 constexpr int kCcTop = 127;        // highest plain CC number a column can hold
 constexpr int kBendCmd = 144;      // command value 144 bends the pitch, entered as B
 constexpr int kBendCentreVal = 64; // the bend argument that sits at the wheel's centre
+constexpr int kArpTopStep = 127;      // a step's jump is clamped to this far off the base note
 constexpr int kArpEmptyStep = -128; // a step that sounds nothing and sustains the one before
+constexpr int kArpNoteOffStep = -129; // a step that opens the note it would have held
 constexpr int kArpDefaultSteps = 8; // steps a newly defined macro starts with
 constexpr int kMaxUndoSteps = 200; // most undo steps the undo line can be asked for
 
@@ -362,14 +364,23 @@ struct Clip
     the id 0 call releases the note the run is holding instead of starting one.
     A step holding kArpEmptyStep sounds nothing and sustains the step before it,
     and a step whose note falls outside the keyboard snaps back by whole octaves,
-    so the pitch keeps the step's shape. A macro that is looped starts over at its
-    first step after the last and runs until the clip closes it or the column
+    so the pitch keeps the step's shape. A step holding kArpNoteOffStep is the
+    note column's own note-off: at its subtick it releases the note the run last
+    entered and sounds nothing, so the run keeps stepping while the note the
+    column struck stays owned by whatever ends it further down the column. A jump
+    is clamped to kArpTopStep away from the base note, which is what keeps both
+    sentinels free of the jumps a step can name and makes the note-off the value
+    below the empty one rather than another byte. The steps are held wide, two
+    bytes saved per step, so a note-off sits below the range a single byte could
+    name and a state older than this still reads: its one-byte block widens step
+    by step unchanged. A macro that is looped starts over at its first step
+    after the last and runs until the clip closes it or the column
     names another command; one that is not runs through its steps once and leaves
     the last one sustained. A macro with no steps is not defined. */
 struct ArpMacro
 {
     bool looped = false;
-    std::vector<std::int8_t> steps; // signed semitone offsets off the base note
+    std::vector<std::int16_t> steps; // signed semitone jumps, or one of the two sentinels
 
     int length() const noexcept { return (int) steps.size(); }
     bool defined() const noexcept { return ! steps.empty(); }
@@ -382,7 +393,7 @@ struct ArpMacro
         steps.resize ((size_t) juce::jlimit (1, kMaxArpSteps, len));
 
         for (int i = 0; i < (int) steps.size(); ++i)
-            steps[(size_t) i] = (std::int8_t) kArpEmptyStep;
+            steps[(size_t) i] = (std::int16_t) kArpEmptyStep;
     }
 };
 
@@ -501,7 +512,7 @@ public:
     void defineArp (int id); // fresh macro with empty steps, not looped
     void clearArp (int id); // leaves it undefined, keeping its room
     void setArpLength (int id, int length); // keeps the steps already entered
-    void setArpStep (int id, int index, std::int8_t value) noexcept;
+    void setArpStep (int id, int index, int value) noexcept; // a jump, clamped, or a sentinel
     void setArpLooped (int id, bool looped) noexcept;
 
     //== Serialization =========================================================

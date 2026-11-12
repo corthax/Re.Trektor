@@ -204,7 +204,7 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
             const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
                                              (int) std::llround ((stepTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
 
-            const std::int8_t step = macro->steps[(size_t) (macro->looped ? c.arpCount % len : c.arpCount)];
+            const std::int16_t step = macro->steps[(size_t) (macro->looped ? c.arpCount % len : c.arpCount)];
 
             // the steps measure from the note the column last named, which a note
             // entering further down the column re-bases by being that note; a run
@@ -213,7 +213,22 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
             // rows below it, until a note enters or another note-off ends it
             const int base = c.columnNote >= 0 ? c.columnNote : c.arpCallNote;
 
-            if (step != kArpEmptyStep && base >= 0 && base <= 127)
+            if (step == kArpNoteOffStep)
+            {
+                // the note-off step: it opens whatever the channel was holding at
+                // its subtick rather than stepping anywhere, and only a note the
+                // run itself entered is its own to open: a note the column struck
+                // is the run's base rather than one of its steps, and it belongs
+                // to whatever ends it below, which is what a run whose head step
+                // is a note-off leaves that note alone
+                if (c.arpNote >= 0 && c.activeNote == c.arpNote)
+                    stopNote (events, offset, ch, c.activeMidiCh, c.activeNote);
+
+                // the run keeps stepping: what it was holding is gone, so the next
+                // step is the one that has to sound a note of its own again
+                c.arpNote = -1;
+            }
+            else if (step != kArpEmptyStep && base >= 0 && base <= 127)
             {
                 // the steps measure from the note the column last named, which a
                 // note entering further down the column re-bases while a run is
@@ -232,10 +247,11 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
                 c.arpNote = note;
             }
 
-            // an empty step sounds nothing, which sustains the step before it, and
-            // the next step releases what the step before it left holding, so a
-            // looped run's cycle keeps the note its last step entered sounding
-            // until the next cycle's first step reaches its own subtick
+            // an empty step sounds nothing, which sustains the step before it,
+            // and the next step releases what the step before it left holding, so
+            // a looped run's cycle keeps the note its last step entered sounding
+            // until the next cycle's first step reaches its own subtick; a note-off
+            // step is the one that lets go of that note instead of holding it
         }
 
         ++c.arpCount;
