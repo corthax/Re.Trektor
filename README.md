@@ -153,7 +153,22 @@ cmake --build tests/build -j"$(nproc)"
   back to the centre and to the first point again, and a row that bends without striking
   anything keeping the wheel bent through the clip's own rows with only that clip's end
   taking it back while its instrument names the channel both the move and the take-back
-  reach.
+  reach, and the two slide letters with them: their command values sitting above the
+  highest one an older build could write so no older row can already be a slide, a
+  slide's argument naming how many rows its extreme sits below the row that named the
+  letter rather than where on the wheel that extreme is, both letters and their row
+  counts surviving the saved form unchanged while an older state's calls at either end
+  of its range still land on the call letter, the row that named a slide leaving the
+  wheel where it already was and sending nothing of its own so that row's own note
+  plays straight, the rows under it moving the wheel one whole position at a time and
+  landing on the extreme exactly over the span's own last row, an argument of 0 reaching
+  it on the naming row itself, an argument-only row under a carried letter re-arming a
+  ramp of its own from where the wheel had got to while a further one over a wheel
+  already at the extreme moves nothing, a row naming a command that is not a slide
+  ending the ramp that was still climbing, a note-off ending one before its first step
+  had moved the wheel with nothing sent at all, and a slide wider than the clip that
+  named it having its ramp put away at that clip's end even though its own wheel never
+  left the centre.
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column chips
   clicked per channel, selection gestures — a click selecting one cell, a drag
@@ -287,7 +302,19 @@ cmake --build tests/build -j"$(nproc)"
   typed
   `144` giving the highest CC rather than inventing the bend letter, and that letter's
   claim being one undoable action the editor's `Ctrl+Z` and `Ctrl+Y` take back and put
-  again, with the undo checks reading the cell back through the song rather than through
+  again, and the two slide letters entered the same way but past every undo-depth check,
+  since a claim there also spends a point of a line the checks above had already counted
+  to its cap and would otherwise be read as one of the line's last points: the letter `U`
+  claiming the command number and leaving the default span of 8 rows beside it, 12 typed
+  over that argument naming the span that slide plays over, a row under the carried letter
+  naming only an argument staying implicit and giving a span of its own, a `D` typed after
+  an `11` claiming the field and dropping that number while a typed `146` gives the highest
+  CC rather than inventing the slide letter, the same letter still entering a D natural
+  where the note column is asked for, and the whole twelve-row climb read back as one run
+  of continuous 64-sample blocks under a clip and a pattern of the section's own rather
+  than as a jump the ramp could not be played across, since a transport jump releases
+  whatever the synth was holding and that release is what ends a slide the host jumped out
+  of, with the undo checks reading the cell back through the song rather than through
   a held reference since restoring a state replaces the pattern objects) and confirms
   which
   MIDI channel and which controller value the notes and columns end up on
@@ -345,8 +372,13 @@ cmake --build tests/build -j"$(nproc)"
   is what puts a call beside a `===` rather than beside a note or an empty cell, and
   `--bend=ROW` with `--bend-arg=VAL`, 96 by default, to name
   a pitch bend at that row, which paints the lilac `B` and the point on the wheel it bends
-  to in decimal beside it, so one shot can show both command letters and both of their
-  decimal arguments)
+  to in decimal beside it, and `--slide=ROW` to name a wheel slide up in tracker channel
+  0 at that row, which paints the lilac `U`, `--slide-down=ROW` naming a slide down there
+  instead, the letter `D`, whose command value is one the number field cannot be typed as
+  and only the letter itself can name, and `--slide-arg=VAL` saying how many rows that
+  slide takes to reach its extreme so the argument is drawn in decimal beside the letter,
+  12 by default rather than the 8 the letter's own entry leaves, so one shot can show all
+  three command letters and all of their decimal arguments)
 
 Example:
 
@@ -373,7 +405,8 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   including "Toggle grid preview", which grows the item into a preview of its
   first 12
   rows × up to 4 channels (notes, `===` note-offs, channel dividers, beat
-  lines, and a teal/orange tick where a command is present). "Copy pattern"
+  lines, and a teal/orange/lilac tick where a plain CC, an arpeggiator call or one of
+  the three wheel letters is present). "Copy pattern"
   and "Copy pattern data" both put the pattern's cells on the clipboard; the
   second is a shortcut for grabbing the whole pattern's data so a later paste
   can start a new pattern from it — instance vs unique is chosen when pasting.
@@ -403,8 +436,9 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   digits like the pan column. The command cell's two halves each take room for
   their own widest spelling rather than splitting the cell in half: the number's
   half takes its three CC digits with a two-pixel inner trim and the argument's
-  half its three glyphs with a wider pad, so a macro id, a point on the wheel and
-  a release's `OFF` all keep their last glyph rather than one half being cut tight
+  half its three glyphs with a wider pad, so a macro id, a point on the wheel, a slide's
+  span and a release's `OFF` all keep their last glyph rather than one half being cut
+  tight
   by halving a wider total. The rows field above the line
   numbers sets
   the pattern length (shared by every clip that references the pattern).
@@ -738,27 +772,34 @@ and no row that offers one. Instrument values are the MIDI output channel
 (`0`–`15`), drawn with the column's dash as `-0` to `-15`, the same labels the
 tools panel's remap dropdowns use. Volume and Pan take `0`–`127` as up to three
 digits, displayed right-aligned like the pan column. The Command field accepts
-`0`–`127` and the two letters `A` and `B`: an `A` typed as the command number
+`0`–`127` and the four letters `A`, `B`, `U` and `D`: an `A` typed as the command number
 field's first character claims it and means `128`, the arpeggiator call, whose
-argument names the macro id, and a `B` claims it and means `144`, the pitch bend,
-whose argument names a point on the wheel. The CC `10` and CC `11` a column asks
-for are typed `10` and `11`, and a letter typed after a run of digits only claims
+argument names the macro id, a `B` claims it and means `144`, the pitch bend, whose
+argument names a point on the wheel, and a `U` or a `D` claims it and means `145` or
+`146`, a slide of the wheel to its top or to its bottom, whose argument says how many
+rows below the one that named the letter its extreme sits over rather than where on
+that wheel it goes. The CC `10` and CC `11` a column asks for are typed `10` and `11`,
+and a letter typed after a run of digits only claims
 the field, the number being typed having been dropped rather than read as a
 command, so nothing about a number's spelling reaches one of the letters. A
 letter writes the command value it names rather than a number that gets clamped,
-since the number field tops at the highest CC `127` and only the letters
-themselves reach above it: typing `144` into that field gives the highest CC
-rather than the bend letter, and an interpolation ramp climbs toward it rather
-than inventing a command. Each letter has to leave an argument behind, so a call
-starts at the release id `0` and a bend starts at the wheel's centre `64`, which
-is what makes a row naming only the `B` bend nowhere rather than lock the wheel
-to its bottom. The call pair is drawn orange and the bend pair lilac, every
+since the number field tops at the highest CC `127` and only the letters themselves
+reach above it: typing `146` into that field gives the highest CC rather than the
+slide letter, an older build's `143` cannot be typed back at all, and an interpolation
+ramp climbs toward that highest CC rather than inventing a command. Each letter has to
+leave an argument behind, so a call starts at the release id `0`, a bend starts at the
+wheel's centre `64` and a slide starts at the default span of `8` rows, which is what
+makes a row naming only the `B` bend nowhere rather than lock the wheel to its bottom
+and a row naming only a slide letter take its extreme over 8 rows rather than over
+none at all. The call pair is drawn orange and the three wheel pairs lilac, every
 value in the view being decimal, and either letter a row carries from above
 draws dim like any other carried command. So does the argument carried beside
 it, and that argument is the newest one that column's rows entered rather than
 the one the letter itself named, which is what an argument typed under a
 command already in force changes: the rows under it are drawn with it beside
-the letter still carried there. An argument of `0` typed under a carried call
+the letter still carried there, and under a carried slide letter that newest
+argument is the span the rows below are still taking toward the extreme rather
+than a new point on that wheel. An argument of `0` typed under a carried call
 is the arpeggiator release on its own, that row reading a bright `OFF` beside
 the letter carried into it and the rows under it carrying neither the letter
 nor an argument.
@@ -902,6 +943,30 @@ sustains the step before it rather than the base note.
   moved it, which is what a row that bent without striking a note needs since no
   note-off of that channel was ever going to close it, at a transport re-arm and
   at the editor's own all-notes-off.
+* Commands `145` and `146`, entered as the letters `U` and `D`, slide that wheel to
+  its top 16383 or to its bottom 0 instead of holding a point of it, and their argument
+  says how many rows below the one that named the letter its extreme sits over rather
+  than where on that wheel it goes: the empty argument taking the default span of `8`
+  rows, the widest span the field can naming being 127 rows and a span of `0` reaching
+  that extreme on the naming row itself. The row that named the slide is the ramp's own
+  start, so the wheel sits where it already was there and that row's own note plays
+  straight with nothing sent of its own, while every row under it keeps the wheel
+  climbing one whole wheel position at a time, the step being read off the row rather
+  than counted from it — which is what a transport jump that makes this block play a
+  row again leaves it on the same point of the ramp rather than advancing it twice —
+  and the row that reaches the extreme lands on it exactly, the wheel then sitting at
+  a point of the column's own like a bend row left it. A row under a carried `U` or
+  `D` that names only an argument re-arms a ramp of its own from wherever the wheel had
+  got to, which is how a slide is retargeted while it runs, and a ramp re-armed over a
+  wheel already at the extreme moves nothing. A row naming a command that is not a
+  slide ends the ramp that was still climbing while leaving the wheel where that row
+  left it, so the wheel such a row asks for is a point rather than a climb. A slide is
+  a state the column carries down like a bend rather than one its own row only, so a
+  note-off below the row that named one ends it even before its first step moved the
+  wheel, which is why nothing keeps climbing underneath that note-off, and at the end
+  of the clip whose rows armed it: a ramp still climbing there has no rows below that
+  clip left to finish it even when its own wheel never left the centre, so only the
+  ramp needs putting away and no message is what takes it back.
 * A tracker pattern can use up to 127 tracker channels, independent of the 16
   MIDI output channels. Identical notes triggered on multiple tracker channels
   in the same row are sent only once.
@@ -1000,7 +1065,12 @@ sustains the step before it rather than the base note.
   that closes the notes and the arpeggiator runs of a clip the playhead is no
   longer over: such a channel has no note of its own to release and no clip end
   of its own to close, so a row that only bent keeps its wheel bent across that
-  gap.
+  gap. The same gap reaches a slide, whose ramp belongs to the tracker channel
+  rather than to the clip that armed it: only that clip's own end puts a ramp
+  that is still climbing away, since it is the only one whose rows ran out, so
+  a ramp armed by the rows of a clip that is gone keeps the wheel climbing over
+  the rows of any further clip of that channel until a release point below takes
+  it back.
 * No audio processing of any kind.
 * The Linux VST3 build exposes the plug-in as an effect (`Fx` category). Hosts
   that hide MIDI effects (Reaper in some routing setups) can use the
@@ -1023,8 +1093,9 @@ sustains the step before it rather than the base note.
   same pitch, at the cost of one extra note-off; the moved-clip-from-time-0
   scenario is covered by the CoreTest "Stuck-note guard" section but has not
   been retested in Reaper itself yet.
-* Command kinds beyond plain CC and the arpeggiator call (a dedicated pitch
-  bend CC105/CC106 pair, tempo, song position) are future work.
+* Command kinds beyond plain CC, the arpeggiator call and the pitch wheel (a dedicated
+  pitch bend CC105/CC106 pair rather than the standard pitch wheel message, tempo, song
+  position) are future work.
 * Selection snaps to channel boundaries: a cell is one channel's visible
   fields, so selecting only one field of a channel — its volume alone, its
   command value alone — is not possible yet, and a paste of copied cells
@@ -2231,40 +2302,109 @@ is the cheap proof the word really is drawn there. Smoke unchanged at 13 with it
 2392 bytes, since only a step's width grew, against the bundle refreshed by rsync --checksum to sha256
 e792e2e1af46e657217d2193119290af33da9e4b5ec652c9cffe4e67ef78cbfc matching the built artefact and still
 topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation.
+The Command column's two new wheel letters and the ramp they drive: a `U` and a `D` claim the
+command number as 145 and 146 and leave the default span of 8 rows as the argument their entry has
+to write beside them, so a row naming only a letter takes its extreme over 8 rows rather than over
+none at all, and that argument says how many rows below the naming one the extreme sits over rather
+than where on the wheel it goes. The row that named the slide is the ramp's own start: the wheel
+stays where it already was there and nothing is sent of that row, which is what lets the note that
+row strikes play straight, while the rows under it move the wheel one whole position at a time and
+the row the span names lands on the extreme exactly, the positions being whole ones by truncating
+slideFrom + (slideTo - slideFrom) * steps / jmax (1, span) rather than carrying a float run, so the
+endpoints are exact, an argument of 0 reaches the extreme on the naming row itself and 127 is the
+widest span the field can name. A row under the carried letter that names only an argument re-arms a
+ramp of its own from wherever the wheel had got to, which is how a slide is retargeted while it runs,
+and one re-armed over a wheel already at the extreme moves nothing of its own; a row naming a command
+that is not a slide ends the ramp that was still climbing while leaving the wheel where that row left
+it, so the point such a row asks for stays a point rather than becoming a climb. The ramp is ROW-based
+rather than counted, so it is idempotent under a row this block already advanced - slideStep reads the
+row it is asked for rather than counting steps, which is what a transport jump that makes this block
+play a row again leaves it on the same point of the ramp rather than advancing it twice - and a
+slide's pitch wheel uses the bend's own order 0, so it precedes the note-on of the row that asked for
+it and a note entering while the wheel climbs is bent by where the climb had got to rather than by the
+point above it. The state grew slideOn / slideRow0 / slideSpan / slideLastRow / slideFrom / slideTo /
+slideClip beside a slideRunning () guard and an inline endSlide (), every release point that ends a
+bend now ending a slide too - the note-offs of allNotesOff and stopNote gained an else if (c.slideRunning ())
+c.endBend (), since a slide is a state the column carries down like a bend rather than one its own row
+only, so a note-off below the row that named one ends it even before its first step moved the wheel -
+and the clip-end take-back went from bendClip == clip.uid && wheelBent to (bendClip == clip.uid && wheelBent)
+|| (slideClip == clip.uid && slideRunning ()), the centring message being sent only where the wheel really
+is out of place, which is what a ramp still climbing at a clip's end needs: it has no rows below that clip
+left to finish it, so when its own wheel never left the centre only the ramp needs putting away and no
+message is what takes it back. kBendBottomPos = 0 came in beside kBendTopPos as the wheel's own ends
+rather than as a literal 0 at two call sites. The model gained kOlderCmdTop = 143, kSlideUpCmd = 145,
+kSlideDownCmd = 146 and kSlideDefaultSpan = 8, and the older-command read rule went from rawCmd >= kArpCmd
+to rawCmd >= kArpCmd && rawCmd <= kOlderCmdTop, so an older state's macro calls at either end of its range
+still land on the call letter while 144, 145 and 146 read back as themselves and no older row can already
+be a slide; the number field's typed clamp stays at kCcTop = 127, so a run of digits cannot invent either
+letter while the note column's own D keeps entering a D natural there. Both letters draw in the lilac
+theme::cmdOther the bend pair already had, with their arguments in decimal beside them and the entry
+claiming the field's first character, and the pool's grid-preview command tick now paints that lilac for
+the two new values as well. The tests moved with all three layers: CoreTest 296, +17, six new sections
+past the pitch bend ones - the model's two values above kOlderCmdTop and kCcTop, both letters and their
+row counts surviving the saved form, an older state's calls at either end of its range still landing on
+the call letter rather than turning into a bend or a slide and this build's own three wheel values reading
+back as themselves, the climb to the top over a span of 4 going 10239, 12287, 14335 and kBendTopPos
+exactly and returning only at a note-off below, D 0 reaching kBendBottomPos on the naming row itself, a
+row naming only an argument re-arming a span of 2 from where the wheel had got to - 9215 then 12799 then
+the top - while a further one over a wheel already at the extreme moves nothing, a note-off one row under
+the naming row ending a slide before its first step with nothing sent at all, and a slide of 8 rows over
+a clip of only four climbing 9215, 10239 and 11263 and being put away at that clip's end; UiTest 652, +23,
+one self-contained section after every undo-depth check, since a U claim there also spends a point of a
+line the checks above had already counted to their cap and would otherwise read as one of the line's last
+points - it gives itself a pattern and a clip of its own parked at 4400 beats clear of every other clip,
+since the pattern the tracker holds by that point sits on a clip the shared play helper never reaches, and
+reads the whole twelve-row climb back as one continuous run of 64-sample blocks, { 8874, 9557, 10239, 10922,
+11604, 12287, 12970, 13652, 14335, 15017, 15700, kBendTopPos }, under that clip rather than through the
+jumped playRowAt, whose transport jump releases what the synth was holding and that release is exactly
+what ends a slide the host jumped out of, that run being primed by a clear past the end of every clip the
+sections above parked so it answers only with its own rows, and its D-natural check naming the octave it
+enters at since the sections above leave recordOctave at 9; and EditorShot gained --slide=ROW, --slide-down=ROW
+and --slide-arg=VAL, 12 by default rather than the 8 the letter's own entry leaves. Two shots read the two
+letters: /tmp/opencode/slide-u.png at --slide=6 --slide-arg=12, the lilac U 12 carried down from that row,
+and /tmp/opencode/slide-d.png at --slide-down=10 --slide-arg=3, the lilac D 3, whose differing sha256 is the
+cheap proof the two letters really are drawn there. Smoke stayed at PASS with 0 failures and 13 checks, its
+serialised state still 2392 bytes since a slide costs the saved form nothing of its own - the two values and
+their arguments living in the cells a pattern already saves - against the bundle refreshed by rsync -a
+--checksum over the bundle's DIRECTORY rather than its single .so, the built and installed binary both sha256
+3d0755c45500d341907af8c0fca8d9e6304fcce08575c59f9f7894e77f759bc9 and the sha the previous build carried gone,
+the portability read still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f, the
+slide's arithmetic being integer throughout so the only float names the binary keeps are JUCE's own powf and sinf.
 Active
-Nothing is open in the code: this round's one change, an arpeggiator macro step spelling the
-note column's own note-off and opening only the note its own run was holding, is landed, built,
-installed and tested, and the decimal spelling, the five asks before it and the carried command
-argument are landed as they were with only the hosts hearing them still open.
-The step's one int now carries three spellings below the jumps rather than one: -128 sounds nothing
-and sustains the step before it, -129 opens what the run was holding, and every jump stays clamped to
-±127 so nothing between -129 and -128 can arrive from the keyboard or a saved jump; the octave snap and
-the setter let the two sentinels through on either side, which is what leaves the opening a shape rather
-than a landing the snap would have folded, and setArpLength pads a grown macro with the step that sounds
-nothing the way it always did. The engine answers the opening at that step's subtick inside flushArp,
-releasing through stopNote only while the state still holds the note this very run entered, so a step
-of OFF at a run's head cuts nothing of its own - the column's own note is still owned lower down and
-takes it away with the row's note-off - and nothing a column, another run or the row itself was holding
-is cut by a step either; the step still counts, so a looped cycle's boundaries and an unlooped run's
-held last note stay exactly as they were, and the row's `A 0` release, the clip end's close and the
-note-off taking the column's note away are untouched beside it. The saved block writes two bytes a step
-little endian and the reader picks the two spellings by the length the block declares rather than by
-what it finds, since a one-byte block is exactly as long as a wide one's would be read half; nothing
-else about a macro's saved form moved, so the id, the loop flag and the length property stay as they
-were and an older state widens on the read. The Macros tab's cell and the tests read one spelling through
-the panel's own public stepLabel rather than the strip keeping a private lambda, so the shot and the
-checks cannot drift from the cell, and the note column's own backtick and tilde pair enters the opening
-at the step cursor there, claiming the press and leaving the cursor where it was the way Delete and
-Backspace do, since stepping past the step just opened would run the macro past the release the user
-meant to hear there. CoreTest answers 279 checks, UiTest 629 and
-Smoke 13 all PASS, with Smoke's serialised state at 2392 bytes, up only by the two-byte steps the
-demo's macros now save, against the bundle
-refreshed by rsync to sha256 e792e2e1af46e657217d2193119290af33da9e4b5ec652c9cffe4e67ef78cbfc,
-matching the built artefact and still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and
-naming no sqrtf or atan2f relocation, so what is left of this round is the user hearing a step
-of OFF open what the run was holding at that step's subtick, and seeing the Macros tab spell it
-`OFF` in the jump's orange entered with the note column's own key, in Reaper and Bitwig rather
-than anything still open in the code.
+Nothing is open in the code: this round's one change, the Command column's two wheel letters U and D
+sliding the pitch wheel to its top or its bottom over the rows their argument names, is landed, built,
+installed and tested, and the arpeggiator's openings, the carried command argument, the decimal spelling
+and the five asks before them are landed as they were with only the hosts hearing them still open. The
+Command half of the column now names four kinds rather than three: the letter A claims the number as 128
+with the macro id as its argument, the letter B claims 144 with a point on the wheel, and the new U and D
+claim 145 and 146 with a row count as theirs, since a slide's argument says how many rows below the naming
+one its extreme sits over rather than where on the wheel that extreme is. All three wheel values sit above
+kOlderCmdTop = 143, the highest value an older build could write for its M0-M15 macro kinds, so the read
+clamps only 128-143 to the call letter while this build's own three values read back as themselves and no
+older row can already be a slide; all three also sit above kCcTop = 127, the number field's own top, so a
+run of typed digits cannot invent one of the letters while an interpolation ramp still climbs toward the
+highest CC. A slide is a state the column carries down like a bend rather than one its own row only, so the
+row that named one is the ramp's own start, the wheel staying where it already was there with nothing sent
+of that row and the note it strikes playing straight, while the rows under it move it one whole position at
+a time and land on the extreme exactly over the span's own last row; an argument of 0 reaches that extreme
+on the naming row itself, an empty one takes the default span of 8 rows the letter's entry writes and 127
+is the widest the field can name. A row under the carried letter naming only an argument stays implicit and
+re-arms a ramp of its own from wherever the wheel had got to, which is how a slide is retargeted while it
+runs, and a ramp re-armed over a wheel already at the extreme moves nothing. A row naming a command that is
+not a slide ends the ramp that was still climbing while leaving the wheel where that row left it, so the
+point such a row asks for stays a point rather than becoming a climb. The ramp is read off the row rather
+than counted from it, so a row a transport jump makes this block play again lands on the same point of the
+ramp rather than being advanced twice, and it advances in processRow after the command chain rather than
+inside either letter's branch, its wheel moving at the pitch wheel's own order 0 so it precedes the note-on
+of the same row and a note entering while the wheel climbs is bent by where the climb had got to. Release
+points gained the slide's own ends: the note-offs of allNotesOff and stopNote take a still-climbing ramp
+away even before its first step moved the wheel, and the end of the clip whose rows armed it puts one away
+that is still climbing, a ramp still climbing there having no rows below that clip left to finish it, so
+when its own wheel never left the centre only the ramp needs putting away and no message is what takes it
+back. What the two letters leave the wheel with is one rule rather than two, a slide that reached its extreme
+leaving the wheel sitting at a point of the column's own like a bend row left it, and both letters share the
+lilac theme::cmdOther the bend pair already had rather than bringing a fourth colour in, the pool's grid-preview
+tick painting that lilac for all three wheel kinds.
 
 The Macros tab's five fixes stand landed as before it: the tab paints no description memo, keeps its title and the one MACRO / LENGTH /
 LOOPED / STEPS label row at y 48 with kContentTop taking the cards up to 70; a newly defined
@@ -2450,7 +2590,51 @@ the backtick before the plug-in is offered the press, whether a host keeps the p
 three-glyph argument cell rather than restyling the column, and where the bands move when the
 Settings row "Subticks per row" is set to anything but its default, which the tests only read at
 the default.
+This round's one change is the same shape of cover rather than a stronger one: CoreTest names the
+two values sitting above kOlderCmdTop and above kCcTop, both letters and their row counts surviving the
+saved form, an older state's calls at either end of its range landing on the call letter rather than
+turning into a bend or a slide, this build's own three wheel values reading back as themselves, the climb
+to the top over a span of 4 landing on kBendTopPos exactly and returning only at the note-off below, D 0
+reaching kBendBottomPos on the naming row itself, a row naming only an argument re-arming a span of 2 from
+where the wheel had got to while a further one over a wheel already at the extreme moves nothing, a note-off
+ending a slide before its first step so nothing at all is sent, and a slide wider than the clip that named it
+having its ramp put away at that clip's end; UiTest drives the U claim and the default span of 8 it leaves
+beside it, 12 typed over that argument naming the span that slide plays over, an argument-only row under the
+carried letter staying implicit and naming a span of 3 of its own, a D typed after an 11 claiming the field
+and dropping that number while the entry leaves the default span, a typed 146 giving the highest CC rather
+than inventing either letter, the same letter still entering a D natural where the note column is asked for
+at an octave the section names, and the whole twelve-row climb back as one continuous run of 64-sample blocks
+under a clip and a pattern of the section's own rather than through the shared jumped helper, a transport jump
+releasing whatever the synth was holding and that release being exactly what ends a slide the host jumped out
+of; and EditorShot draws the lilac U with its decimal span and the lilac D with its own in two shots. What is
+still known only from the hosts is where their MIDI receivers put a wheel moved on a row that struck nothing
+and how they map a 14-bit position to a sounding pitch, how far a host honours a ramp's positions across its
+own block boundary rather than hearing one jump at the extreme - which is why the tests can only show the run
+as a continuous chain of 64-sample blocks under their own clip, the shared jumped helper being unable to play
+a ramp at all - how long a host holds a wheel left at an extreme by a slide that reached it while the transport
+is stopped or across a loop's wrap, whether the row that named a slide keeps playing its own note straight
+there, whether a host reads the letters U and D as its own before the plug-in is offered the press, whether the
+D typed at the note column still enters a D natural rather than being heard as the slide, and whether a host
+shows the dim span carried beside a carried letter moving to the newest one an argument-only row entered rather
+than the one the letter itself named.
 Next Move
+Confirm in Reaper and Bitwig that the letter U and the letter D claim the Command column's number field
+as 145 and 146 and leave the default span of 8 rows beside them, so a row naming only one of the two letters
+takes its extreme over 8 rows rather than over none at all; that the row which named a slide leaves the wheel
+where it already was and sends nothing of its own, so the note that row strikes plays straight while the rows
+under it move the wheel one whole position at a time and the extreme sits exactly over the span's own last row;
+that an argument typed over the one the letter left - 12 in the tests - names that slide's own span, and that
+an argument-only row under the carried letter stays implicit, re-arms a ramp from wherever the wheel had got to
+and so retargets a slide while it runs, one re-armed over a wheel already at the extreme moving nothing; that a
+note-off below the row that named a slide ends it, even before its first step moved the wheel, so nothing keeps
+climbing under that note-off and the wheel is left where it was rather than being straightened by anything else
+in between; that a slide wider than the clip that named it has its ramp put away at that clip's end without a
+message of its own when its wheel never left the centre; that a save and a reload keep both letters and their
+row counts while an older project's macro calls at 128-143 still land on the letter A rather than turning into a
+bend or a slide; that typing 146 into the number field still gives the highest CC rather than inventing either
+letter while the D typed at the note column keeps entering a D natural there; and where a host's own pitch-bend
+receiver maps the wheel's top 16383 and its bottom 0 to a sounding pitch, since a slide's whole hearing is that
+ramp rather than one jump at an extreme.
 Confirm in Reaper and Bitwig that a step an arpeggiator macro was entered as the note column's own
 note-off key - the backtick, or its shifted tilde, the pair the note entry answers alike - opens what
 the run was holding at that step's subtick rather than sounding a step of its own, so a macro of
@@ -2676,6 +2860,15 @@ field's top so an interpolation ramp climbs toward the highest CC rather than in
 and the Cell::cmd comment naming the three kinds a column can hold - a plain CC, the call and the
 bend - beside a value-space comment saying that a bend's argument names a point on the 14-bit wheel
 in steps of 128 rather than a position on it).
+Beside them the two slide letters (kOlderCmdTop = 143 as the highest command value an older build
+could write for its M0-M15 macro kinds, kSlideUpCmd = 145 and kSlideDownCmd = 146 as the values the
+letters U and D enter, both chosen to sit above that top so no older row can already be a slide while
+this build's own three wheel values read back as themselves and the read rule went from rawCmd >= kArpCmd
+to rawCmd >= kArpCmd && rawCmd <= kOlderCmdTop on the pattern data's one reader, and kSlideDefaultSpan = 8
+as the row count a letter leaves as the argument its entry has to write, since a slide's argument counts
+rows toward an extreme rather than naming a point on that 14-bit wheel, the Cell::cmd comment now naming
+the four kinds a column can hold - a plain CC, the call, the bend and a slide - beside a value-space comment
+saying a slide's argument is a span of rows rather than a position on it).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h / PlaybackEngine.cpp: host-synced MIDI generation, carry/duplicate logic, explicit note-off panic, volume/pan driven by the Settings CC numbers, a value-only row using the command number carried in the column, and the transport re-arm: its
 channel-wide releases are ordered ahead of everything queued at that same sample (all-notes-off
 at order -2 and all-sound-off at -1, against the note-offs' 0, the note-ons' 1 and the volume and
@@ -2741,16 +2934,36 @@ carried kBendCmd moving that same wheel to a new point rather than inventing a c
 how a further row re-asserts the bend a note-off had taken back, and the command number's clamp moved
 from the call to kCcTop on both the explicit and the carried path so no value above a plain CC can be
 mistaken for one of the letters' own kinds.
+And the wheel slide its letters U and D drive: kBendBottomPos = 0 named in the header beside kBendTopPos
+as the wheel's own ends, a ChannelState holding slideOn / slideRow0 / slideSpan / slideLastRow / slideFrom /
+slideTo / slideClip beside a slideRunning () guard and an inline endSlide () that clears all of them ahead of
+endBend ()'s own centring, slideCommand answering 145 and 146 by arming a ramp from where the wheel already
+is to that letter's own extreme over the row count its argument names - the empty argument taking kSlideDefaultSpan,
+a 0 reaching the extreme on the naming row itself, a row under a carried letter naming only an argument re-arming
+a ramp of its own from where the wheel had got to and a row naming a command that is not a slide calling endSlide
+() in the carry block rather than leaving a ramp still climbing under it - and slideStep advancing that ramp in
+processRow after the command chain rather than inside either letter's branch, reading the row it is asked for
+rather than counting steps so the ramp is idempotent under a row this block already advanced, a row landing on
+the position the wheel is already at sending nothing, the whole span walked by integer truncation of slideFrom +
+(slideTo - slideFrom) * steps / juce::jmax (1, span) so the endpoints are exact - two of those guards needing
+juce::jmax rather than a bare max since nothing in this file pulls the C math names in - and the wheel queued at
+the pitch wheel's own order 0 so it precedes the note-on of the row that asked for it; the release points gained
+the slide's own ends beside the bend's, allNotesOff and stopNote each holding a new else if (c.slideRunning ())
+c.endBend (), which is what ends a slide at a note-off even before its first step moved the wheel, and the clip-end
+take-back keyed on the ChannelState's own new slideClip beside the old bendClip, asked for as (bendClip == clip.uid
+&& wheelBent) || (slideClip == clip.uid && slideRunning ()) with the centring message only sent where wheelBent says
+the wheel really is out of place, which is what a ramp still climbing at that clip's end needs, since it has no rows
+below that clip left to finish it.
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock, the size of the last GUI shown, and the undo line (undoStates holding the saved song XML with undoCursor and undoBytes counted in UTF-8 bytes, pushUndoPoint appending what a model change reached and skipping one that changed nothing, undo() / redo() stepping and refreshing the snapshot, resetUndoHistory anchoring a fresh line for a state the host hands back, getUndoDepth / getUndoRedoCount naming what is left to walk, trimUndoLine dropping the oldest states against the Settings depth and a 32 MB budget while never dropping the state the model is in or one ahead of the cursor, and stepUndoHistory keeping the pattern clipboard, the edit playhead and the mirrored transport position a saved state does not carry).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size, wiring the tools panel's isCellSelected hook to the tracker's selection, and the shortcuts where Ctrl+C/V name the cell clipboard (copySelectionToClipboard / pasteClipboardAtCursor) while the pattern clipboard's Ctrl+Shift+C / Ctrl+Shift+V pair is refused rather than answered, its two doCopy() / doPaste (bool forceUnique) members and its Ctrl+X slice branch gone altogether with that pair, the undo funnel commitEdit() (record the point the model reached, then refresh, so every component's onModelChanged ends in it while the bottom bar's OCT / STEP / CHANNELS handlers and selectPattern() record their own), performUndo / performRedo stepping the plug-in's line and refreshing the Settings panel as well because its rows hold their own values, and the Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z shortcuts with the Alt+Z / Alt+Y spellings the hosts leave free answering the same two steps, one each since the whole Alt+Shift family is refused rather than spent on a redo alias the hosts swallow, the Alt branches matching the letter over the key code and the printed character, all of them reaching the editor while every panel answers the Alt pair as well through one wireUndoRedo lambda that injects performUndo / performRedo into the tracker, timeline, pool, settings, tools and macros panels, so whichever panel the host routed the press to walks one point of the same line rather than one the panel owns, and one wireFocusRescue lambda injecting the same shape's focusRescue member into the tracker, timeline and pool so the panel that closed a menu, an alert or a drag hands keyboard focus back to the tracker (and to itself where the tracker is hidden), which is what makes the whole keyboard heard again rather than only the editor's own shortcuts, and one wireClipboard lambda injecting the cell clipboard's Alt steps as copyStep / pasteStep / cutStep members into all six panels with the tracker's own copySelectionToClipboard, pasteClipboardAtCursor (kPasteAll) and cutSelectionToClipboard, and one wireSlice lambda injecting the editor's own doSlice as a sliceStep member into all six of them beside those clipboard steps, so an Alt+C / Alt+V / Alt+X reaches one cell clipboard and an Alt+S reaches one clip slice at one snapped beat whichever panel the host routed the press to, and one press of either leaves one point of the undo line rather than two, the editor's own keyPressed answering those steps through the shared matchClipboardKey and answerSliceKey next to a Ctrl+C / Ctrl+V pair that refuses Shift so the hosts keep their own Ctrl+Shift+C / Ctrl+Shift+V meaning and no Ctrl+X branch left to it at all, and its first lines including the renamed header so no panel and the editor can disagree about what the Alt letters name.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom, ruler (bar numbers only, no transport readout), and the Alt pair of undo and redo answered in its keyPressed, which is where a press aimed at undo has to be heard while the timeline's own clip menu is open or while a pattern is being dropped onto it, and a focusRescue member it calls at the end of both context menus and ahead of the playback guard in its drop, since both the popup and the dragged item are parentless desktop windows that take the keyboard focus with them when they close, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, chained through the 4-argument answerClipboardKey so an Alt+C / Alt+V / Alt+X pressed while this panel routes the press reaches the tracker's cell clipboard rather than the host's, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape, so an Alt+S heard while this panel holds the press splits the clip under the playhead that the timeline's own "Slice at playhead" menu item reaches rather than leaving the Ctrl+X spelling the host already spent on its own cut.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber), cell selection (selBits one bit per (row, channel) in kSelWords = 2 uint64 words per row, applyCellRect unioning/subtracting/replacing word masks, gestureOp reading the held modifiers, channelAtX and channelBoundsFor naming a cell, per-cell painting and a hidden chip inverting its plate (theme::text plate, letter cut out in theme::panelLight) instead of dimming) and the cell clipboard (cellClipboard of CellClipboard type, copySelectionToClipboard putting the selected cells on it with their offsets inside the copied rectangle counted from the top-left selected cell and doing nothing while nothing is selected, pasteClipboardAtCursor writing at the cursor and only marking the model changed when it wrote something, cutSelectionToClipboard taking that copy and then emptying exactly the cells it took through the clearSelectedCells loop the cell menu's Clear / Selection calls as well so the two do not drift apart, marking the model changed for the wipe alone since the copy changes nothing in the saved song, hasCellClipboard greying out both of the menu's pastes, and the cell menu's four top-level items - a "Clear" submenu whose leaves keep the old ids so the callback still answers them by id (4 Selection / 1 Cell / 2 Channel / 3 Pattern), "Copy selection" (id 5), "Cut selection" (id 6 right after the copy, greyed while nothing is selected and answered by the same cutSelectionToClipboard the Alt+X key reaches), and two sibling paste submenus carrying the same seven leaves, Everything / Note / Instrument / Volume / Pan / Command / Command Value, the plain "Paste" one at ids 7..13 and the "Paste (Additive)" one at ids 17..23, both greyed by hasCellClipboard and both answered through one static pasteMasks the callback hoists above its if-chain so the field and the mode compose rather than a leaf owning the mode, pasteClipboardAtCursor (pasteMasks[result - 7]) and pasteClipboardAtCursor (pasteMasks[result - 17] | kPasteAdditive), 16 left unused between the two runs and the undo pair's 14/15 still last), and the undo pair (undoStep / redoStep std::function members the editor injects so the menu's Undo and Redo, ids 14 and 15 after the paste submenu's leaves and greyed out by the plug-in's own counts, walk the same line Ctrl+Z and Ctrl+Y walk and refresh every panel rather than only the grid, and cancelPendingEdit reporting whether a numeric buffer was half typed and closing it the way Esc does, which the Ctrl+Z and Alt+Z branches and the menu's Undo consult before stepping so one press is one effect, and its keyPressed now answering the Alt pair itself through answerUndoRedoKey, with cancelPendingEdit as the closing hook so a half-typed number still closes on that press rather than being walked over, while any other letter held with Alt is still handed up rather than typed as a note at the cursor), and a focusRescue member it calls at the end of the cell menu's callback, whether the press picked an item, a greyed one or dismissed the popup with Escape, and the Alt clipboard steps answered through the 4-argument answerClipboardKey with copyStep / pasteStep / cutStep members of the same shape the editor injects, placed ahead of the hand-up that keeps other Alt letters out of the tracker's own key entry, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor next to copying, pasting or cutting, and the Alt+S slice answered the same way through answerSliceKey with a sliceStep member of the same shape the editor injects, this very letter being the note entry's C sharp, so the slice is claimed before the key entry can leave a C sharp at the cursor whether or not there was a clip to split, and the command letters: the A and the B branch sitting in the path that owns a value field's first character, so either letter claims the command number as its own command value while a number that merely has an a or a b in it keeps its own spelling and the CC 10 and CC 11 a column asks for are typed as their own 10 and 11, a letter typed after a run of digits claiming the field and dropping that number rather than reading it, the pair painted in theme::cmdMacro with every value drawn in the view's one decimal spelling, the A a row carries from above drawn dim through carriedCommandNumber beside the bright argument a row below writes, and clampValue's command number capped at kCcTop rather than at the call, both letters' claim writing the command value it names straight into the cell rather than as a number that gets clamped there, so a typed digit run and an interpolation ramp can only reach a plain CC and typing 144 into the field gives the highest CC rather than inventing a letter - the letters being the only route to a command kind - beside each letter leaving its own argument behind, a call at the release id 0 and a bend at the wheel's centre kBendCentreVal so a row naming only the letter bends nowhere rather than locking the wheel to its bottom, and the bend pair painted in the lilac theme::cmdOther that was going unused with that argument drawn in the view's one decimal spelling like every other value and that letter carried down a column drawn dim like the call's is beside the bright argument a row below writes, the command cell now splitting its two halves by their own glyph counts rather than halving the whole cell and each half taking its own pad, with fieldGlyphs giving the number's half three glyphs and the argument's half three more in the view's one decimal spelling so a macro id of 100, a bend's point above 99 and an arpeggiator release's OFF all keep their last glyph while the instrument's half keeps room for its dash and two digits, and maxDigitsFor taking the three decimal digits at the keyboard everywhere so no letter can be invented by a number's spelling, valueString and instString drawing every value decimal with no setting and no row offering another spelling, the display's carry table and the two reads walking the command column together through one file-local stepCommandCarry so they cannot disagree - a row that named a command of its own leaves that one and its own argument, the value cell answering such a row with that row's own argument so a letter that had none draws nothing beside it rather than picking an argument up from above, and a row that named only an argument keeps the letter carried above it and leaves the argument it named itself carried for the rows below rather than the one that letter called with, an argument of 0 under a carried call clearing both since that argument is the release the engine's arpCommand already answers there; drawRows fills a row's entry from what the column carries into that row before that row steps it, which is what an argument-only release still reads its letter on its own row and draws neither letter nor argument over the ones under it, and carriedCommandNumber walks the column down from its top over the rows above rather than up from the row, since what a row leaves in force also depends on the arguments the rows above it entered, beside a new public carriedCommandValue reading the argument the same walk leaves so a test reads the carry rather than a pixel, while the letter A with the argument 0 still releases and leaves the column under it carrying neither a letter nor an argument and the value cell spells that release OFF rather than a bare 0.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source (the drag image is the item's cell), grid preview, rename, and the Alt pair answered in its keyPressed, which is what a press aimed at undo needs while the pool's own drag is still held by the DragAndDropContainer and has made that drag modal, and a focusRescue member it calls at the end of its own menu and of the rename alert, plus on the release of a drag, which ends whether or not the item ever landed on a target, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, since the same reason that made the undo pair unreachable gives the clipboard's steps to the host's own clipboard and cut as well, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects, so an Alt+S is heard even while the pool's drag is still modal and the editor is never offered the press at all, and its grid preview's command tick now painted lilac for the pitch bend beside the teal a plain CC and the orange a call keeps.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source (the drag image is the item's cell), grid preview, rename, and the Alt pair answered in its keyPressed, which is what a press aimed at undo needs while the pool's own drag is still held by the DragAndDropContainer and has made that drag modal, and a focusRescue member it calls at the end of its own menu and of the rename alert, plus on the release of a drag, which ends whether or not the item ever landed on a target, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, since the same reason that made the undo pair unreachable gives the clipboard's steps to the host's own clipboard and cut as well, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects, so an Alt+S is heard even while the pool's drag is still modal and the editor is never offered the press at all, and its grid preview's command tick now painted lilac for all three wheel kinds - the pitch bend's letter beside the two slide letters - beside the teal a plain CC and the orange an arpeggiator call keeps.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose as one semitone amount field (IncDecButtons slider with an editable text box, whole semitones 1-48 opening at 12) plus arrow direction buttons whose labels arrowUpGlyph/arrowDownGlyph build as explicit UTF-8, remap (source dropdown All/-0..-15 -> target dropdown -0..-15, the labels being the decimal ones the tracker's instrument column writes them in), cell scope (cellInScope answers whether a cell is in reach and applyToCells walks the cells, so the wider scopes name whole patterns and only the "Selection only" scope consults the tracker through the isCellSelected hook), interpolation with its single field dropdown (Note/Instrument/Volume/Pan/CC number/CC value, ids following the InterpField enumerators, the mask being the selection so there is no channel dropdown any more), the getCursorChannel hook still wired but unread, the scope box defaulting to "Selection only", and the Alt pair of undo and redo answered in its keyPressed, as is the Alt clipboard steps through copyStep / pasteStep / cutStep members the editor injects, so an Alt+C / Alt+V / Alt+X aimed at the cells is heard while a menu belongs to this panel, and so is the Alt+S slice, answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls, the row that used to switch the values between hex and decimal having been dropped outright along with its toggle member, its setting and its saved property, so every value the tab moves is decimal and its refresh guard now starts at the mid-row toggle, including the Volume column CC and Pan column CC sliders and the Undo steps row (undoStepsSlider, 0-200 defaulting to 50, sitting with the input prefs ahead of the CC pair and pushed back by refresh() so an undo that moved the depth shows in the row), and the Alt pair answered in its keyPressed so a press aimed at undo is heard while a menu belongs to this panel, as is the Alt clipboard steps through the same copyStep / pasteStep / cutStep members the editor injects, and the Alt+S slice through a sliceStep member of the same shape answered by answerSliceKey, since a popup opened over this panel is what routes the press here rather than the editor, and the "Paste as unique pattern by default" row dropped along with the Settings member it read and the property it saved, which leaves the panel counting one row fewer and its refresh re-reading the rest in their order.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: the arpeggiator macros the Command column's letter A calls, rewritten from the old name/kind/two-parameter editor: one card per macro that exists, named by the call a row writes (A 1) in orange, the tab painting nothing above the cards but its title and the one MACRO / LENGTH / LOOPED / STEPS label row at y 48 rather than the four dim caption lines that used to sit between the title and the cards, kContentTop taking them up from 92 to 70, since what the rules are belongs to the Commands map and to the README rather than to something a scrolled list has to be read under; each card's control line holding a LENGTH field, the plug-in's usual IncDecButtons Slider over 1..kMaxArpSteps with an editable text box, and a LOOPED ToggleButton, and the macro's own steps drawn beneath it 16 to a line as their signed semitones off the base note, the panel's own public stepLabel (int step) drawing -- for kArpEmptyStep, OFF for the new kArpNoteOffStep - the note column's own spelling, since === is a release and not a step, and the reason the label had to leave the file-local lambda the panel used to keep, so the strip's paint and the tests read one spelling rather than two - +N for a positive one and 0 for the base note, -- being the step that sounds nothing and sustains the one before and OFF being the step that opens what the run was holding rather than sounding one of its own, and a newly defined macro arriving with eight of them that all sound nothing rather than with the ramp kArpDefaultJump used to name; the step cursor (stepId / stepIndex) the arrows and a click on a drawn step move is what enters a step at the keyboard, and a step's number now living only in stepText until commitStepText lands it rather than being written by every press, so a sign and up to three digits accumulate into one value, the cell the cursor sits on draws that number while it lasts rather than the step's own value, commitStepText fires from keyPressed only when the incoming press is neither a further character of that number nor Escape, which is what lets setStepCursor, the arrows and a click of another card close it as well, one leading sign being kept with a repeat of it changing nothing, the other sign moving the number rather than trailing it and one typed after the digits it belongs to leading them, a number that is nothing but a sign meaning the base note, the value landing clamped to ±127 as one point of the undo line rather than one per keystroke and Escape dropping it altogether rather than leaving half of it behind, commitStepText handing the raw value to the setter rather than clamping it a second time at the panel since the setter owns that clamp and one rule cannot be stated twice; the note column's own note-off key spelling a step the same way it spells a release there - the backtick and its shifted tilde, the pair the note entry answers alike, writing kArpNoteOffStep at the step the cursor sits on rather than writing a number into it, claiming the press so no letter of the note table is typed beside it, firing onModelChanged once for it and leaving the cursor on the step it opened rather than stepping past it the way Delete and Backspace leave the cursor they cleared, which is why the next press lands beside the opening rather than running the macro past the release the user meant to hear there; the bottom of the panel holding + Add macro (defineArp at firstUndefArpId) and - Remove selected rather than - Remove last, that one clearing the macro the step cursor sits on, falling back to lastDefArpId while there is no cursor yet and taking the cursor off the macro it cleared before rebuild parks it on another one, its bounds widened to 132 so the longer label fits, so the ids above and below a cleared macro keep naming the same macros; the vertical scrollbar the tab draws on its right edge having its geometry in one set of helpers, scrollbarX at getWidth() - 10, thumbHeight, thumbTop and scrollToPointer, so paint and the drag cannot drift apart and the thumb a drag centres on is the one that is visible, with mouseDown answering a pointer in that column ahead of the card hit-test loop, keeping the grab in draggingThumb through mouseDrag while mouseUp clears it - JUCE spelling that callback mouseDrag rather than the mouseDragged the panel first declared, an override of which does not compile - and mouseWheelMove still turning the list beside it, which is what the mouse alone needs where a host gives the plug-in no wheel, and a public getScrollY () so a test can read the scroll back rather than only see it painted, beside a public stepBand (which) naming a step's group as its index over the Settings row "Subticks per row" - six at the default - named the same way rather than by the 16 cells a drawn line wraps at, the strip's paint shading every second group at 0.58 alpha of whatever colour that step's own state asks for, theme::cmdMacro for a step the macro holds or the cursor pending, else theme::noteOff, which is what makes a macro longer than the row that called it read as row spans rather than as one run of numbers and is what the accessor is public for, so UiTest reads the boundary at steps 0, 5, 6 and 12 rather than a pixel; rebuild / syncValues / cardHeight / blockTop / contentHeight / clampScroll laying the cards out against the scrollY that wheel and the drawn thumb move, and every change the panel makes answering through onModelChanged so the undo line holds a point for a drag of a length field, a click of the looped tick, a typed step and a cleared one as it does for the two buttons, which is what lets Ctrl+Z and Alt+Z take each of them back rather than stepping over them in silence; both Alt pairs answered in its keyPressed, the undo one and the clipboard one through copyStep / pasteStep / cutStep members of the same shape answered by the 4-argument answerClipboardKey, since the macros panel's own context menu is what routes a press to it rather than to the editor, and the Alt+S slice answered after the clipboard one through answerSliceKey with a sliceStep member of the same shape.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/AltShortcutKeys.h: the shared body every panel answers the Alt pairs the hosts leave free with, renamed from UndoRedoKeys.h once it grew the second pair (the references to that name above are this header under its old name). matchUndoRedoKey / answerUndoRedoKey as before (reading Alt+Z / Alt+Y over both the key code and the printed character and refusing Command, Ctrl and Shift so the whole Alt+Shift family stays the host's, claiming the press only when that panel holds the step, and closePending naming the half-typed numeric buffer the tracker closes on the press before stepping); matchClipboardKey / answerClipboardKey the new steps added to it (a ClipboardKey of none, copy, paste or cut, the letters read the same two ways, Alt+C copying what the tracker holds selected, Alt+V pasting at the cursor with everything and Alt+X cutting, which is that copy followed by emptying exactly the cells it took so the paste after it moves them, and the answer claiming the press whenever that panel holds the step rather than only when the step did something, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor, next to copying, and a paste answered twice would walk the undo line twice); matchSliceKey / answerSliceKey the clip slice at the playhead added beside them, the s read the same two ways over the key code and the printed character, an Alt+Shift or Ctrl spelling refused so the whole Alt+Shift family and the host's own save stay the host's, and the press claimed whenever the panel holds the slice rather than only when the slice did something, since s is one of the note-entry letters and an Alt held s that fell through would type a C sharp at the cursor beside splitting a clip, while there is no Ctrl spelling of the slice left for a host and the plug-in to disagree about; matchSliceKey / answerSliceKey the clip slice at the playhead added beside them, the s read the same two ways over the key code and the printed character, Alt+Shift and Ctrl refused so the whole Alt+Shift family and the host's own save stay its, and the press claimed whenever the panel holds the slice rather than only when the slice did something, since s is one of the note-entry letters and an Alt held s that fell through would type a C sharp at the cursor beside splitting a clip, and there is no Ctrl spelling of the slice left in any panel for a host and the plug-in to disagree about.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel, unchanged this round: the Command column's three kinds already had the teal of theme::cmdCC and the orange of theme::cmdMacro, and theme::cmdOther, the lilac that had been going unused, is what the pitch bend's letter, its decimal argument and its carried spelling are now painted in.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel, unchanged this round: the Command column's four kinds already had the three colours its entry gives them, the teal of theme::cmdCC beside the orange of theme::cmdMacro beside the lilac of theme::cmdOther, that lilac having first been used by the pitch bend's letter, its decimal argument and its carried spelling, and the two slide letters and their decimal row counts joining it rather than bringing a fourth colour in, so the Command column now has three colours for four kinds rather than four.
 /media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp: the sqrtf and atan2f defined inside the plug-in so its libm requirement stays portable, aliased hidden in assembly and built without LTO.
 /media/data2/GameDev/Plugins/ReTrektor/tests/CMakeLists.txt: smoke/core/editor-shot test targets.
 /media/data2/GameDev/Plugins/ReTrektor/tests/CoreTest.cpp, UiTest.cpp, SmokeTest.cpp, EditorShot.cpp: automated verification harnesses (CoreTest drives the interpolation predicate directly with rectangle masks and a holed mask and pastes a cell clipboard built the way the tracker builds it, UiTest drives the selection gestures and the cell clipboard through juce::ModifierKeys-carrying mouse events and the editor's keyPressed for Ctrl+C, Ctrl+V and the Shift pair, and drives every panel's own keyPressed for the Alt+C / Alt+V / Alt+X steps, so each of the six panels is shown copying, cutting and pasting the tracker's selection at a fresh anchor with the cut leaving exactly the cells it took empty, the selection still painted and the cursor unmoved so the paste after it moves the cut cells to the anchor, and each of them refusing an Alt+Shift spelling and the Ctrl spellings instead; its fixture now puts the data into the selected cells through the clipboard and a paste rather than a silent write, since a cut that returns the model to the state the undo cursor already sits on is deduped and would leave no point for the checks to count; CoreTest drives the additive spelling of the same mask over the same clipboard, so the entries that carry something land their own fields on top of what the target carried while the fields the cell left empty keep the target's value, a one-field additive paste counts only the entry that really carries that field, and an all-empty clipboard cell reports nothing written where the plain spelling still writes it, UiTest drives that submenu pair's whole-buffer and one-field additive leaves through the same paste calls their callback makes at a clicked cursor, kPasteAll | kPasteAdditive and kPasteVol | kPasteAdditive, the one-field one showing a copied cell that does not carry that field skipped whole so the target keeps its value there while the copied cell that does carry one lands at its offset below the anchor and writes nothing else of its own, gives every panel the editor's sliceStep and splits one fresh clip of a fresh pattern for every Alt+S press at its own middle row so one press turns one clip into two over two new patterns and leaves exactly one point of the line, reads the cell the cursor sits on back again to show the Alt held s typed no C sharp, takes the lowercase Alt+s X11 hands over, refuses an Alt+Shift s and a Ctrl s and the editor's Ctrl+X and dropped Ctrl+Shift pair while the pattern clipboard and the clip count stay put, and still claims the slice while the transport runs without splitting, its fixture putting the rows the additive paste filled back to empty once it is done with them, since hidden rows survive a shortening only while they hold data and the shortening checks below read that, and its additive one-field paste staying over the cursor the block above left rather than moving the cursor up the pattern, since moving it lets ensureCursorVisible scroll the view and the blocks below map their clicks through it; EditorShot can hold a selection with --select=r0,c0,r1,c1 and paste it at a cursor with --paste-at=row,ch, and can walk the undo line with --undo=N / --redo=N before it renders, so a shot shows what an earlier action left behind retracted; CoreTest names the arpeggiator at the layer below a host, the grow-only table's defaults arriving as eight steps that sound nothing and the firstUndefArpId / lastDefArpId pair, the steps growing adds sounding nothing rather than a ramp the model no longer has, a run whose row's own note is its first step with its eight seeded steps landing a sixth of a row apart in order and spilling past the row that called them — six of its playback fixtures now say for themselves which offsets they are listening for through a file-scope seedSteps (Song&, int id, int jump) helper rather than trusting a ramp the model no longer builds — a looped run cycling past that row with its cycle boundaries exact, a finished unlooped run leaving its last step's note held, a row naming only the argument under a carried call switching to the macro that id names and restarting at its first step while an undefined id sounds nothing but still stops the run above it, the switched macro stepping its own offsets off the note the column named rather than off the note the run was left sounding with its two named offsets moved to the two only that base can reach, the note the run above left holding reaching the host as a note-off ordered ahead of any of the new run's note-ons, a call under a note-off in a column that names no note having nothing to step from while the same call carried onto a note entering below it steps from that one, an A 0 call releasing as a plain note-off with only the stuck-key guard's own extras around it and no All Sound Off, a call written in the note-off's own row being answered there rather than
@@ -2804,6 +3017,28 @@ stepLabel as OFF against an empty one reading --, the step taken back to empty b
 Ctrl+Y, and Backspace clearing the opened step at a point of its own; and EditorShot's --arp= grew the token
 off, accepted the same way its own backtick is, so one flag can name either spelling and the Macros-tab shot
 can draw the OFF cells among the jumps rather than only dashes.
+This round they moved with the two slide letters: CoreTest 296, +17, six new sections past the pitch
+bend ones, the model's two values above kOlderCmdTop and kCcTop with both letters and their row counts
+surviving the saved form and an older state's calls at either end of its range still landing on the call
+letter while this build's three wheel values read back as themselves, the climb to the top over a span of 4
+landing on kBendTopPos exactly and returning only at the note-off below, D 0 reaching kBendBottomPos on its
+own row, an argument-only row re-arming a span from where the wheel had got to and a further one over a wheel
+already at the extreme moving nothing, a note-off ending a slide before its first step with nothing sent at
+all, and a slide the clip runs out of having its ramp put away at that clip's end - those checks reaching the
+wheel through the harness's own RawEvent kind for a pitch wheel rather than a new one, one of them having to
+keep its row inside the 94 blocks the fixture runs rather than naming one past them; UiTest 652, +23, one
+self-contained section after every undo-depth check, since the U claim there also spends a point of a line the
+checks above had already counted to their cap and would otherwise read as one of the line's last points, that
+section giving itself a pattern and a clip of its own parked clear of every other clip since the pattern the
+tracker holds by that point sits on a clip the shared play helper never reaches, its climb read back as one
+continuous run of 64-sample blocks rather than through the jumped helper, a transport jump releasing whatever
+the synth was holding and that release being exactly what ends a slide the host jumped out of, that run primed
+with a clear past the end of every clip so it answers only with its own rows, and its D-natural check naming the
+octave it enters at since the sections above leave recordOctave at 9; and EditorShot gained --slide=ROW, --slide-down=ROW
+and --slide-arg=VAL, the argument defaulting to 12 rows rather than to the 8 the letter's own entry leaves so one
+shot can show all three command letters and all of their decimal arguments, /tmp/opencode/slide-u.png drawing the
+lilac U 12 carried down from its row and /tmp/opencode/slide-d.png the lilac D 3, their differing sha256 being the
+cheap proof the letters really are drawn there.
 /media/data2/GameDev/Plugins/ReTrektor/JUCE: vendored framework.
 Important Context
 Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) (build dir currently configured and passing).
@@ -2817,7 +3052,63 @@ than the live song, so a test writing at the model layer hands it over with proc
 and trimUndoLine caps the undo line at the Settings' undoSteps by erasing the oldest states, so the
 depth checks that ride that cap move with every edit made upstream of them.
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git (newest first): 5a14699 an arpeggiator macro step spells the note column's note-off: the backtick
+Git (newest first): 0c00ba7 the Command column gains the letters U and D as 145 and 146, a slide of the pitch wheel to its
+top or its bottom over the rows their argument names: the naming row starts the ramp where the wheel already
+is and sends nothing of its own so that row's note plays straight, the rows under it move the wheel one whole
+position at a time and land on the extreme exactly, an argument of 0 reaches it there, a row under a carried
+letter re-arms a span from where the wheel had got to, a note-off or a clip's end puts a still-climbing ramp
+away even before its first step moved the wheel, and the two values sit above kOlderCmdTop so no older row
+can already be a slide. A slide's argument counts rows rather than naming a point, which is the one thing that
+made it a new kind rather than another spelling of the wheel the bend already owned: the bend had a point and
+one move, a slide has a ramp, so the state grew slideOn / slideRow0 / slideSpan / slideLastRow / slideFrom /
+slideTo / slideClip beside a slideRunning () guard and an inline endSlide (), and the ramp is walked by integer
+truncation of slideFrom + (slideTo - slideFrom) * steps / juce::jmax (1, span) rather than by a float run, which
+is what makes the endpoints exact and a row landing on the position the wheel already sits at send nothing at
+all. The step reads the row rather than counting it, so a transport jump that makes this block play a row again
+leaves it on the same point of the ramp rather than advancing it twice - the ramp advancing in processRow through
+one unconditional slideStep placed after the command chain rather than inside either letter's branch, its wheel
+queued at the pitch wheel's own order 0 so a note entering while the wheel climbs is bent by where the climb had
+got to rather than by the point above it, the two span guards needing juce::jmax rather than a bare max since
+nothing in this file pulls the C math names in, and a row naming a command that is not a slide calling endSlide
+() in the carry block rather than leaving a ramp still climbing under it. A slide is carried state like a bend
+rather than one its own row only, so every release point that ended a bend now ends a slide too: allNotesOff and
+stopNote each gained an else if (c.slideRunning ()) c.endBend (), which is what ends a slide at a note-off even
+before its first step moved the wheel and why nothing keeps climbing under that note-off, and the clip-end take-back
+went from bendClip == clip.uid && wheelBent to (bendClip == clip.uid && wheelBent) || (slideClip == clip.uid && slideRunning
+()) with the centring message only sent where wheelBent says the wheel really is out of place, since a ramp still
+climbing at a clip's end has no rows below that clip left to finish it even when its own wheel never left the centre -
+one ramp needs putting away and no message is what takes it back, which is also why kBendBottomPos = 0 came in beside
+kBendTopPos as the wheel's own ends rather than as a literal 0 at two call sites. The model took kOlderCmdTop = 143,
+kSlideUpCmd = 145, kSlideDownCmd = 146 and kSlideDefaultSpan = 8, and the older-command read rule went from rawCmd >=
+kArpCmd to rawCmd >= kArpCmd && rawCmd <= kOlderCmdTop, so an older state's macro calls at either end of its range
+still land on the call letter while 144, 145 and 146 read back as themselves; the two new values also sit above kCcTop
+= 127, the number field's own top, so a run of typed digits cannot invent either letter - typing 146 gives the highest
+CC - while the note column's own D keeps entering a D natural there and an interpolation ramp still climbs toward the
+highest CC rather than inventing a command. Both letters draw in the lilac theme::cmdOther the bend pair already had,
+with their arguments in decimal beside them and the entry claiming the field's first character and writing the default
+span of 8 rows as the argument it has to leave, so a row naming only a letter takes its extreme over 8 rows rather than
+over none at all, and the pool's grid-preview tick paints that lilac for all three wheel kinds. The tests moved with all
+three layers: CoreTest 296, +17, six new sections - the model and the older-state read, the climb to the top over a span
+of 4 landing on kBendTopPos exactly and returning only at a note-off below, D 0 reaching kBendBottomPos on its own row,
+an argument-only row re-arming a span of 2 from where the wheel had got to while a further one over a wheel already at
+the extreme moves nothing, a note-off one row below ending a slide before its first step with nothing sent at all, and a
+slide of 8 rows over a four-row clip climbing 9215, 10239 and 11263 and being put away at that clip's end; UiTest 652,
++23, one self-contained section after every undo-depth check, since a claim there also spends a point of a line the checks
+above had already counted to their cap - it gives itself a pattern and a clip of its own parked clear of every other clip,
+reads the whole twelve-row climb back as one continuous run of 64-sample blocks under that clip rather than through the
+shared jumped helper, a transport jump releasing whatever the synth was holding and that release being exactly what ends a
+slide the host jumped out of, primes it past the end of every other clip so the run answers only with its own rows, and names
+the octave its D-natural check enters at since the sections above leave recordOctave at 9; and EditorShot gained --slide=ROW
+/ --slide-down=ROW / --slide-arg=VAL, 12 by default rather than the 8 the letter's entry leaves, so the two shots at
+/tmp/opencode/slide-u.png and /tmp/opencode/slide-d.png show all three command letters and all of their decimal arguments.
+Smoke stayed at PASS with 0 failures and 13 checks and its serialised state at 2392 bytes, a slide costing the saved form
+nothing of its own since the two values and their arguments live in the cells a pattern already saves, against the bundle
+refreshed by rsync -a --checksum over the bundle's DIRECTORY - the single .so being what the earlier attempt asked of it and
+rsync answering that with Not a directory - so the built and installed binaries are both sha256 3d0755c45500d341907af8c0fca8d9e6304fcce08575c59f9f7894e77f759bc9
+and the sha the previous build carried is gone, and the portability read still tops out at GLIBC_2.38 with GLIBCXX_3.4.32 and
+names no sqrtf or atan2f, the slide's arithmetic being integer throughout so the only float names the binary keeps are JUCE's
+own powf and sinf.
+5a14699 an arpeggiator macro step spells the note column's note-off: the backtick
 the note entry answers there opens a step, that step opens only the note its own run was holding rather
 than sounding one of its own, and the saved steps block grew to two bytes a step so the opening reads back
 as it was. One step's int widened rather than a flag beside it, since a step already used every value above
