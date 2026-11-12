@@ -106,21 +106,31 @@ private:
         juce::Uuid bendClip;
 
         /** A slide this channel's column has in force: the ramp from where the
-            wheel already was to the extreme the letter names, read off the row
-            rather than counted from it, so a row a transport jump makes this
-            block play again lands on the same point of the ramp instead of
-            advancing it twice. The row that named the letter is the ramp's start,
-            so the wheel sits where it was there and the extreme sits slideSpan
-            rows below it; a span of 0 jumps there on the naming row itself.
-            slideLastRow is the row the ramp last moved for, which is what makes
-            a release point able to tell whether the ramp still has rows left to
-            run, the wheel having reached the extreme being told on its own. */
+            wheel already was to the extreme the letter names, run on the same
+            sub-row grid an arpeggiator's steps use rather than one step per row,
+            so the wheel is interpolated between the rows instead of jumping to a
+            new point once on each of them. The row that named the letter is the
+            ramp's start, so the wheel sits where it was there and the extreme sits
+            slideSpan rows below it; a span of 0 jumps there on the naming row
+            itself. The ramp's next step is counted from its start rather than read
+            off the row - slideOrigin plus slideCount step widths - which is what
+            makes a row a transport jump makes this block play again land on the
+            same point of the ramp instead of advancing it twice, and what leaves
+            the steps a block could not reach waiting for the block that does.
+            slideTotal is the whole ramp, the span over that same grid, and
+            slideCount how much of it has already moved the wheel, which is what
+            makes a release point able to tell whether the ramp still has steps
+            left to run, the wheel having reached the extreme being told on its
+            own. slideRowEnd is the end of the row the engine last processed, the
+            bound a ramp's waiting steps are flushed up to. */
         bool slideOn = false;                    // a slide is in force in this column
-        int slideRow0 = -1;                      // the row the ramp starts from
+        double slideOrigin = -1.0;               // where the ramp leaves the wheel, in transport beats
         int slideSpan = 1;                       // rows the ramp takes to reach slideTo
-        int slideLastRow = -1;                   // the row the ramp last moved for
+        int slideTotal = 0;                      // sub-row steps the whole ramp takes
+        int slideCount = 0;                      // steps of the ramp already played
         int slideFrom = kBendCentrePos;          // where the ramp leaves the wheel
         int slideTo = kBendCentrePos;            // the extreme it heads for
+        double slideRowEnd = -1.0;               // end of the row the engine last processed
 
         /** The clip whose rows armed the slide this channel is in, so that clip's
             end has a ramp to stop: a ramp a further clip armed belongs to that
@@ -150,9 +160,10 @@ private:
         void endSlide() noexcept
         {
             slideOn = false;
-            slideRow0 = -1;
+            slideOrigin = -1.0;
             slideSpan = 1;
-            slideLastRow = -1;
+            slideTotal = 0;
+            slideCount = 0;
             slideFrom = kBendCentrePos;
             slideTo = kBendCentrePos;
             slideClip = juce::Uuid();
@@ -170,12 +181,14 @@ private:
             endSlide();
         }
 
-        /** Whether the slide this channel is in still has rows of its ramp left
+        /** Whether the slide this channel is in still has steps of its ramp left
             to run, which is what a release point asks before it decides that a
-            wheel sitting at the centre has nothing to take back. */
+            wheel sitting at the centre has nothing to take back. A ramp that
+            reached its extreme has its wheel sitting at a point of the column's
+            own rather than still climbing, which is told here too. */
         bool slideRunning() const noexcept
         {
-            return slideOn && slideLastRow < slideRow0 + slideSpan;
+            return slideOn && slideCount <= slideTotal;
         }
     };
 
@@ -197,6 +210,25 @@ private:
     void flushArp (std::vector<PendingEvent>& events, int ch, double ppqStart,
                    double ppqLimit, double ppqPerSample, int numSamples,
                    const Song& song);
+
+    /** Moves the pitch wheel for the steps of the slide this channel has in force
+        that belong to the position range [ppqStart, ppqLimit). A slide's steps are
+        one sub-row wide, the sub-row being a row over the Settings row "Subticks
+        per row" like an arpeggiator's, which is what interpolates the wheel between
+        the rows the slide's argument names rather than leaving it at one new point
+        for a whole row: the step's position is the ramp's start plus its count
+        rather than a sum of step widths, so the step sitting span rows below the
+        one that named the letter lands on the extreme exactly, and the ones before
+        it hold the whole wheel position that far along the straight line between
+        where the ramp left the wheel and that extreme. Only a step that changes
+        the position sends a message, which is what the row that named the letter
+        sends nothing of its own: its step is where the wheel already is. `ppqLimit`
+        never passes the end of the row the engine last owned, which is what leaves
+        the steps of a row that spills past this block waiting for the block that
+        reaches them, the way an arpeggiator run's do. */
+    void flushSlide (std::vector<PendingEvent>& events, int ch, double ppqStart,
+                     double ppqLimit, double ppqPerSample, int numSamples,
+                     const Song& song);
 
     /** A row naming the arpeggiator command: id 0 releases what the run is
         holding and ends it, and leaves the column not calling a macro below it,
@@ -235,23 +267,16 @@ private:
         many rows the slide takes, the empty one taking the default span and one
         below 0 being clamped, and the ramp runs from where the wheel already is
         to the extreme the letter names. The row that named the letter is the
-        ramp's own start, so arming leaves the wheel where it was rather than
-        moving it, which is what keeps that row's own note straight and puts the
-        extreme span rows below. A further row under a carried letter re-arms the
-        ramp with its own span, so a slide can be retargeted as it runs. */
-    void slideCommand (std::vector<PendingEvent>& events, int ch, int midiCh,
-                       int argument, bool up, int row, int offset,
-                       const juce::Uuid& clipUid);
-
-    /** Moves the wheel for one step of the slide this channel has in force, which
-        every row the engine processes for that channel gets whether it named
-        anything or not: the step is read off the row, so a row a transport jump
-        makes this block play again does not advance the ramp twice, and a row
-        that lands the ramp on the position the wheel is already at emits nothing.
-        The message goes out ahead of the note the same row strikes, so a note
-        entering while the wheel climbs is bent by where the climb had got to. */
-    void slideStep (std::vector<PendingEvent>& events, int ch, int midiCh,
-                    int row, int offset, const juce::Uuid& clipUid);
+        ramp's own start, so arming sends nothing and leaves the wheel where it
+        was, which is what keeps that row's own note straight and puts the
+        extreme span rows below; the wheel is moved by flushSlide over the sub-row
+        grid below this. A further row under a carried letter re-arms the ramp with
+        its own span from where the wheel had got to, so a slide can be retargeted
+        as it runs, and the ramp belongs to this row's position rather than to the
+        row, which is what an argument-only row reaching its extreme the number of
+        rows below it it asked for means. */
+    void slideCommand (int ch, double rowPpq, int argument, bool up,
+                       const juce::Uuid& clipUid, const Song& song);
 
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,

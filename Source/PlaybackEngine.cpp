@@ -349,9 +349,8 @@ void PlaybackEngine::bendTo (std::vector<PendingEvent>& events, int ch, int midi
 }
 
 //==============================================================================
-void PlaybackEngine::slideCommand (std::vector<PendingEvent>& events, int ch, int midiCh,
-                                   int argument, bool up, int row, int offset,
-                                   const juce::Uuid& clipUid)
+void PlaybackEngine::slideCommand (int ch, double rowPpq, int argument, bool up,
+                                   const juce::Uuid& clipUid, const Song& song)
 {
     auto& c = channels[(size_t) ch];
 
@@ -360,52 +359,111 @@ void PlaybackEngine::slideCommand (std::vector<PendingEvent>& events, int ch, in
     // field's own widest is the slowest slide it can ask for
     const int span = argument >= 0 ? juce::jlimit (0, 127, argument) : kSlideDefaultSpan;
 
+    const int subticks = juce::jmax (1, song.settings.subticksPerRow);
+
     c.slideOn = true;
     c.slideClip = clipUid;
-    c.slideRow0 = row;
+    c.slideOrigin = rowPpq;
     c.slideSpan = span;
-    c.slideLastRow = row - 1; // the naming row is the ramp's own first step
+    c.slideTotal = span * subticks; // the span over the Settings grid, the ramp's own
+    c.slideCount = 0;
     c.slideFrom = c.lastBendPos;
     c.slideTo = up ? kBendTopPos : kBendBottomPos;
 
-    // the row that named the slide is answered through the same step as any other
-    // row of its ramp, which is what a span of 0 has to hold to: the wheel is left
-    // where it is unless this row is already at the extreme the letter names
-    slideStep (events, ch, midiCh, row, offset, clipUid);
+    // arming says nothing about the wheel: the row that named the letter is the
+    // ramp's own start, so its first step holds the point the wheel is already at
+    // and sends no message of its own, which is what keeps that row's note straight
+    // and leaves the extreme to the step sitting span rows below. Only a span of 0
+    // has its first step at the extreme, and flushSlide sends it at this row.
 }
 
-void PlaybackEngine::slideStep (std::vector<PendingEvent>& events, int ch, int midiCh,
-                                int row, int offset, const juce::Uuid& clipUid)
+//==============================================================================
+/** The ramp of a slide this channel's column has in force, moved along the same
+    sub-row grid an arpeggiator's steps use rather than one step per row: the
+    wheel is a state the column carries down like a volume or a pan, and the
+    letters only arm a ramp, so the rows under the one that named a letter hold
+    the wheel climbing toward the extreme it names rather than sitting on one new
+    point for a whole row. The steps are counted from the ramp's start rather than
+    read off the row, the way a run's are, which is what a row a transport jump
+    makes this block play again leaves on the same point of the ramp rather than
+    advancing it twice, and what leaves a row's own steps waiting for the block
+    that reaches them. A step's position is the whole wheel position that far
+    along the straight line between where the ramp left the wheel and the extreme,
+    counted in whole positions, so the step sitting span rows below the one that
+    named the letter lands on the extreme exactly and the ones before it keep the
+    line straight rather than staircasing between the rows. */
+void PlaybackEngine::flushSlide (std::vector<PendingEvent>& events, int ch, double ppqStart,
+                                 double ppqLimit, double ppqPerSample, int numSamples,
+                                 const Song& song)
 {
     auto& c = channels[(size_t) ch];
 
-    if (! c.slideOn || row <= c.slideLastRow)
-        return; // no ramp in force, or this row already moved it, which is what a
-                // row a transport jump makes this block play again leaves on the
-                // same point of the ramp rather than advancing it twice
+    if (! c.slideRunning())
+        return;
 
-    c.slideLastRow = row;
+    const double rowsPerBeat = (double) juce::jmax (1, song.settings.rowsPerBeat);
+    const double rowSpanPpq = 1.0 / rowsPerBeat;
+    const int subticks = juce::jmax (1, song.settings.subticksPerRow);
 
-    const int steps = row - c.slideRow0; // rows travelled since the ramp was armed
+    // the whole ramp is re-counted over the grid the Settings names, which is what
+    // still puts its extreme span rows below the row that named the letter when
+    // that row is changed while a slide is climbing
+    c.slideTotal = c.slideSpan * subticks;
 
-    // measured in whole wheel positions counting from where the slide left the
-    // wheel, so the row that reaches the extreme lands on it exactly and the rows
-    // before it hold the whole position at or short of the way through its ramp
-    const int position = steps >= c.slideSpan
-                             ? c.slideTo
-                             : c.slideFrom + (c.slideTo - c.slideFrom) * steps / juce::jmax (1, c.slideSpan);
+    if (c.slideCount > c.slideTotal)
+        return; // the extreme is reached: the wheel sits at a point of its own
 
-    if (position != c.lastBendPos)
+    const double stepPpq = rowSpanPpq / (double) subticks;
+
+    // a ramp whose next step sits more than a row behind where this block starts
+    // cannot be placed any more, which is what a scrub or a jump leaves behind,
+    // so the ramp ends rather than the wheel arriving late at where it had got to
+    if (c.slideOrigin + (double) c.slideCount * stepPpq < ppqStart - rowSpanPpq)
     {
-        // the same standard pair a bend row sends, and ahead of the note its own
-        // row strikes, which is what a note entering while the wheel is climbing
-        // is played at the point this row reached rather than the one before it
-        events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh + 1, position) });
-        c.lastBendPos = position;
-        c.bendClip = clipUid;
+        c.endSlide();
+        return;
     }
 
-    if (steps >= c.slideSpan)
+    const int midiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst) + 1;
+
+    while (c.slideCount <= c.slideTotal)
+    {
+        // the step's position is the ramp's start plus its count, never a sum of
+        // step widths, so a ramp spread over many blocks stays exact
+        const double stepTime = c.slideOrigin + (double) c.slideCount * stepPpq;
+
+        if (stepTime >= ppqLimit)
+            break; // it waits for the rows below or for the next block
+
+        if (stepTime >= ppqStart - kRowAlignEps)
+        {
+            const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
+                                             (int) std::llround ((stepTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
+
+            // the count is scaled before it is divided, so the step that reaches
+            // the extreme lands on it exactly rather than a hair short of it, and
+            // a step whose whole position is the one the wheel is already at is
+            // left unspoken, which is what the naming row's own step holds to
+            const int position = c.slideCount >= c.slideTotal
+                                     ? c.slideTo
+                                     : c.slideFrom + (c.slideTo - c.slideFrom) * c.slideCount / juce::jmax (1, c.slideTotal);
+
+            if (position != c.lastBendPos)
+            {
+                // the same standard pair a bend row sends, at this step's sample,
+                // and ahead of the note the row this step sits inside strikes,
+                // which is what a note entering while the wheel climbs is played
+                // at the point the climb had got to rather than the one before it
+                events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh, position) });
+                c.lastBendPos = position;
+                c.bendClip = c.slideClip;
+            }
+        }
+
+        ++c.slideCount;
+    }
+
+    if (c.slideCount > c.slideTotal)
         c.slideOn = false; // the extreme is reached: the wheel then sits at a point
                             // of the column's own, like a bend row left it, so a
                             // release point below is what puts it back
@@ -509,9 +567,10 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 bendTo (events, ch, midiCh, cell.cmdVal, offset, clip.uid);
             else if (cell.cmd == kSlideUpCmd || cell.cmd == kSlideDownCmd)
                 // a slide names an extreme rather than a point on the wheel, so its
-                // argument arms a ramp the rows below it walk toward that extreme
-                slideCommand (events, ch, midiCh, cell.cmdVal, cell.cmd == kSlideUpCmd,
-                              row, offset, clip.uid);
+                // argument arms a ramp the sub-row steps below it walk toward that
+                // extreme
+                slideCommand (ch, rowPpq, cell.cmdVal, cell.cmd == kSlideUpCmd,
+                              clip.uid, song);
             else
                 events.push_back ({ offset, 3, juce::MidiMessage::controllerEvent (midiCh + 1,
                                                                                   juce::jlimit (0, kCcTop, cell.cmd),
@@ -542,8 +601,8 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // under a carried slide the argument is a new span rather than a
                 // new point, so the row arms a ramp of its own from where the
                 // wheel had got to: a slide can be retargeted as it climbs
-                slideCommand (events, ch, midiCh, cell.cmdVal, state.lastCmd == kSlideUpCmd,
-                              row, offset, clip.uid);
+                slideCommand (ch, rowPpq, cell.cmdVal, state.lastCmd == kSlideUpCmd,
+                              clip.uid, song);
             }
             else
             {
@@ -555,23 +614,17 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             }
         }
 
-        // a slide the column has in force moves one step of its ramp on this row,
-        // whether or not this row named anything of its own: the rows under the
-        // one that named a letter keep the wheel climbing until the extreme sits
-        // under the column, which is what a slide is a state the column carries
-        // down like a bend rather than one its own row only. The step reads the
-        // row rather than counting it, so a row this block already advanced is
-        // not advanced again, and a row the ramp lands on the position the wheel
-        // is already at sends nothing. The wheel moves before the note its own
-        // row strikes, so a note entering while the wheel climbs is bent by where
-        // the climb had got to rather than by the point above it
-        slideStep (events, ch, midiCh, row, offset, clip.uid);
-
         // the note-off takes the note the column named away for the rows below it,
         // which happens after the row's own command had the note it was releasing
         // to answer against
         if (noteOff)
             state.columnNote = -1;
+
+        // the ramp this channel's column has in force is not moved here: its steps
+        // are a sub-row wide rather than a row wide, so process() flushes them after
+        // the row it has processed, up to that row's end, which is what leaves a
+        // row's own steps waiting for the block that reaches them rather than being
+        // bunched onto this row's samples
 
         uiRow[(size_t) ch].store (row);
     }
@@ -643,13 +696,19 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     // Steps still waiting from the block before this one: their run's rows have
     // already been processed, so the part this block may still play stops at the
     // end of the last row the engine owned, which is what keeps a run the column
-    // supersedes lower down from replaying steps that belong below that row.
+    // supersedes lower down from replaying steps that belong below that row. The
+    // steps of a slide's ramp wait the same way, which is what leaves the block
+    // boundary landing inside a row's own sub-row steps to be picked up rather
+    // than dropped or bunched onto one sample.
     for (int ch = 0; ch < kMaxTrackerChannels; ++ch)
     {
         auto& c = channels[(size_t) ch];
 
         if (c.arpId > 0)
             flushArp (events, ch, ppqStart, juce::jmin (ppqEnd, c.arpRowEnd), ppqPerSample, numSamples, song);
+
+        if (c.slideRunning())
+            flushSlide (events, ch, ppqStart, juce::jmin (ppqEnd, c.slideRowEnd), ppqPerSample, numSamples, song);
     }
 
     for (auto& clip : song.clips)
@@ -712,12 +771,18 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 auto& c = channels[(size_t) ch];
                 c.lastRow = row;
                 c.arpRowEnd = rowEnd;
+                c.slideRowEnd = rowEnd;
 
                 // the steps of a run that reached this row sound up to its end;
                 // the ones past it wait for the next rows or the next block,
                 // which is what keeps a macro longer than one row from being
-                // squeezed onto this row's samples
+                // squeezed onto this row's samples. The steps of a ramp the column
+                // is in sound the same way up to this row's end, which is what
+                // keeps the wheel climbing over the sub-row grid rather than being
+                // moved to the point a whole row reaches for
                 flushArp (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+
+                flushSlide (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
             }
         }
 
@@ -748,11 +813,17 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                         auto& c = channels[(size_t) ch];
                         c.lastRow = rowAtStart;
                         c.arpRowEnd = rowEnd;
+                        c.slideRowEnd = rowEnd;
 
                         // the run this row starts counts from the row itself, so
                         // its first step is played at this block's first sample
-                        // rather than being dropped for sitting behind the start
+                        // rather than being dropped for sitting behind the start.
+                        // A ramp this row armed counts from this row too, which is
+                        // what a slide written at the row a seek landed inside
+                        // starts climbing at that row rather than a row below it
                         flushArp (events, ch, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+
+                        flushSlide (events, ch, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
                     }
                 }
             }

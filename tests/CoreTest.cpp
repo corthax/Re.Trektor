@@ -1141,11 +1141,16 @@ int main()
         // 94 blocks reach 2.005 ppq, past the row 8 that sits at 2.0
         h.runBlocks (94);
 
-        // from the centre 8192 toward the top 16383 in four rows, measured in
-        // whole positions: 10239, 12287, 14335 and the top itself
-        static const int wheel[] = { 10239, 12287, 14335, kBendTopPos, kBendCentrePos };
-        check (h.bends.size() == 5 && h.bends == std::vector<int> (wheel, wheel + 5),
-               "the wheel moves once on each of the four rows under the one that named the slide, lands on its top exactly, and returns only at the note-off below");
+        // from the centre 8192 toward the top 16383 over the four rows the
+        // argument names, in six sub-row steps each rather than one per row: the
+        // whole 8191 the two are apart is walked in steps of 341, and the row
+        // boundaries keep the whole-row values they had, 10239, 12287, 14335 and
+        // the top itself, with the steps between them filling in the straight line
+        static const int wheel[] = { 8533, 8874, 9215, 9557, 9898, 10239, 10581, 10922, 11263, 11604,
+                                     11946, 12287, 12628, 12970, 13311, 13652, 13993, 14335, 14676, 15017,
+                                     15359, 15700, 16041, kBendTopPos, kBendCentrePos };
+        check (h.bends.size() == 25 && h.bends == std::vector<int> (wheel, wheel + 25),
+               "the wheel moves once on each sub-row over the four rows under the one that named the slide, lands on its top exactly, and returns only at the note-off below");
         check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false && h.notes[1].note == 60,
                "the note that row struck is held until the note-off releases it, the slide being a state the column carries rather than one that ends with the row");
 
@@ -1161,7 +1166,7 @@ int main()
         const int onAt = indexOfKind (h, 1);
         const int wheelAt = indexOfKind (h, 5);
         check (onAt >= 0 && wheelAt > onAt && h.raw[onAt].offset < h.raw[wheelAt].offset,
-               "the row that named the slide sends no message of its own, so the note it struck is played straight and the wheel first moves on the row below");
+               "the row that named the slide sends no message of its own, so the note it struck is played straight and the wheel first moves on a sub-row of that same row rather than a row below it");
     }
     {
         std::cout << "Pitch slide down (an argument of 0 reaching the wheel's bottom on its own row)\n";
@@ -1198,25 +1203,29 @@ int main()
         c0.inst = 0;
         c0.vol = 100;
         c0.cmd = kSlideUpCmd;
-        c0.cmdVal = 8; // eight rows toward the wheel's top
+        c0.cmdVal = 2; // two rows toward the wheel's top
 
-        p.cell (2, 0).cmdVal = 2; // the letter carries, so this is a new span from where the wheel got to
-        p.cell (5, 0).cmdVal = 1; // and a span of one over a wheel already at the top, which names nothing
+        p.cell (1, 0).cmdVal = 1; // the letter carries, so this is a new span of one from where the sub-rows got to
+        p.cell (3, 0).cmdVal = 1; // and a span of one over a wheel already at the top, which names nothing
 
         p.cell (8, 0).note = kNoteOff;
 
         h.runBlocks (94);
 
-        // one step of eight over the centre is 9215, and the row that named a span
-        // of 2 there climbs from that point to the top in two rows: 12799 then 16383
-        static const int wheel[] = { 9215, 12799, kBendTopPos, kBendCentrePos };
-        check (h.bends.size() == 4 && h.bends == std::vector<int> (wheel, wheel + 4),
-               "the row that named only an argument retargets the span from where the wheel had got to, a further one over a wheel already at the extreme moves nothing, and the note-off still takes the wheel back");
+        // one sub-row step of two rows over the centre is 8191/12, so the row that
+        // named only an argument re-arms over the wheel sitting at 11604, the point
+        // its sub-rows had reached rather than the point a whole row reaches for:
+        // its own steps climb 4779 in six, 12400, 13197, 13993, 14790 and 15586,
+        // and the top itself is the step sitting one row below the one that named it
+        static const int wheel[] = { 8874, 9557, 10239, 10922, 11604, 12400, 13197,
+                                     13993, 14790, 15586, kBendTopPos, kBendCentrePos };
+        check (h.bends.size() == 12 && h.bends == std::vector<int> (wheel, wheel + 12),
+               "the row that named only an argument retargets the span from where the wheel had got to mid-row, a further one over a wheel already at the extreme moves nothing, and the note-off still takes the wheel back");
         check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false,
                "the rows naming only an argument still belong to the letter above, the note the column struck being held across them");
     }
     {
-        std::cout << "Pitch slide a note-off ends before the wheel moved\n";
+        std::cout << "Pitch slide a note-off a row below ends partway down its ramp\n";
         Harness h;
         auto& p = h.song.patterns[0];
         p.setLength (16);
@@ -1228,13 +1237,18 @@ int main()
         c0.cmd = kSlideDownCmd;
         c0.cmdVal = 4; // four rows toward the wheel's bottom
 
-        p.cell (1, 0).note = kNoteOff; // the slide's first step had not reached the wheel yet
+        p.cell (1, 0).note = kNoteOff; // the ramp's steps over this row had not all run
         p.cell (4, 0).note = 61; // and a note below it, played straight
 
         h.runBlocks (94);
 
-        check (h.bends.empty (),
-               "a note-off ends the slide before its first step, so nothing is sent and nothing keeps climbing under the note-off");
+        // the note-off sits a row below the one that named the slide, so the sub-row
+        // steps inside that row had already moved the wheel before it: the wheel is
+        // taken back from where its steps had got to rather than from a whole-row
+        // point, which is what a climb of four rows in twenty-four steps lands on
+        static const int wheel[] = { 7851, 7510, 7168, 6827, 6486, kBendCentrePos };
+        check (h.bends == std::vector<int> (wheel, wheel + 6),
+               "the note-off ends the slide partway down its ramp, taking the wheel back from the point its sub-rows had reached and leaving nothing climbing under it");
         check (h.notes.size() == 3 && h.notes[0].on && h.notes[1].on == false && h.notes[2].on,
                "the column's own note-offs still release what it entered, and the note below plays against a wheel left at the centre");
     }
@@ -1253,11 +1267,15 @@ int main()
         // block 46 straddles 1.0 ppq, the clip's own end
         h.runBlocks (47);
 
-        // three of the eight rows it asks for fit inside a four-row clip: 9215,
-        // 10239 and 11263, and the clip's end takes the wheel back to the centre
-        static const int wheel[] = { 9215, 10239, 11263, kBendCentrePos };
-        check (h.bends.size() == 4 && h.bends == std::vector<int> (wheel, wheel + 4),
-               "the wheel climbs over the rows the clip has and its end takes it back, which is what a slide that never reached its extreme leaves no wheel bent for the clip below");
+        // three of the rows the eight it asks for fit inside a four-row clip, and
+        // the sub-row steps inside them are six times as many: every step below the
+        // clip's own end sounds, 8362, 8533 and so on up to 12116 at the step a hair
+        // above the clip's end, and the clip's end takes the wheel back
+        static const int wheel[] = { 8362, 8533, 8703, 8874, 9045, 9215, 9386, 9557, 9727, 9898, 10069,
+                                     10239, 10410, 10581, 10751, 10922, 11092, 11263, 11434, 11604, 11775,
+                                     11946, 12116, kBendCentrePos };
+        check (h.bends.size() == 24 && h.bends == std::vector<int> (wheel, wheel + 24),
+               "the wheel climbs over every sub-row of the rows the clip has and its end takes it back, which is what a slide that never reached its extreme leaves no wheel bent for the clip below");
         check (h.notes.empty (), "no note of that channel was ever playing, so only the clip's end could put the wheel right");
 
         bool channelNamed = false;

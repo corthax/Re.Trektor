@@ -3158,23 +3158,24 @@ int main()
         // going through the number field, which is what keeps the letter the
         // letter
         tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
-        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
         tracker->keyPressed (juce::KeyPress ('2', juce::ModifierKeys(), '2'));
         tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
-        check (argAt (0) == 12, "twelve rows typed into the argument field are how far the slide reaches its extreme below");
+        check (argAt (0) == 2, "two rows typed into the argument field are how far the slide reaches its extreme below");
 
-        // from the centre 8192 toward the top 16383 in twelve rows, measured in
-        // whole wheel positions: a twelfth of the 8191 the two are apart each row
-        // is 682, 1365, 2047 and so on, the whole 8191 being reached exactly on
-        // the twelfth row below the one that named the slide
+        // from the centre 8192 toward the top 16383 over the two rows the argument
+        // names, walked in six sub-row steps each rather than in one jump per row:
+        // a twelfth of the 8191 the two are apart per step is 682, 1365, 2047 and
+        // so on, and the whole 8191 is reached exactly on the second row below the
+        // one that named the slide, which is what puts a wheel position at every
+        // sub-row of the climb rather than one point per row
         static const int climb[] = { 8874, 9557, 10239, 10922, 11604, 12287, 12970,
                                      13652, 14335, 15017, 15700, 16383 };
         const auto wheels = playWheelsThrough (12);
 
         check (wheels == std::vector<int> (climb, climb + 12),
-               "the wheel moves once on each of the twelve rows under the one that named the slide, the rows in between naming nothing of their own");
+               "the wheel moves on each of the six sub-rows of the two rows under the one that named the slide, the rows below naming nothing of their own");
         check (wheels.size() == 12 && wheels.back() == rtr::kBendTopPos,
-               "and the twelfth row under the one that named the slide lands on the wheel's top exactly");
+               "and the second row under the one that named the slide lands on the wheel's top exactly");
 
         // as with the other letters, a row under the carried letter stays
         // implicit: the letter is still in force above it, so the digits there
