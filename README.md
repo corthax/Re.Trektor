@@ -160,15 +160,16 @@ cmake --build tests/build -j"$(nproc)"
   counts surviving the saved form unchanged while an older state's calls at either end
   of its range still land on the call letter, the row that named a slide leaving the
   wheel where it already was and sending nothing of its own so that row's own note
-  plays straight, the rows under it moving the wheel one whole position at a time and
-  landing on the extreme exactly over the span's own last row, an argument of 0 reaching
-  it on the naming row itself, an argument-only row under a carried letter re-arming a
-  ramp of its own from where the wheel had got to while a further one over a wheel
-  already at the extreme moves nothing, a row naming a command that is not a slide
-  ending the ramp that was still climbing, a note-off ending one before its first step
-  had moved the wheel with nothing sent at all, and a slide wider than the clip that
-  named it having its ramp put away at that clip's end even though its own wheel never
-  left the centre.
+  plays straight, the sub-rows under it moving the wheel along the grid the Settings row
+  names rather than one whole position per row, landing on the extreme exactly over the
+  span's own last row, an argument of 0 reaching it on the naming row itself, an
+  argument-only row under a carried letter re-arming a ramp of its own from where the
+  wheel had got to on those sub-rows while a further one over a wheel already at the
+  extreme moves nothing, a row naming a command that is not a slide ending the ramp
+  that was still climbing, a note-off ending a ramp partway down its steps with the
+  wheel having already moved on the sub-rows of the row above it, and a slide wider
+  than the clip that named it having its ramp put away at that clip's end even though
+  its own wheel never left the centre.
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column chips
   clicked per channel, selection gestures — a click selecting one cell, a drag
@@ -305,14 +306,15 @@ cmake --build tests/build -j"$(nproc)"
   again, and the two slide letters entered the same way but past every undo-depth check,
   since a claim there also spends a point of a line the checks above had already counted
   to its cap and would otherwise be read as one of the line's last points: the letter `U`
-  claiming the command number and leaving the default span of 8 rows beside it, 12 typed
-  over that argument naming the span that slide plays over, a row under the carried letter
-  naming only an argument staying implicit and giving a span of its own, a `D` typed after
-  an `11` claiming the field and dropping that number while a typed `146` gives the highest
-  CC rather than inventing the slide letter, the same letter still entering a D natural
-  where the note column is asked for, and the whole twelve-row climb read back as one run
-  of continuous 64-sample blocks under a clip and a pattern of the section's own rather
-  than as a jump the ramp could not be played across, since a transport jump releases
+  claiming the command number and leaving the default span of 8 rows beside it, 2 typed
+  over that argument naming the two rows over whose sub-rows the wheel climbs, a row under
+  the carried letter naming only an argument staying implicit and giving a span of its own,
+  a `D` typed after an `11` claiming the field and dropping that number while a typed `146`
+  gives the highest CC rather than inventing the slide letter, the same letter still
+  entering a D natural where the note column is asked for, and the whole climb read back
+  as one wheel move on every sub-row of the two rows it takes, twelve of them under a clip
+  and a pattern of the section's own rather than as one jump per row or as a jump the ramp
+  could not be played across, since a transport jump releases
   whatever the synth was holding and that release is what ends a slide the host jumped out
   of, with the undo checks reading the cell back through the song rather than through
   a held reference since restoring a state replaces the pattern objects) and confirms
@@ -950,20 +952,26 @@ sustains the step before it rather than the base note.
   rows, the widest span the field can naming being 127 rows and a span of `0` reaching
   that extreme on the naming row itself. The row that named the slide is the ramp's own
   start, so the wheel sits where it already was there and that row's own note plays
-  straight with nothing sent of its own, while every row under it keeps the wheel
-  climbing one whole wheel position at a time, the step being read off the row rather
-  than counted from it — which is what a transport jump that makes this block play a
-  row again leaves it on the same point of the ramp rather than advancing it twice —
-  and the row that reaches the extreme lands on it exactly, the wheel then sitting at
-  a point of the column's own like a bend row left it. A row under a carried `U` or
-  `D` that names only an argument re-arms a ramp of its own from wherever the wheel had
-  got to, which is how a slide is retargeted while it runs, and a ramp re-armed over a
-  wheel already at the extreme moves nothing. A row naming a command that is not a
+  straight with nothing sent of its own, while every sub-row under it keeps the wheel
+  climbing along the grid the Settings row "Subticks per row" names rather than jumping
+  to a new point once on each row under it, the step being counted from the ramp's own
+  start in transport position rather than read off the row — which is what a transport
+  jump that makes this block play a row again leaves it on the same step of the ramp
+  rather than advancing it twice, and what leaves a row's own sub-row steps waiting for
+  the block that reaches them the way an arpeggiator run's do — and the step that sits
+  over the span's own last row lands on the extreme exactly, the steps before it holding
+  the whole wheel position that far along the straight line between where the ramp left
+  the wheel and that extreme, the wheel then sitting at a point of the column's own like
+  a bend row left it. A row under a carried `U` or `D` that names only an argument re-arms
+  a ramp of its own from wherever the wheel's sub-rows had got to, which is how a slide is
+  retargeted while it runs, and a ramp re-armed over a wheel already at the extreme moves
+  nothing. A row naming a command that is not a
   slide ends the ramp that was still climbing while leaving the wheel where that row
   left it, so the wheel such a row asks for is a point rather than a climb. A slide is
   a state the column carries down like a bend rather than one its own row only, so a
-  note-off below the row that named one ends it even before its first step moved the
-  wheel, which is why nothing keeps climbing underneath that note-off, and at the end
+  note-off below the row that named one ends it partway down its steps, the wheel
+  having already moved on the sub-rows inside the row that named the note-off, which
+  is why nothing keeps climbing underneath that note-off, and at the end
   of the clip whose rows armed it: a ramp still climbing there has no rows below that
   clip left to finish it even when its own wheel never left the centre, so only the
   ramp needs putting away and no message is what takes it back.
@@ -1003,11 +1011,14 @@ sustains the step before it rather than the base note.
   — which is what lets a loop whose block boundary landed a little past its start
   still play the note sitting exactly on that start
 * Subticks per row (default 6): how many equal parts one row is divided into,
-  which is what names an arpeggiator step's width — a macro sounds one step per
-  part, so 6 puts a step at a sixth of a row and lets the eight steps a fresh
-  macro holds reach past the row that called the letter `A`; those eight sound
-  nothing until entered, so it is their width rather than their number that a
-  call of a fresh macro can hear
+  which is what names an arpeggiator step's width and a slide wheel's next move -
+  a macro sounds one step per part, so 6 puts a step at a sixth of a row and lets
+  the eight steps a fresh macro holds reach past the row that called the letter
+  `A`; those eight sound nothing until entered, so it is their width rather than
+  their number that a call of a fresh macro can hear, and a slide of 8 rows over
+  that same 6 walks the wheel in 48 whole positions across those eight rows rather
+  than in 8 jumps of one whole position each, so the grid names how far apart the
+  wheel's own moves are rather than how many rows its extreme sits over
 * Rows per beat (default 4, i.e. one row per 16th note)
 * New pattern length in rows (default 64, maximum 1024) — resizing an existing
   pattern never discards rows: shortening hides the tail and enlarging brings it
@@ -1069,8 +1080,10 @@ sustains the step before it rather than the base note.
   rather than to the clip that armed it: only that clip's own end puts a ramp
   that is still climbing away, since it is the only one whose rows ran out, so
   a ramp armed by the rows of a clip that is gone keeps the wheel climbing over
-  the rows of any further clip of that channel until a release point below takes
-  it back.
+  the sub-rows of any further clip of that channel until a release point below takes
+  it back - the ramp's own steps being a sub-row wide rather than a row wide, which is
+  what makes a wheel a release point is taken back from a point of that line rather
+  than from one of the row's own.
 * No audio processing of any kind.
 * The Linux VST3 build exposes the plug-in as an effect (`Fx` category). Hosts
   that hide MIDI effects (Reaper in some routing setups) can use the
@@ -2370,11 +2383,69 @@ their arguments living in the cells a pattern already saves - against the bundle
 3d0755c45500d341907af8c0fca8d9e6304fcce08575c59f9f7894e77f759bc9 and the sha the previous build carried gone,
 the portability read still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f, the
 slide's arithmetic being integer throughout so the only float names the binary keeps are JUCE's own powf and sinf.
+The slide's ramp interpolated over the Settings' sub-row grid rather than stepped one whole
+position per row: the wheel is a state the column carries like a volume, a pan or an arpeggiator
+run, and the letters only arm a ramp, so what moves it belongs to the position between the rows
+rather than to each row of its own - flushSlide now sits beside flushArp at all three of process()'s
+flush sites and walks the ramp over sub-rows a row over the Settings row "Subticks per row" wide,
+the same grid an arpeggiator's steps are counted on, its steps counted from the ramp's own start in
+transport ppq rather than read off the row, its limit being the end of the row the engine last owned
+so a row's own steps wait for the block that reaches them rather than being bunched onto one sample,
+and a ramp whose next step sits more than a row behind where the block starts ended outright the way
+an unplaceable run's is, which is what a scrub or a jump leaves behind; a step's wheel position is
+slideFrom + (slideTo - slideFrom) * slideCount / juce::jmax (1, slideTotal), the count scaled before
+the division so the step sitting over the span's own last row lands on the extreme exactly and the
+ones before it hold the whole position that far along the straight line between where the ramp left
+the wheel and that extreme rather than a staircase of one whole position per row - a downward wheel
+sitting a hair above the exact line, since integer division truncates toward zero - and a step whose
+whole position is the one the wheel already sits at left unspoken, which is why slideCommand became
+arm-only at (ch, rowPpq, argument, up, clipUid, song) and slideStep was deleted with the trailing
+call in processRow: the naming row's own step at count 0 is exactly that, so even a span of 0 has its
+extreme sent by flushSlide on the naming row's own sample at count 0 rather than by the arm of its
+own. ChannelState's slideRow0 / slideLastRow became slideOrigin / slideRowEnd beside slideTotal /
+slideCount beside the existing slideOn / slideSpan / slideFrom / slideTo / slideClip, the whole ramp
+re-counted as slideSpan * subticks so an argument-only row that re-arms mid-climb still lands its own
+extreme that many rows below where it armed rather than where the old row grid had put it; slideRunning
+() went from comparing rows to slideCount <= slideTotal with slideOn cleared only after the ramp's last
+step, which is what left the existing else if (c.slideRunning ()) c.endBend () release guards in allNotesOff
+and stopNote and the (bendClip == clip.uid && wheelBent) || (slideClip == clip.uid && slideRunning ())
+clip-end take-back unchanged, a ramp that reached its extreme still leaving the wheel at a point of the
+column's own for those same points to take back. Each step is queued at the pitch wheel's own order 0
+so it precedes the note-on of the row it sits inside, which is what a note entering while the wheel
+climbs is bent by the point the climb had got to rather than by the one above it, and the position
+arithmetic stays integer throughout so the wheel stays 14-bit while only the step's time is a double.
+What the fixtures now show is the row's own sub-row steps landing inside a block boundary: a U 4 over
+four rows sends 25 wheel messages rather than 5, its row-boundary values 10239, 12287, 14335 and kBendTopPos
+intact beside the 341, 682 and 1023 filling in between them; its retarget fixture's two argument-only
+rows moved to rows 1 and 3 so they sit inside their own sub-row ramps and re-arm from 11604 the sub-rows
+had reached rather than from the whole-row point above it; its note-off a row below a D 4 now ends a
+ramp that had already sent 7851, 7510, 7168, 6827 and 6486 rather than one that had sent nothing at all;
+and its slide the clip runs out of sending 23 of its 48 sub-row steps rather than 3 of its 8 rows,
+the clip's own end at 1.0 ppq falling between the naming row's own sub-row steps, that still-climbing
+ramp being put away there exactly as before. CoreTest stayed at 296 checks with the six slide sections' asserted arrays
+recomputed - one of them printing the actual ramp once to read the values back rather than guess them,
+its expected 8945 beside the real 9045 being a mis-copy of the array rather than an engine miss - and
+UiTest stayed at 652 with its slide section retyping the argument from 12 to 2 so its 12-value climb
+stays the same twelve values over two rows rather than twelve rows, which is what proves the sub-row
+timing while keeping every check count the sections around it lean on; the tracker's drawing, the typing
+and the Settings rows were untouched, so both slide shots came back with the sha256 they had the round
+before, /tmp/opencode/slide-u.png still c19a018bf14bb9e1ae5b306c2ba8a88aadda0ff4ef3c301e674d242c2c6382fc
+at --slide=6 --slide-arg=12 and /tmp/opencode/slide-d.png still e1a76f3baf61481d2ee462be4c183d1d9551dbc00dd0588b8935fa217b9fe149
+at --slide-down=10 --slide-arg=3, the two pictures being unchanged rather than a cheap proof of a new
+one. Smoke stayed at PASS with 0 failures and 13 checks, its serialised state still 2392 bytes since
+the ramp costs the saved form nothing of its own, against the bundle refreshed by rsync -a --checksum
+over the bundle's DIRECTORY rather than its single .so, the built and installed binary both sha256
+6d9b4362fcf76ca3c859c7617a977fbaa7984bbaa774b195acc2c31c7d6d61f0 with the sha the previous build carried
+gone, as expected since the engine changed rather than the saved form, the portability read still
+topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation, the only
+single-precision names the binary keeps being JUCE's own atan2, cosf, expf, logf, powf, sincosf and
+sinf.
 Active
-Nothing is open in the code: this round's one change, the Command column's two wheel letters U and D
-sliding the pitch wheel to its top or its bottom over the rows their argument names, is landed, built,
-installed and tested, and the arpeggiator's openings, the carried command argument, the decimal spelling
-and the five asks before them are landed as they were with only the hosts hearing them still open. The
+Nothing is open in the code: this round's one change, the U and D slide's ramp being interpolated over the
+Settings' sub-row grid rather than moved to one new point once on every row of its span, is landed, built,
+installed and tested, and the two letters themselves, the arpeggiator's openings, the carried command argument,
+the decimal spelling and the five asks before them are landed as they were with only the hosts hearing them
+still open. The
 Command half of the column now names four kinds rather than three: the letter A claims the number as 128
 with the macro id as its argument, the letter B claims 144 with a point on the wheel, and the new U and D
 claim 145 and 146 with a row count as theirs, since a slide's argument says how many rows below the naming
@@ -2385,23 +2456,27 @@ older row can already be a slide; all three also sit above kCcTop = 127, the num
 run of typed digits cannot invent one of the letters while an interpolation ramp still climbs toward the
 highest CC. A slide is a state the column carries down like a bend rather than one its own row only, so the
 row that named one is the ramp's own start, the wheel staying where it already was there with nothing sent
-of that row and the note it strikes playing straight, while the rows under it move it one whole position at
-a time and land on the extreme exactly over the span's own last row; an argument of 0 reaches that extreme
-on the naming row itself, an empty one takes the default span of 8 rows the letter's entry writes and 127
-is the widest the field can name. A row under the carried letter naming only an argument stays implicit and
-re-arms a ramp of its own from wherever the wheel had got to, which is how a slide is retargeted while it
-runs, and a ramp re-armed over a wheel already at the extreme moves nothing. A row naming a command that is
-not a slide ends the ramp that was still climbing while leaving the wheel where that row left it, so the
-point such a row asks for stays a point rather than becoming a climb. The ramp is read off the row rather
-than counted from it, so a row a transport jump makes this block play again lands on the same point of the
-ramp rather than being advanced twice, and it advances in processRow after the command chain rather than
-inside either letter's branch, its wheel moving at the pitch wheel's own order 0 so it precedes the note-on
-of the same row and a note entering while the wheel climbs is bent by where the climb had got to. Release
-points gained the slide's own ends: the note-offs of allNotesOff and stopNote take a still-climbing ramp
-away even before its first step moved the wheel, and the end of the clip whose rows armed it puts one away
-that is still climbing, a ramp still climbing there having no rows below that clip left to finish it, so
-when its own wheel never left the centre only the ramp needs putting away and no message is what takes it
-back. What the two letters leave the wheel with is one rule rather than two, a slide that reached its extreme
+of that row and the note it strikes playing straight, while the sub-rows under it move it along the grid the
+Settings row "Subticks per row" names rather than jumping to a new point once on every row under it, and land
+on the extreme exactly over the span's own last row; an argument of 0 reaches that extreme on the naming row
+itself, an empty one takes the default span of 8 rows the letter's entry writes and 127 is the widest the
+field can name. A row under the carried letter naming only an argument stays implicit and re-arms a ramp of
+its own from wherever the wheel's sub-rows had got to, which is how a slide is retargeted while it runs, and
+a ramp re-armed over a wheel already at the extreme moves nothing. A row naming a command that is not a slide
+ends the ramp that was still climbing while leaving the wheel where that row left it, so the point such a row
+asks for stays a point rather than becoming a climb. The ramp is counted from its own start in transport
+position rather than read off the row, so a row a transport jump makes this block play again lands on the
+same step of the ramp rather than being advanced twice, and its steps are flushed by flushSlide beside
+flushArp after the rows this block processed, up to the end of the row the engine last owned, rather than
+being moved once inside either letter's branch, which is what leaves a row's own sub-row steps waiting for
+the block that reaches them the way an arpeggiator run's do; each step moves at the pitch wheel's own order
+0 so it precedes the note-on of the row it sits inside and a note entering while the wheel climbs is bent by
+where the climb had got to rather than by where the row above it left it. Release points gained the slide's
+own ends: the note-offs of allNotesOff and stopNote take a ramp that is still climbing away, the wheel having
+already moved on the sub-rows of the row the note-off sits in, and the end of the clip whose rows armed it
+puts one away that is still climbing, a ramp still climbing there having no rows below that clip left to
+finish it, so when its own wheel never left the centre only the ramp needs putting away and no message is
+what takes it back. What the two letters leave the wheel with is one rule rather than two, a slide that reached its extreme
 leaving the wheel sitting at a point of the column's own like a bend row left it, and both letters share the
 lilac theme::cmdOther the bend pair already had rather than bringing a fourth colour in, the pool's grid-preview
 tick painting that lilac for all three wheel kinds.
@@ -2593,48 +2668,67 @@ the default.
 This round's one change is the same shape of cover rather than a stronger one: CoreTest names the
 two values sitting above kOlderCmdTop and above kCcTop, both letters and their row counts surviving the
 saved form, an older state's calls at either end of its range landing on the call letter rather than
-turning into a bend or a slide, this build's own three wheel values reading back as themselves, the climb
-to the top over a span of 4 landing on kBendTopPos exactly and returning only at the note-off below, D 0
-reaching kBendBottomPos on the naming row itself, a row naming only an argument re-arming a span of 2 from
-where the wheel had got to while a further one over a wheel already at the extreme moves nothing, a note-off
-ending a slide before its first step so nothing at all is sent, and a slide wider than the clip that named it
-having its ramp put away at that clip's end; UiTest drives the U claim and the default span of 8 it leaves
-beside it, 12 typed over that argument naming the span that slide plays over, an argument-only row under the
-carried letter staying implicit and naming a span of 3 of its own, a D typed after an 11 claiming the field
-and dropping that number while the entry leaves the default span, a typed 146 giving the highest CC rather
-than inventing either letter, the same letter still entering a D natural where the note column is asked for
-at an octave the section names, and the whole twelve-row climb back as one continuous run of 64-sample blocks
-under a clip and a pattern of the section's own rather than through the shared jumped helper, a transport jump
-releasing whatever the synth was holding and that release being exactly what ends a slide the host jumped out
-of; and EditorShot draws the lilac U with its decimal span and the lilac D with its own in two shots. What is
-still known only from the hosts is where their MIDI receivers put a wheel moved on a row that struck nothing
-and how they map a 14-bit position to a sounding pitch, how far a host honours a ramp's positions across its
-own block boundary rather than hearing one jump at the extreme - which is why the tests can only show the run
-as a continuous chain of 64-sample blocks under their own clip, the shared jumped helper being unable to play
-a ramp at all - how long a host holds a wheel left at an extreme by a slide that reached it while the transport
-is stopped or across a loop's wrap, whether the row that named a slide keeps playing its own note straight
-there, whether a host reads the letters U and D as its own before the plug-in is offered the press, whether the
-D typed at the note column still enters a D natural rather than being heard as the slide, and whether a host
-shows the dim span carried beside a carried letter moving to the newest one an argument-only row entered rather
-than the one the letter itself named.
+turning into a bend or a slide, this build's own three wheel values reading back as themselves, the
+sub-row climb to the top over a span of 4 landing on kBendTopPos exactly with its 25 wheel messages
+arriving a sixth of a row apart and returning only at the note-off below, D 0 reaching kBendBottomPos
+on the naming row's own sample at count 0, a row naming only an argument re-arming a span of 1 from
+where the sub-rows had got to mid-row while a further one over a wheel already at the extreme moves
+nothing, a note-off a row below ending a ramp whose sub-rows had already sent five whole positions
+down toward the wheel's bottom, and a slide wider than the clip that named it having its 48-step ramp
+put away at that clip's end with only 23 of those steps heard above it and no note of that channel ever
+playing; UiTest drives the
+U claim and the default span of 8 it leaves beside it, 2 typed over that argument naming the two rows
+over whose sub-rows the wheel climbs, an argument-only row under the carried letter staying implicit
+and naming a span of its own, a D typed after an 11 claiming the field and dropping that number while
+the entry leaves the default span, a typed 146 giving the highest CC rather than inventing either
+letter, the same letter still entering a D natural where the note column is asked for at an octave the
+section names, and the whole two-row climb back as its twelve wheel moves in one continuous run of
+64-sample blocks under a clip and a pattern of the section's own rather than through the shared jumped
+helper, a transport jump releasing whatever the synth was holding and that release being exactly what
+ends a slide the host jumped out of; and EditorShot draws the lilac U with its decimal span and the
+lilac D with its own in the same two shots the round before drew, since the wheel's own hearing lives
+in the engine rather than in the drawing. What is still known only from the hosts is where their MIDI
+receivers put a wheel moved on a sub-row of a row that struck nothing and how they map a 14-bit position
+to a sounding pitch, how many of a ramp's sub-row positions a host lets through before it hears the
+slide as one move rather than as a climb - which is what makes the ramp's own hearing the one thing
+this round changed and the one thing only the hosts can name -, how far a host honours those positions
+across its own block boundary rather than hearing one jump at the extreme, which is why the tests can
+only show the run as a continuous chain of 64-sample blocks under their own clip with the shared jumped
+helper unable to play a ramp at all, how long a host holds a wheel left at an extreme by a slide that
+reached it while the transport is stopped or across a loop's wrap, whether the row that named a slide
+keeps playing its own note straight there, whether a host reads the letters U and D as its own before
+the plug-in is offered the press, whether the D typed at the note column still enters a D natural rather
+than being heard as the slide, whether a host hears the wheel as a ramp of six moves a row rather than
+one jump a row, which is what the Settings row "Subticks per row" is the hearing of and what only the
+hosts can name, whether the sub-row steps of a ramp whose clip ran out are heard at that clip's end or
+dropped with it, and whether a host shows the dim span carried beside a carried letter moving to the
+newest one an argument-only row entered rather than the one the letter itself named.
 Next Move
 Confirm in Reaper and Bitwig that the letter U and the letter D claim the Command column's number field
 as 145 and 146 and leave the default span of 8 rows beside them, so a row naming only one of the two letters
 takes its extreme over 8 rows rather than over none at all; that the row which named a slide leaves the wheel
-where it already was and sends nothing of its own, so the note that row strikes plays straight while the rows
-under it move the wheel one whole position at a time and the extreme sits exactly over the span's own last row;
-that an argument typed over the one the letter left - 12 in the tests - names that slide's own span, and that
-an argument-only row under the carried letter stays implicit, re-arms a ramp from wherever the wheel had got to
-and so retargets a slide while it runs, one re-armed over a wheel already at the extreme moving nothing; that a
-note-off below the row that named a slide ends it, even before its first step moved the wheel, so nothing keeps
-climbing under that note-off and the wheel is left where it was rather than being straightened by anything else
-in between; that a slide wider than the clip that named it has its ramp put away at that clip's end without a
-message of its own when its wheel never left the centre; that a save and a reload keep both letters and their
-row counts while an older project's macro calls at 128-143 still land on the letter A rather than turning into a
-bend or a slide; that typing 146 into the number field still gives the highest CC rather than inventing either
-letter while the D typed at the note column keeps entering a D natural there; and where a host's own pitch-bend
-receiver maps the wheel's top 16383 and its bottom 0 to a sounding pitch, since a slide's whole hearing is that
-ramp rather than one jump at an extreme.
+where it already was and sends nothing of its own, so the note that row strikes plays straight while the wheel
+first moves on a sub-row of that same row rather than a row below it and the sub-rows under it move it along
+the grid the Settings row "Subticks per row" names - six moves a row at the default - rather than jumping to
+one new point per row, and land on the extreme exactly over the span's own last row, a slide of 4 rows asking
+a host for 25 wheel messages rather than the 5 it had before this round; that the hearing
+of a ramp is what this round changed, so that a host really gives those sub-row moves through rather than
+collapsing them into one move of the wheel, and where a host's own pitch-bend receiver maps the wheel's top
+16383 and its bottom 0 to a sounding pitch, since a slide's whole hearing is that ramp rather than one jump
+at an extreme; that an argument typed over the one the letter left - 2 in the tests, the wheel climbing over
+its twelve sub-rows - names that slide's own span, and that an argument-only row under the carried letter stays
+implicit, re-arms a ramp of its own from wherever the sub-rows had got to inside the row above it and so retargets
+a slide while it runs, one re-armed over a wheel already at the extreme moving nothing; that a note-off below
+the row that named a slide ends it partway down its steps, the wheel already having moved on the sub-rows of the
+row that named the note-off, so nothing keeps climbing under that note-off and the wheel is taken back from a
+point of that line rather than from one of the row's own; that a slide wider than the clip that named it has
+its ramp put away at that clip's end without a message of its own when its wheel never left the centre, only 23 of
+its 48 steps having been heard above that end; that a save and a reload keep both letters and their row counts
+while an older project's macro calls at 128-143 still land on the letter A rather than turning into a bend or
+a slide; that typing 146 into the number field still gives the highest CC rather than inventing either letter
+while the D typed at the note column keeps entering a D natural there; and what the Settings row "Subticks per
+row" is worth to a host's hearing of a slide, since the tests only read it at its default of 6 and only the hosts
+can say how many moves a row they let through.
 Confirm in Reaper and Bitwig that a step an arpeggiator macro was entered as the note column's own
 note-off key - the backtick, or its shifted tilde, the pair the note entry answers alike - opens what
 the run was holding at that step's subtick rather than sounding a step of its own, so a macro of
@@ -2935,25 +3029,35 @@ how a further row re-asserts the bend a note-off had taken back, and the command
 from the call to kCcTop on both the explicit and the carried path so no value above a plain CC can be
 mistaken for one of the letters' own kinds.
 And the wheel slide its letters U and D drive: kBendBottomPos = 0 named in the header beside kBendTopPos
-as the wheel's own ends, a ChannelState holding slideOn / slideRow0 / slideSpan / slideLastRow / slideFrom /
-slideTo / slideClip beside a slideRunning () guard and an inline endSlide () that clears all of them ahead of
-endBend ()'s own centring, slideCommand answering 145 and 146 by arming a ramp from where the wheel already
+as the wheel's own ends, a ChannelState holding slideOn / slideOrigin / slideSpan / slideTotal / slideCount /
+slideFrom / slideTo / slideRowEnd / slideClip beside a slideRunning () guard asking whether the ramp still has
+steps of its own left to run, slideCount <= slideTotal, and an inline endSlide () that clears all of them ahead
+of endBend ()'s own centring; slideCommand answering 145 and 146 by arming a ramp from where the wheel already
 is to that letter's own extreme over the row count its argument names - the empty argument taking kSlideDefaultSpan,
 a 0 reaching the extreme on the naming row itself, a row under a carried letter naming only an argument re-arming
 a ramp of its own from where the wheel had got to and a row naming a command that is not a slide calling endSlide
-() in the carry block rather than leaving a ramp still climbing under it - and slideStep advancing that ramp in
-processRow after the command chain rather than inside either letter's branch, reading the row it is asked for
-rather than counting steps so the ramp is idempotent under a row this block already advanced, a row landing on
-the position the wheel is already at sending nothing, the whole span walked by integer truncation of slideFrom +
-(slideTo - slideFrom) * steps / juce::jmax (1, span) so the endpoints are exact - two of those guards needing
-juce::jmax rather than a bare max since nothing in this file pulls the C math names in - and the wheel queued at
-the pitch wheel's own order 0 so it precedes the note-on of the row that asked for it; the release points gained
-the slide's own ends beside the bend's, allNotesOff and stopNote each holding a new else if (c.slideRunning ())
-c.endBend (), which is what ends a slide at a note-off even before its first step moved the wheel, and the clip-end
-take-back keyed on the ChannelState's own new slideClip beside the old bendClip, asked for as (bendClip == clip.uid
-&& wheelBent) || (slideClip == clip.uid && slideRunning ()) with the centring message only sent where wheelBent says
-the wheel really is out of place, which is what a ramp still climbing at that clip's end needs, since it has no rows
-below that clip left to finish it.
+() in the carry block rather than leaving a ramp still climbing under it - and the ramp now walked by flushSlide
+beside flushArp at all three of process()'s flush sites rather than stepped inside processRow: it counts the steps
+from the ramp's own start in transport ppq, one step being a row over the Settings' subticksPerRow, asks for the
+steps that sit in [ppqStart, ppqLimit) where that limit is the end of the row the engine last owned so a row's own
+steps wait for the block that reaches them the way an arpeggiator run's do, ends a ramp whose next step sits more
+than a row behind where the block starts since a scrub or a jump cannot place it any more, keeps the position
+arithmetic integer through slideFrom + (slideTo - slideFrom) * slideCount / juce::jmax (1, slideTotal) with the
+count scaled before the division so the step sitting over the span's own last row lands on the extreme exactly
+while the steps before it hold the whole position that far along the line between where the ramp left the wheel
+and that extreme, sends no message for a step whose whole position is the one the wheel already sits at, which is
+what the naming row's own step at count 0 holds to even for a span of 0 - slideCommand having become arm-only at
+(ch, rowPpq, argument, up, clipUid, song) and slideStep being gone with the trailing call in processRow - queues
+each step at the pitch wheel's own order 0 so it precedes the note-on of the row it sits inside, re-counts the
+whole ramp as slideSpan * subticks so an argument-only row that re-arms mid-climb still lands its own extreme that
+many rows below where it armed, and clears slideOn only once the ramp's last step is reached, which is what left
+the release points unchanged: allNotesOff and stopNote each still holding their else if (c.slideRunning ()) c.endBend
+(), which is what ends a slide at a note-off partway down its steps with the wheel already having moved on the sub-
+rows of that row, and the clip-end take-back still keyed on (bendClip == clip.uid && wheelBent) || (slideClip == clip.uid
+&& slideRunning ()) with the centring message sent only where wheelBent says the wheel really is out of place, since a
+ramp still climbing at that clip's end has no rows below that clip left to finish it; the ramp's own sub-row steps
+being what a wheel a note-off a row below is taken back from is the one place the new grid changes what the fixtures
+see rather than what the release points do.
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock, the size of the last GUI shown, and the undo line (undoStates holding the saved song XML with undoCursor and undoBytes counted in UTF-8 bytes, pushUndoPoint appending what a model change reached and skipping one that changed nothing, undo() / redo() stepping and refreshing the snapshot, resetUndoHistory anchoring a fresh line for a state the host hands back, getUndoDepth / getUndoRedoCount naming what is left to walk, trimUndoLine dropping the oldest states against the Settings depth and a 32 MB budget while never dropping the state the model is in or one ahead of the cursor, and stepUndoHistory keeping the pattern clipboard, the edit playhead and the mirrored transport position a saved state does not carry).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size, wiring the tools panel's isCellSelected hook to the tracker's selection, and the shortcuts where Ctrl+C/V name the cell clipboard (copySelectionToClipboard / pasteClipboardAtCursor) while the pattern clipboard's Ctrl+Shift+C / Ctrl+Shift+V pair is refused rather than answered, its two doCopy() / doPaste (bool forceUnique) members and its Ctrl+X slice branch gone altogether with that pair, the undo funnel commitEdit() (record the point the model reached, then refresh, so every component's onModelChanged ends in it while the bottom bar's OCT / STEP / CHANNELS handlers and selectPattern() record their own), performUndo / performRedo stepping the plug-in's line and refreshing the Settings panel as well because its rows hold their own values, and the Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z shortcuts with the Alt+Z / Alt+Y spellings the hosts leave free answering the same two steps, one each since the whole Alt+Shift family is refused rather than spent on a redo alias the hosts swallow, the Alt branches matching the letter over the key code and the printed character, all of them reaching the editor while every panel answers the Alt pair as well through one wireUndoRedo lambda that injects performUndo / performRedo into the tracker, timeline, pool, settings, tools and macros panels, so whichever panel the host routed the press to walks one point of the same line rather than one the panel owns, and one wireFocusRescue lambda injecting the same shape's focusRescue member into the tracker, timeline and pool so the panel that closed a menu, an alert or a drag hands keyboard focus back to the tracker (and to itself where the tracker is hidden), which is what makes the whole keyboard heard again rather than only the editor's own shortcuts, and one wireClipboard lambda injecting the cell clipboard's Alt steps as copyStep / pasteStep / cutStep members into all six panels with the tracker's own copySelectionToClipboard, pasteClipboardAtCursor (kPasteAll) and cutSelectionToClipboard, and one wireSlice lambda injecting the editor's own doSlice as a sliceStep member into all six of them beside those clipboard steps, so an Alt+C / Alt+V / Alt+X reaches one cell clipboard and an Alt+S reaches one clip slice at one snapped beat whichever panel the host routed the press to, and one press of either leaves one point of the undo line rather than two, the editor's own keyPressed answering those steps through the shared matchClipboardKey and answerSliceKey next to a Ctrl+C / Ctrl+V pair that refuses Shift so the hosts keep their own Ctrl+Shift+C / Ctrl+Shift+V meaning and no Ctrl+X branch left to it at all, and its first lines including the renamed header so no panel and the editor can disagree about what the Alt letters name.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom, ruler (bar numbers only, no transport readout), and the Alt pair of undo and redo answered in its keyPressed, which is where a press aimed at undo has to be heard while the timeline's own clip menu is open or while a pattern is being dropped onto it, and a focusRescue member it calls at the end of both context menus and ahead of the playback guard in its drop, since both the popup and the dragged item are parentless desktop windows that take the keyboard focus with them when they close, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, chained through the 4-argument answerClipboardKey so an Alt+C / Alt+V / Alt+X pressed while this panel routes the press reaches the tracker's cell clipboard rather than the host's, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape, so an Alt+S heard while this panel holds the press splits the clip under the playhead that the timeline's own "Slice at playhead" menu item reaches rather than leaving the Ctrl+X spelling the host already spent on its own cut.
@@ -3039,6 +3143,26 @@ and --slide-arg=VAL, the argument defaulting to 12 rows rather than to the 8 the
 shot can show all three command letters and all of their decimal arguments, /tmp/opencode/slide-u.png drawing the
 lilac U 12 carried down from its row and /tmp/opencode/slide-d.png the lilac D 3, their differing sha256 being the
 cheap proof the letters really are drawn there.
+This round the same fixtures moved with the wheel's own grid rather than growing: CoreTest stayed at 296
+checks with the six slide sections' arrays recomputed, a U 4 over four rows now reading 25 whole wheel
+values rather than 5 with the row boundaries 10239, 12287, 14335 and kBendTopPos intact beside the steps
+filling between them - that array first printed what the ramp really sent to find one mis-copied expected
+value beside the real one rather than an engine miss, the printing loop then deleted once the array was
+fixed - its retarget fixture's argument-only rows moving from rows 2 and 5 to rows 1 and 3 so each sits
+inside the sub-row ramp above it and re-arms from 11604 the sub-rows had reached rather than from a whole-
+row point, its note-off fixture now ending a D 4 a row below where the wheel had already sent 7851, 7510,
+7168, 6827 and 6486 rather than ending one before its first step with nothing sent at all, and its clip
+run-out reading 24 values rather than 4 since the clip's own end at 1.0 ppq falls between the naming row's
+sub-row steps; UiTest stayed at 652 with its slide section retyping the argument from 12 to 2 so the same
+12 wheel values are read over the two rows over whose sub-rows the wheel climbs rather than over twelve
+rows, the values themselves numerically unchanged, which is what keeps every undo-depth check the sections
+around it ride where they were while showing a wheel position landing on every sub-row of the span rather
+than one per row; and EditorShot moved not at all, its --slide / --slide-down / --slide-arg flags drawing
+the same two lilac letters with their decimal spans, both slide shots coming back with the sha256 they had
+the round before - c19a018bf14bb9e1ae5b306c2ba8a88aadda0ff4ef3c301e674d242c2c6382fc at --slide=6 --slide-arg=12
+and e1a76f3baf61481d2ee462be4c183d1d9551dbc00dd0588b8935fa217b9fe149 at --slide-down=10 --slide-arg=3 - the
+two pictures being unchanged rather than a cheap proof of a new one, since what this round changed lives in
+the engine rather than in anything the tracker paints.
 /media/data2/GameDev/Plugins/ReTrektor/JUCE: vendored framework.
 Important Context
 Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) (build dir currently configured and passing).
@@ -3052,7 +3176,56 @@ than the live song, so a test writing at the model layer hands it over with proc
 and trimUndoLine caps the undo line at the Settings' undoSteps by erasing the oldest states, so the
 depth checks that ride that cap move with every edit made upstream of them.
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git (newest first): 0c00ba7 the Command column gains the letters U and D as 145 and 146, a slide of the pitch wheel to its
+Git (newest first): 40d9804 the U and D slide's ramp interpolated over the Settings' sub-row grid rather
+than moved to one new point once on every row of its span: the wheel is a state the column carries down
+like a volume, a pan or an arpeggiator run and the two letters only arm a ramp, so what moves it belongs
+to the position between the rows rather than to each row of its own - flushSlide now sits beside flushArp
+at all three of process()'s flush sites and walks the ramp over sub-rows a row over the Settings' subticksPerRow,
+the same grid an arpeggiator's steps are counted on, its steps counted from the ramp's own start in transport
+ppq rather than read off the row, its limit being the end of the row the engine last owned so a row's own
+steps wait for the block that reaches them rather than being bunched onto one sample, and a ramp whose next
+step sits more than a row behind where the block starts ended outright the way an unplaceable run's is, which
+is what a scrub or a jump leaves behind; a step's wheel position is slideFrom + (slideTo - slideFrom) * slideCount
+/ juce::jmax (1, slideTotal), the count scaled before the division so the step sitting over the span's own
+last row lands on the extreme exactly and the ones before it hold the whole position that far along the
+straight line rather than a staircase of whole positions per row - a downward wheel sitting a hair above
+the exact line, since integer division truncates toward zero - and a step whose whole position is the one
+the wheel already sits at left unspoken, which is why slideCommand became arm-only at (ch, rowPpq, argument,
+up, clipUid, song) and slideStep was deleted with the trailing call in processRow: the naming row's own step
+at count 0 is exactly that, so even a span of 0 has its extreme sent by flushSlide on the naming row's own
+sample at count 0 rather than by the arm of its own. ChannelState's slideRow0 / slideLastRow became slideOrigin
+/ slideRowEnd beside slideTotal / slideCount beside the existing slideOn / slideSpan / slideFrom / slideTo
+/ slideClip, the whole ramp re-counted as slideSpan * subticks so an argument-only row that re-arms mid-climb
+still lands its own extreme that many rows below where it armed rather than where the old row grid had put
+it; slideRunning () went from comparing rows to slideCount <= slideTotal with slideOn cleared only after the
+ramp's last step, which is what left the existing else if (c.slideRunning ()) c.endBend () release guards in
+allNotesOff and stopNote and the (bendClip == clip.uid && wheelBent) || (slideClip == clip.uid && slideRunning ())
+clip-end take-back unchanged, a ramp that reached its extreme still leaving the wheel at a point of the
+column's own for those same points to take back. Each step is queued at the pitch wheel's own order 0 so it
+precedes the note-on of the row it sits inside, and the position arithmetic stays integer throughout so the
+wheel stays 14-bit while only the step's time is a double. What the fixtures now show is the row's own sub-row
+steps landing inside a block boundary: a U 4 over four rows sends 25 wheel messages rather than 5 with its
+row boundaries 10239, 12287, 14335 and kBendTopPos intact beside the steps filling between them; its retarget
+fixture's argument-only rows moved from rows 2 and 5 to rows 1 and 3 so each sits inside the sub-row ramp
+above it and re-arms from 11604 the sub-rows had reached mid-climb rather than from the whole-row point above
+it; its note-off a row below a D 4 now ends a ramp that had already sent 7851, 7510, 7168, 6827 and 6486
+rather than one that had sent nothing at all; and its slide the clip runs out of sends 23 of its 48 sub-row
+steps rather than 3 of its 8 rows, the clip's own end at 1.0 ppq falling between the naming row's sub-row
+steps and that still-climbing ramp being put away there exactly as it was before. CoreTest stayed at 296
+checks and UiTest at 652 with the same values at the row boundaries and new ones between them, one CoreTest
+array first printed against the ramp's real values to find a mis-copy rather than an engine miss, and UiTest's
+slide section retyping its argument from 12 to 2 so its 12-value climb stays 12 values over two rows rather
+than twelve - the counts staying put is what keeps every undo-depth check the sections around it ride where
+they were; the tracker's drawing, the typing and the Settings rows were untouched, so both slide shots came
+back with the sha256 they had the round before. Smoke stayed at PASS with 0 failures and 13 checks, its
+serialised state still 2392 bytes since the ramp costs the saved form nothing of its own, against the bundle
+refreshed by rsync -a --checksum over the bundle's DIRECTORY rather than its single .so, the built and installed
+binary both sha256 6d9b4362fcf76ca3c859c7617a977fbaa7984bbaa774b195acc2c31c7d6d61f0 with the sha the previous
+build carried gone, as it must since the engine changed rather than the saved form, the portability read still
+topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation - the new ramp's arithmetic
+being integer throughout, so the only single-precision names the binary keeps are JUCE's own powf, sinf, cosf,
+expf, logf, sincosf and atan2.
+0c00ba7 the Command column gains the letters U and D as 145 and 146, a slide of the pitch wheel to its
 top or its bottom over the rows their argument names: the naming row starts the ramp where the wheel already
 is and sends nothing of its own so that row's note plays straight, the rows under it move the wheel one whole
 position at a time and land on the extreme exactly, an argument of 0 reaches it there, a row under a carried
