@@ -116,11 +116,24 @@ cmake --build tests/build -j"$(nproc)"
   steps measured against the note that row is releasing while that note-off
   still takes the note away for the rows below it and reaches the host as a
   note-off ordered ahead of the run's first note-on at one sample, an empty step
-  sustaining the step before it, a step landing off
+  sustaining the step before it, a step entered as the note column's own note-off
+  opening the note the run was holding rather than sounding one of its own - one
+  such step mid-run ordering its release between the note-ons either side of it,
+  one at a run's head releasing nothing while the tail of the same run closes what
+  the next step entered, and a looped cycle stepping through its note-off steps and
+  sounding the cycle again after the one release - and that the release it opens is
+  only ever the note that run entered, so nothing a column or another run was holding
+  is cut, a step landing off
   the keyboard snapping back by whole octaves to either end, the clip end closing
   a run that was still looping rather than the row that called it, the steps
   growing adds sounding nothing rather than a ramp the model no longer has, and the
-  macro state round-tripping its id, its loop flag and all 64 signed steps — with an
+  macro state round-tripping its id, its loop flag and all 64 signed steps — now saved
+  as two bytes a step so a step beyond a one-byte jump survives, with the reader telling
+  the two spellings apart by the length the block declares and so an older state's one-byte
+  steps widening unchanged rather than losing their jumps — and that a note-off step
+  round-trips through the wider block as the same opening step, with an older state's
+  steps keeping their jumps, their steps that sound nothing and their absence intact —
+  with an
   older state's `MACROS` section dropped outright, an older row's command `140`
   landing on the letter `A` with its old argument naming the id instead, and a
   ramping command number stopping at the highest CC rather than inventing a letter, and
@@ -253,7 +266,15 @@ cmake --build tests/build -j"$(nproc)"
   while a drag carries it back to the head, a drag of a card rather than of the strip
   picking a step cursor up and leaving the list where it was, the strip's own
   shading changing every group of "Subticks per row" steps rather than every
-  line of sixteen cells it wraps at, read through the panel's `stepBand`, and a
+  line of sixteen cells it wraps at, read through the panel's `stepBand`, the note-off
+  step its own copy of the note column's note-off key writes — a press of the backtick
+  at the cursor the `+ Add macro` button left parked there spelling that step rather than
+  typing a number into it, claiming the press, spending exactly one point of the undo
+  line for that one press and leaving the cursor on the step it opened the way `Delete`
+  and `Backspace` do, that step then read through the panel's own `stepLabel` as the word
+  the shot draws beside a jump's sign, `Ctrl+Z` taking the step back to the one that
+  sounds nothing and `Ctrl+Y` putting the opening back, and `Backspace` clearing an
+  opened step to the one that sounds nothing at a point of its own — and a
   drag of a length
   field or a click of the looped tick each taking one point of the undo line with
   `Ctrl+Z` handing the state's own steps back, the pitch bend letter claiming the same field as the bend rather than
@@ -310,6 +331,8 @@ cmake --build tests/build -j"$(nproc)"
   many steps walked before the render, a walk running out of states stopping at
   the line's end rather than failing the shot), and `--arp=0,+4,-8` to write signed
   semitone steps into arpeggiator id 1 (a lone `.` naming a step that sounds nothing,
+  the word `off` or the note column's own backtick naming a step that opens whatever the
+  run was holding there, so a Macros-tab shot can show the `OFF` cell among the jumps,
   so a Macros-tab shot shows a step strip of its own length rather than one that is
   all empty), `--arp-loop` to mark that macro looped so its card shows the looped tick,
   and `--macros=N` to have the song define N macros, ids 1..N all of them fresh, which
@@ -462,7 +485,10 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   row writes (`A 1`) in orange: a `LENGTH` field (1–64 steps, the plug-in's usual
   number widget) and a `LOOPED` tick sit on the card's control line, and the macro's
   steps are drawn beneath it, 16 to a line, each as its signed semitones away from the
-  base note (`--` being a step that sounds nothing), the strip shading every second
+  base note (`--` being a step that sounds nothing and `OFF` being a step that opens
+  the note the run was holding, spelled the way the note column spells its own note-off
+  so the cell reads as the release rather than as a jump of a number the table has no
+  row for), the strip shading every second
   group of "Subticks per row" of them - six at the default, so steps 0-5 sit on one
   shade and 6-11 on a darker one - which is where a step stops belonging to the row
   that called it, that group living in the Settings row rather than in the 16 cells
@@ -602,7 +628,7 @@ Q 2 W 3 E R 5 T 6 Y 7 U   ->  next octave
 | --- | --- |
 | `/` or `F1` | octave down |
 | `*` or `F2` | octave up |
-| `` ` `` | note-off (`===`) |
+| `` ` `` | note-off (`===`), and in the Macros tab the note-off step drawn `OFF` |
 | `Enter` | advance by step skip |
 | `Tab` / `Shift+Tab` | next / previous field |
 | Arrow keys, Page Up/Down, Home/End | move cursor |
@@ -748,7 +774,11 @@ keeps one number at one point of the undo line rather than one per keystroke. Th
 leads whatever digits were typed, a repeat of the sign the number already carries changes
 nothing, one of the other side moves the number to the other side of the base note, and
 a number that is nothing but a sign means the base note itself; the value lands clamped
-to the jump the field can hold. `Delete` and `Backspace` make a step sound nothing, which
+to the jump the field can hold. The note column's own note-off key spells a step the same
+way here: the backtick (and its shifted tilde, the pair the note entry answers alike) opens
+the step the cursor sits on rather than writing a number into it, so the cell reads `OFF`,
+the run's own release, and the cursor stays where it was the way `Delete` and `Backspace`
+leave it. `Delete` and `Backspace` make a step sound nothing, which
 sustains the step before it rather than the base note.
 
 ## MIDI model
@@ -807,6 +837,13 @@ sustains the step before it rather than the base note.
     the step before it, and a step landing off the keyboard snaps back by whole
     octaves rather than cutting, which is what keeps `+100` from a C still
     reading as a shape rather than as nothing;
+  * opens what it was holding at a step entered as the note column's own note-off,
+    drawn `OFF`: the step releases only the note the run itself entered at the step
+    above it, at that step's subtick, and then sounds nothing, which is why a step
+    of `OFF` at a run's head releases nothing of its own - the column's own note is
+    still owned lower down and a note-off there is the row's, not the step's - and
+    why the note a step of `OFF` opened is not re-sounded by the steps under it
+    until one of them names a note again;
   * loops when its `LOOPED` tick is set, starting back over at its first step
     after its last and keeping going until the clip that owns it ends, a note-off
     takes the column's note away or an `A 0` call ends it; a looped cycle is
@@ -2147,30 +2184,87 @@ the serialised state still 2376 bytes, since nothing about a row's shape or the 
 changed, against the bundle refreshed by rsync --checksum to sha256
 2f0b356850b19708de675c3806af200d487ca4a44a39616b27a0d3c31e5ce615 matching the built artefact and
 still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation.
+A macro step learned the note column's own note-off (commit 5a14699): an arpeggiator run could
+sound a step that named a note, sustain the note it was holding, or sound nothing at all, but could
+never open what it held from inside the run - the only release a call could make was the row's whole
+`A 0`, which gave up the run rather than one step of it, so the user's ask that a macro step spell
+the note-off the way the note column spells it could not be read at all while a step held one int.
+The step widened instead of a flag beside it: ArpMacro::steps went to std::vector<std::int16_t>,
+kArpEmptyStep stayed at -128 as the step that sounds nothing, the new kArpNoteOffStep took -129
+below it and the new kArpTopStep capped a typed jump at ±127 so the two spellings below -128 are
+the only values a step can hold that are not jumps - the sentinel passes through the setter and the
+octave snap untouched on both sides, which is what leaves the opening a shape rather than a landing
+the snap would have folded. The engine answers it inside flushArp rather than as another kind of row:
+at that subtick it stops only the note the run itself entered, only while the state still holds that
+very note, then sounds nothing and keeps counting the step, so the run stays where it was, its cycle
+boundaries stay exact beside the loop and what a column, another run or the row itself was holding is
+never cut by a step. The saved steps block went two bytes a step little endian so the opening survives
+a state, and the reader tells the two spellings apart by the length the block declares - size ==
+declared * 2 reads wide, otherwise one byte sign extended - so an older state's one-byte steps widen
+unchanged with their jumps, their steps that sound nothing and their absence intact. The Macros tab
+shares one spelling rather than keeping a second: the panel's file-local stepText lambda became the
+public MacrosPanel::stepLabel, which the strip's paint and the tests read, so OFF, the note column's
+own word for a release rather than ===, which is not a step, is what a cell that was opened draws in
+the jump's orange and a cell that sounds nothing draws -- in the release's own dim; the backtick and
+its shifted tilde write the opening at the step cursor, claim the press, spend one point of the undo
+line for it and leave the cursor where it was the way Delete and Backspace do rather than stepping
+the run past the step just written, and the value a half-typed number commits now passes through the
+setter's own clamp rather than being clamped a second time at the panel, which leaves one rule.
+The tests moved with all three: CoreTest 279, +14, names an opening mid-run ordering its release
+between the note-ons either side of it, one at a run's head releasing nothing while the tail of the
+same run closes what the next step entered, a looped cycle stepping through its openings and sounding
+itself again after the one release, and that an opening cuts nothing a column or another run was
+holding; the round trip putting an opening at a step and reading it back through the wider block, and
+a hand-built older ARP record of four one-byte steps widening with its jumps, its empty steps and its
+absence intact; UiTest 629, +10, drives the panel's own `+ Add macro` leaving the cursor on the fresh
+macro's first step, the backtick spelling that step, claiming the press, spending exactly one point of
+the line for that one press and leaving the cursor there, reads that step and an empty one back through
+the panel's own stepLabel as OFF and --, walks Ctrl+Z and Ctrl+Y across the spelling, and clears the
+opened step to the one that sounds nothing at a point of its own - that section sitting after the undo
+line's depth checks, since a step written earlier in the run would otherwise have moved the paste and
+clipboard depths the later checks ride, the trap the earlier sections had already shown. EditorShot's
+--arp= grew the token off, spelled the same way as the note column's own backtick so one flag can name
+either, so the Macros-tab shot at /tmp/opencode/arp-off.png - 1000x640, --tab=macros --arp=+0,off,+4,-8,
+off,+12 --macros=4 - reads the OFF cells among the jumps in the jump's own orange rather than as dashes
+under the band, against /tmp/opencode/arp-empty.png with dots in the same places whose different sha256
+is the cheap proof the word really is drawn there. Smoke unchanged at 13 with its serialised state at
+2392 bytes, since only a step's width grew, against the bundle refreshed by rsync --checksum to sha256
+e792e2e1af46e657217d2193119290af33da9e4b5ec652c9cffe4e67ef78cbfc matching the built artefact and still
+topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation.
 Active
-Nothing is open in the code: this round's one change, the carried command argument
-following the newest argument the column entered rather than the argument the letter above
-it called with, is landed, built, installed and tested, and the decimal spelling and the
-five asks before it are landed as they were with only the hosts hearing them still open.
-The tracker's command column steps its letter and its argument together through one file-local
-stepCommandCarry that the carry table, carriedCommandNumber and the new carriedCommandValue
-all walk, so the view and the reads cannot disagree: a row that named a command answers with
-that row's own argument, which leaves nothing drawn beside a letter that had none, and a row
-that named only an argument keeps the letter carried above it and leaves its own argument
-carried for the rows under it, an argument of 0 under a carried call clearing both because
-that argument is the release the engine's arpCommand already answers there. The carry table
-is filled from what the column carries into a row before that row steps it, which is what an
-argument-only release still reads its letter on its own row and draws neither letter nor
-argument over the ones under it, and carriedCommandNumber now walks down from the top of the
-column rather than up from the row, since what a row leaves in force depends on the arguments
-the rows above it entered. Nothing moved in the engine, whose lastCmdVal was written and never
-read, or in the saved form. CoreTest answers 265 checks, UiTest 619 and
-Smoke 13 all PASS, with Smoke's serialised state still 2376 bytes against the bundle
-refreshed by rsync to sha256 2f0b356850b19708de675c3806af200d487ca4a44a39616b27a0d3c31e5ce615,
+Nothing is open in the code: this round's one change, an arpeggiator macro step spelling the
+note column's own note-off and opening only the note its own run was holding, is landed, built,
+installed and tested, and the decimal spelling, the five asks before it and the carried command
+argument are landed as they were with only the hosts hearing them still open.
+The step's one int now carries three spellings below the jumps rather than one: -128 sounds nothing
+and sustains the step before it, -129 opens what the run was holding, and every jump stays clamped to
+±127 so nothing between -129 and -128 can arrive from the keyboard or a saved jump; the octave snap and
+the setter let the two sentinels through on either side, which is what leaves the opening a shape rather
+than a landing the snap would have folded, and setArpLength pads a grown macro with the step that sounds
+nothing the way it always did. The engine answers the opening at that step's subtick inside flushArp,
+releasing through stopNote only while the state still holds the note this very run entered, so a step
+of OFF at a run's head cuts nothing of its own - the column's own note is still owned lower down and
+takes it away with the row's note-off - and nothing a column, another run or the row itself was holding
+is cut by a step either; the step still counts, so a looped cycle's boundaries and an unlooped run's
+held last note stay exactly as they were, and the row's `A 0` release, the clip end's close and the
+note-off taking the column's note away are untouched beside it. The saved block writes two bytes a step
+little endian and the reader picks the two spellings by the length the block declares rather than by
+what it finds, since a one-byte block is exactly as long as a wide one's would be read half; nothing
+else about a macro's saved form moved, so the id, the loop flag and the length property stay as they
+were and an older state widens on the read. The Macros tab's cell and the tests read one spelling through
+the panel's own public stepLabel rather than the strip keeping a private lambda, so the shot and the
+checks cannot drift from the cell, and the note column's own backtick and tilde pair enters the opening
+at the step cursor there, claiming the press and leaving the cursor where it was the way Delete and
+Backspace do, since stepping past the step just opened would run the macro past the release the user
+meant to hear there. CoreTest answers 279 checks, UiTest 629 and
+Smoke 13 all PASS, with Smoke's serialised state at 2392 bytes, up only by the two-byte steps the
+demo's macros now save, against the bundle
+refreshed by rsync to sha256 e792e2e1af46e657217d2193119290af33da9e4b5ec652c9cffe4e67ef78cbfc,
 matching the built artefact and still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and
-naming no sqrtf or atan2f relocation, so what is left of this round is the user seeing the
-carried argument follow a row that entered a new one, and an argument-only release ending what
-the column carries, in Reaper and Bitwig rather than anything still open in the code.
+naming no sqrtf or atan2f relocation, so what is left of this round is the user hearing a step
+of OFF open what the run was holding at that step's subtick, and seeing the Macros tab spell it
+`OFF` in the jump's orange entered with the note column's own key, in Reaper and Bitwig rather
+than anything still open in the code.
 
 The Macros tab's five fixes stand landed as before it: the tab paints no description memo, keeps its title and the one MACRO / LENGTH /
 LOOPED / STEPS label row at y 48 with kContentTop taking the cards up to 70; a newly defined
@@ -2328,7 +2422,55 @@ argument, whether the row itself stays implicit rather than becoming an explicit
 whether the undo line is unchanged by an argument entered under a command already in force, since
 the suites only read the carry through the accessors and only render the shape to a PNG the hosts
 never see.
+This round's one change is the same shape of cover rather than a stronger one: CoreTest
+names an opening mid-run ordering its release between the note-ons either side of it and
+counting one release per opening, one at a run's head releasing nothing while the tail of
+the same run closes what the next step entered, a looped cycle stepping through its openings
+and sounding itself again after the one release, and that the only note an opening ever stops
+is the one that run entered, so nothing a column or another run was holding is cut; the
+round trip putting an opening at a step and reading it back through the two-byte block, and
+an older ARP record of four one-byte steps widening with its jumps, its steps that sound
+nothing and its absence intact; UiTest drives the Macros tab's backtick and tilde pair spelling
+the step under the cursor the `+ Add macro` button left parked there, claiming the press,
+spending exactly one point of the undo line for that one press and leaving the cursor on the
+step it opened, reads the opened step and an empty one back through the panel's own stepLabel
+as OFF and --, walks Ctrl+Z and Ctrl+Y across the spelling and clears the opened step at a
+point of its own; and EditorShot's --arp= token off draws the word in the jump's orange in a
+Macros-tab shot against dots in the same places. What is still known only from the hosts is
+where their MIDI receivers put a note-off and the next note-on a run sounds after an opening,
+which is the shape a step of OFF hands them at one subtick rather than a row apart and the
+shape a looped cycle hands them when its next cycle's first step opens the note the cycle left
+holding; how far a host carries a run's note while the run is still going, since an opening
+that cuts nothing of its own at a run's head is only heard as nothing at all when the host kept
+that note in the first place; whether the note a step opens is the note the row above was holding
+rather than one the channel was left sounding from another clip or another call, which is what
+the run's own note is read for at the engine rather than heard from a synth; how long a host
+holds a note an opening cut while the run keeps going, whether a host spends its own reading of
+the backtick before the plug-in is offered the press, whether a host keeps the plug-in's own
+three-glyph argument cell rather than restyling the column, and where the bands move when the
+Settings row "Subticks per row" is set to anything but its default, which the tests only read at
+the default.
 Next Move
+Confirm in Reaper and Bitwig that a step an arpeggiator macro was entered as the note column's own
+note-off key - the backtick, or its shifted tilde, the pair the note entry answers alike - opens what
+the run was holding at that step's subtick rather than sounding a step of its own, so a macro of
++0, OFF, +4, OFF heard over a note the column named cuts its octave at that subtick and puts a note
+back a step later rather than holding one pitch across both openings; that the opening releases only
+the note that run entered, so a step of OFF at a run's head cuts nothing of its own while the note-off
+the row itself holds still takes the column's note away for the rows under it, and a step of OFF never
+cuts a note another call, another clip or the column itself was holding; that the note an opening cut
+is not sounded again until a later step names a note, so the run keeps going where it was rather than
+restarting, and a looped cycle whose cycle boundary opens what the cycle left holding sounds its first
+step again a subtick after that release rather than leaving a gap; that the Macros tab draws that step
+as the word OFF in the jumps' own orange rather than as a number or a dash, that entering it spends
+one point of the undo line for the one press and leaves the step cursor on the step it opened so the
+next press lands beside it rather than past it, that Ctrl+Z takes the step back to the one that sounds
+nothing and Ctrl+Y puts the opening again, and that Delete and Backspace still clear it at a point of
+their own; that a step entered as OFF survives a save and a reload as the same opening while a project
+saved before this round keeps its jumps, its steps that sound nothing and their absence, the steps
+having been saved one byte wide there rather than two; and that the row's own `A 0` release, the clip
+end closing a run that was still looping and a note-off taking the column's note away are unchanged
+beside a step of OFF, since none of the three moved.
 Confirm in Reaper and Bitwig that entering only an argument in the command column, with the
 command number left empty under a command the column already carries, moves the dim argument
 drawn on the rows under it to the newest one entered there rather than leaving it the one the
@@ -2522,7 +2664,7 @@ Confirm that the pinned bundle loads in Bitwig Studio 6.1.4, whose Flatpak root 
 Confirm in the DAW that typing a number into the transpose amount field and clicking only a direction button moves the notes by that many semitones, that an amount past an octave still behaves, and that the two direction buttons draw as up and down arrows rather than boxes in Bitwig and Reaper.
 Relevant Files
 /media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
-/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate taking a std::function<bool (int row, int ch)> mask so the selection can be any shape and a cell outside the mask ends the anchor run), and the cell clipboard (CellClipboard holding one {row, ch, Cell} entry per copied cell with its offset inside the copied rectangle, the kPasteNote/kPasteInst/kPasteVol/kPastePan/kPasteCmd/kPasteCmdVal bits and kPasteAll naming which fields reach plus kPasteAdditive = 64 as a mode bit added to a filter rather than one more field, Pattern::pasteCells writing them at an anchor and, when that bit is set, masking each copied cell's own non-empty fields under the working mask so an empty field of the buffer leaves the target's value in place and a cell carrying nothing at all writes nothing, still skipping a target past length or channels so a paste never grows the pattern), and the Undo steps setting (Settings::undoSteps, default 50 with kMaxUndoSteps = 200 as the cap, written and read back clamped with the rest of the SETTINGS block so the depth a host reloads belongs to the song, the same block having lost the pattern paste's default property on both the write and the read back along with its Settings member, which leaves a song saved before the drop reloading with nothing to read there, this block also losing the hex display's property on both the write and the read back with its Settings member and the Settings tab's row for it gone, which is what lets an older state that still spells that choice reload with nothing to read it into and leaves every value the model holds the one decimal spelling valueString and instString draw it in, a shorter number padded with spaces so its digits land in the same columns as a longer one's), and the arpeggiator macros (ArpMacro holding signed semitone steps off the base note, kArpCmd = 128 as the command value the letter A enters and kMaxArpMacros = 127 naming the id cap with id 0 the release call, kMaxArpSteps = 64, kArpEmptyStep = -128 as the step that sounds nothing and, this round, as the value every step of a newly defined macro holds and every step growing one adds, kArpDefaultSteps = 8 naming only how many of them a macro starts with while kArpDefaultJump was deleted outright since nothing builds a shape any more, Song::arps one grow-only table indexed by id - 1 beside the pattern rows and channels the build already treats that way so clearing a macro keeps the room its steps took and defining it again restores them, findArp growing it while peekArp reads it without growing it so the UI, the engine and the writer never invent a macro, arpDefined / arpLooped / firstUndefArpId / lastDefArpId / defineArp / clearArp / setArpLength clamped 1..64 and padded with kArpEmptyStep rather than with the base note, so a macro's shape is only ever where it was entered / setArpStep / setArpLooped naming it, the ARPS section writing a macro's id, loop flag, length and its steps as one base64 block rather than one property per step, an older state's MACROS section dropped outright on the read since those kinds are gone, an older row's command in the 128-143 range landing on kArpCmd while the argument it holds stays the argument
+/media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate taking a std::function<bool (int row, int ch)> mask so the selection can be any shape and a cell outside the mask ends the anchor run), and the cell clipboard (CellClipboard holding one {row, ch, Cell} entry per copied cell with its offset inside the copied rectangle, the kPasteNote/kPasteInst/kPasteVol/kPastePan/kPasteCmd/kPasteCmdVal bits and kPasteAll naming which fields reach plus kPasteAdditive = 64 as a mode bit added to a filter rather than one more field, Pattern::pasteCells writing them at an anchor and, when that bit is set, masking each copied cell's own non-empty fields under the working mask so an empty field of the buffer leaves the target's value in place and a cell carrying nothing at all writes nothing, still skipping a target past length or channels so a paste never grows the pattern), and the Undo steps setting (Settings::undoSteps, default 50 with kMaxUndoSteps = 200 as the cap, written and read back clamped with the rest of the SETTINGS block so the depth a host reloads belongs to the song, the same block having lost the pattern paste's default property on both the write and the read back along with its Settings member, which leaves a song saved before the drop reloading with nothing to read there, this block also losing the hex display's property on both the write and the read back with its Settings member and the Settings tab's row for it gone, which is what lets an older state that still spells that choice reload with nothing to read it into and leaves every value the model holds the one decimal spelling valueString and instString draw it in, a shorter number padded with spaces so its digits land in the same columns as a longer one's), and the arpeggiator macros (ArpMacro holding signed semitone steps off the base note, kArpCmd = 128 as the command value the letter A enters and kMaxArpMacros = 127 naming the id cap with id 0 the release call, kMaxArpSteps = 64, kArpEmptyStep = -128 as the step that sounds nothing and, this round, as the value every step of a newly defined macro holds and every step growing one adds, the steps being one std::int16_t each now that a step spells the note column's own note-off as the new kArpNoteOffStep = -129 below the new kArpTopStep = 127 a typed jump is clamped to so the two spellings below -128 are the only values a step can hold that are not jumps, kArpDefaultSteps = 8 naming only how many of them a macro starts with while kArpDefaultJump was deleted outright since nothing builds a shape any more, Song::arps one grow-only table indexed by id - 1 beside the pattern rows and channels the build already treats that way so clearing a macro keeps the room its steps took and defining it again restores them, findArp growing it while peekArp reads it without growing it so the UI, the engine and the writer never invent a macro, arpDefined / arpLooped / firstUndefArpId / lastDefArpId / defineArp / clearArp / setArpLength clamped 1..64 and padded with kArpEmptyStep rather than with the base note, so a macro's shape is only ever where it was entered / setArpStep, which this round keeps the two spellings below -128 as sentinels and clamps only a jump to ±kArpTopStep so the opening passes through it and the octave snap untouched on either side / setArpLooped naming it, the ARPS section writing a macro's id, loop flag, length and its steps as one base64 block rather than one property per step - this round two bytes a step little endian, since the opening sits below what one byte can name, and the read telling the two spellings apart by the length the block declares rather than by what it finds, since a one-byte block is exactly as long as half a wide one's, so an older state's steps widen sign extended with their jumps, their steps that sound nothing and their absence intact, an older state's MACROS section dropped outright on the read since those kinds are gone, an older row's command in the 128-143 range landing on kArpCmd while the argument it holds stays the argument
 it was, and the ARPS read clearing the whole table ahead of filling it, since that section names every macro that exists, which is what hands an undo an earlier state's own steps, loop flag and absence rather than the steps the macro still held with the state's added behind them), and the pitch bend letter
 (kCcTop = 127 as the highest plain CC number a column can hold, kBendCmd = 144 as the command value
 the letter B enters and kBendCentreVal = 64 as the bend argument that sits at the wheel's centre,
@@ -2552,7 +2694,14 @@ call written beside a === runs there and answers against the note that row is re
 alone for a cell that names none, so the note carries down
 the column the way an instrument, a volume or a pan does -; the run counting steps rather than
 accumulating positions so a step sits at arpOrigin + arpCount * stepPpq and a looped macro's cycle
-boundaries stay exact rather than drifting, arpCommand answering the command value kArpCmd with
+boundaries stay exact rather than drifting, flushArp answering a step spelled as the note column's own
+note-off, kArpNoteOffStep, by releasing only the note this very run entered - its stopNote on the state's
+own arpNote and only while the state still holds that very note - then sounding nothing and still counting
+the step, so the run stays where it was and its cycle boundaries stay exact beside a loop while nothing a
+column, another run or the row itself was holding is cut by a step, which is also why a step of the opening
+at a run's head releases nothing of its own since the column's own note is still owned lower down and takes
+it away with the row's note-off, and why the note an opening cut is not sounded again until a later step
+names one; arpCommand answering the command value kArpCmd with
 the argument as the macro id, id 0 releasing the note the run holds and clearing lastCmd and
 lastCmdVal so the column under one calls nothing rather than calling id 0 and a row there naming
 only an argument answers nothing, an id nothing defined
@@ -2599,7 +2748,7 @@ mistaken for one of the letters' own kinds.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source (the drag image is the item's cell), grid preview, rename, and the Alt pair answered in its keyPressed, which is what a press aimed at undo needs while the pool's own drag is still held by the DragAndDropContainer and has made that drag modal, and a focusRescue member it calls at the end of its own menu and of the rename alert, plus on the release of a drag, which ends whether or not the item ever landed on a target, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, since the same reason that made the undo pair unreachable gives the clipboard's steps to the host's own clipboard and cut as well, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects, so an Alt+S is heard even while the pool's drag is still modal and the editor is never offered the press at all, and its grid preview's command tick now painted lilac for the pitch bend beside the teal a plain CC and the orange a call keeps.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose as one semitone amount field (IncDecButtons slider with an editable text box, whole semitones 1-48 opening at 12) plus arrow direction buttons whose labels arrowUpGlyph/arrowDownGlyph build as explicit UTF-8, remap (source dropdown All/-0..-15 -> target dropdown -0..-15, the labels being the decimal ones the tracker's instrument column writes them in), cell scope (cellInScope answers whether a cell is in reach and applyToCells walks the cells, so the wider scopes name whole patterns and only the "Selection only" scope consults the tracker through the isCellSelected hook), interpolation with its single field dropdown (Note/Instrument/Volume/Pan/CC number/CC value, ids following the InterpField enumerators, the mask being the selection so there is no channel dropdown any more), the getCursorChannel hook still wired but unread, the scope box defaulting to "Selection only", and the Alt pair of undo and redo answered in its keyPressed, as is the Alt clipboard steps through copyStep / pasteStep / cutStep members the editor injects, so an Alt+C / Alt+V / Alt+X aimed at the cells is heard while a menu belongs to this panel, and so is the Alt+S slice, answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls, the row that used to switch the values between hex and decimal having been dropped outright along with its toggle member, its setting and its saved property, so every value the tab moves is decimal and its refresh guard now starts at the mid-row toggle, including the Volume column CC and Pan column CC sliders and the Undo steps row (undoStepsSlider, 0-200 defaulting to 50, sitting with the input prefs ahead of the CC pair and pushed back by refresh() so an undo that moved the depth shows in the row), and the Alt pair answered in its keyPressed so a press aimed at undo is heard while a menu belongs to this panel, as is the Alt clipboard steps through the same copyStep / pasteStep / cutStep members the editor injects, and the Alt+S slice through a sliceStep member of the same shape answered by answerSliceKey, since a popup opened over this panel is what routes the press here rather than the editor, and the "Paste as unique pattern by default" row dropped along with the Settings member it read and the property it saved, which leaves the panel counting one row fewer and its refresh re-reading the rest in their order.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: the arpeggiator macros the Command column's letter A calls, rewritten from the old name/kind/two-parameter editor: one card per macro that exists, named by the call a row writes (A 1) in orange, the tab painting nothing above the cards but its title and the one MACRO / LENGTH / LOOPED / STEPS label row at y 48 rather than the four dim caption lines that used to sit between the title and the cards, kContentTop taking them up from 92 to 70, since what the rules are belongs to the Commands map and to the README rather than to something a scrolled list has to be read under; each card's control line holding a LENGTH field, the plug-in's usual IncDecButtons Slider over 1..kMaxArpSteps with an editable text box, and a LOOPED ToggleButton, and the macro's own steps drawn beneath it 16 to a line as their signed semitones off the base note, arpStepText drawing -- for kArpEmptyStep, +N for a positive one and 0 for the base note, -- being the step that sounds nothing and sustains the one before, and a newly defined macro arriving with eight of them that all sound nothing rather than with the ramp kArpDefaultJump used to name; the step cursor (stepId / stepIndex) the arrows and a click on a drawn step move is what enters a step at the keyboard, and a step's number now living only in stepText until commitStepText lands it rather than being written by every press, so a sign and up to three digits accumulate into one value, the cell the cursor sits on draws that number while it lasts rather than the step's own value, commitStepText fires from keyPressed only when the incoming press is neither a further character of that number nor Escape, which is what lets setStepCursor, the arrows and a click of another card close it as well, one leading sign being kept with a repeat of it changing nothing, the other sign moving the number rather than trailing it and one typed after the digits it belongs to leading them, a number that is nothing but a sign meaning the base note, the value landing clamped to ±127 as one point of the undo line rather than one per keystroke and Escape dropping it altogether rather than leaving half of it behind; the bottom of the panel holding + Add macro (defineArp at firstUndefArpId) and - Remove selected rather than - Remove last, that one clearing the macro the step cursor sits on, falling back to lastDefArpId while there is no cursor yet and taking the cursor off the macro it cleared before rebuild parks it on another one, its bounds widened to 132 so the longer label fits, so the ids above and below a cleared macro keep naming the same macros; the vertical scrollbar the tab draws on its right edge having its geometry in one set of helpers, scrollbarX at getWidth() - 10, thumbHeight, thumbTop and scrollToPointer, so paint and the drag cannot drift apart and the thumb a drag centres on is the one that is visible, with mouseDown answering a pointer in that column ahead of the card hit-test loop, keeping the grab in draggingThumb through mouseDrag while mouseUp clears it - JUCE spelling that callback mouseDrag rather than the mouseDragged the panel first declared, an override of which does not compile - and mouseWheelMove still turning the list beside it, which is what the mouse alone needs where a host gives the plug-in no wheel, and a public getScrollY () so a test can read the scroll back rather than only see it painted, beside a public stepBand (which) naming a step's group as its index over the Settings row "Subticks per row" - six at the default - named the same way rather than by the 16 cells a drawn line wraps at, the strip's paint shading every second group at 0.58 alpha of whatever colour that step's own state asks for, theme::cmdMacro for a step the macro holds or the cursor pending, else theme::noteOff, which is what makes a macro longer than the row that called it read as row spans rather than as one run of numbers and is what the accessor is public for, so UiTest reads the boundary at steps 0, 5, 6 and 12 rather than a pixel; rebuild / syncValues / cardHeight / blockTop / contentHeight / clampScroll laying the cards out against the scrollY that wheel and the drawn thumb move, and every change the panel makes answering through onModelChanged so the undo line holds a point for a drag of a length field, a click of the looped tick, a typed step and a cleared one as it does for the two buttons, which is what lets Ctrl+Z and Alt+Z take each of them back rather than stepping over them in silence; both Alt pairs answered in its keyPressed, the undo one and the clipboard one through copyStep / pasteStep / cutStep members of the same shape answered by the 4-argument answerClipboardKey, since the macros panel's own context menu is what routes a press to it rather than to the editor, and the Alt+S slice answered after the clipboard one through answerSliceKey with a sliceStep member of the same shape.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: the arpeggiator macros the Command column's letter A calls, rewritten from the old name/kind/two-parameter editor: one card per macro that exists, named by the call a row writes (A 1) in orange, the tab painting nothing above the cards but its title and the one MACRO / LENGTH / LOOPED / STEPS label row at y 48 rather than the four dim caption lines that used to sit between the title and the cards, kContentTop taking them up from 92 to 70, since what the rules are belongs to the Commands map and to the README rather than to something a scrolled list has to be read under; each card's control line holding a LENGTH field, the plug-in's usual IncDecButtons Slider over 1..kMaxArpSteps with an editable text box, and a LOOPED ToggleButton, and the macro's own steps drawn beneath it 16 to a line as their signed semitones off the base note, the panel's own public stepLabel (int step) drawing -- for kArpEmptyStep, OFF for the new kArpNoteOffStep - the note column's own spelling, since === is a release and not a step, and the reason the label had to leave the file-local lambda the panel used to keep, so the strip's paint and the tests read one spelling rather than two - +N for a positive one and 0 for the base note, -- being the step that sounds nothing and sustains the one before and OFF being the step that opens what the run was holding rather than sounding one of its own, and a newly defined macro arriving with eight of them that all sound nothing rather than with the ramp kArpDefaultJump used to name; the step cursor (stepId / stepIndex) the arrows and a click on a drawn step move is what enters a step at the keyboard, and a step's number now living only in stepText until commitStepText lands it rather than being written by every press, so a sign and up to three digits accumulate into one value, the cell the cursor sits on draws that number while it lasts rather than the step's own value, commitStepText fires from keyPressed only when the incoming press is neither a further character of that number nor Escape, which is what lets setStepCursor, the arrows and a click of another card close it as well, one leading sign being kept with a repeat of it changing nothing, the other sign moving the number rather than trailing it and one typed after the digits it belongs to leading them, a number that is nothing but a sign meaning the base note, the value landing clamped to ±127 as one point of the undo line rather than one per keystroke and Escape dropping it altogether rather than leaving half of it behind, commitStepText handing the raw value to the setter rather than clamping it a second time at the panel since the setter owns that clamp and one rule cannot be stated twice; the note column's own note-off key spelling a step the same way it spells a release there - the backtick and its shifted tilde, the pair the note entry answers alike, writing kArpNoteOffStep at the step the cursor sits on rather than writing a number into it, claiming the press so no letter of the note table is typed beside it, firing onModelChanged once for it and leaving the cursor on the step it opened rather than stepping past it the way Delete and Backspace leave the cursor they cleared, which is why the next press lands beside the opening rather than running the macro past the release the user meant to hear there; the bottom of the panel holding + Add macro (defineArp at firstUndefArpId) and - Remove selected rather than - Remove last, that one clearing the macro the step cursor sits on, falling back to lastDefArpId while there is no cursor yet and taking the cursor off the macro it cleared before rebuild parks it on another one, its bounds widened to 132 so the longer label fits, so the ids above and below a cleared macro keep naming the same macros; the vertical scrollbar the tab draws on its right edge having its geometry in one set of helpers, scrollbarX at getWidth() - 10, thumbHeight, thumbTop and scrollToPointer, so paint and the drag cannot drift apart and the thumb a drag centres on is the one that is visible, with mouseDown answering a pointer in that column ahead of the card hit-test loop, keeping the grab in draggingThumb through mouseDrag while mouseUp clears it - JUCE spelling that callback mouseDrag rather than the mouseDragged the panel first declared, an override of which does not compile - and mouseWheelMove still turning the list beside it, which is what the mouse alone needs where a host gives the plug-in no wheel, and a public getScrollY () so a test can read the scroll back rather than only see it painted, beside a public stepBand (which) naming a step's group as its index over the Settings row "Subticks per row" - six at the default - named the same way rather than by the 16 cells a drawn line wraps at, the strip's paint shading every second group at 0.58 alpha of whatever colour that step's own state asks for, theme::cmdMacro for a step the macro holds or the cursor pending, else theme::noteOff, which is what makes a macro longer than the row that called it read as row spans rather than as one run of numbers and is what the accessor is public for, so UiTest reads the boundary at steps 0, 5, 6 and 12 rather than a pixel; rebuild / syncValues / cardHeight / blockTop / contentHeight / clampScroll laying the cards out against the scrollY that wheel and the drawn thumb move, and every change the panel makes answering through onModelChanged so the undo line holds a point for a drag of a length field, a click of the looped tick, a typed step and a cleared one as it does for the two buttons, which is what lets Ctrl+Z and Alt+Z take each of them back rather than stepping over them in silence; both Alt pairs answered in its keyPressed, the undo one and the clipboard one through copyStep / pasteStep / cutStep members of the same shape answered by the 4-argument answerClipboardKey, since the macros panel's own context menu is what routes a press to it rather than to the editor, and the Alt+S slice answered after the clipboard one through answerSliceKey with a sliceStep member of the same shape.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/AltShortcutKeys.h: the shared body every panel answers the Alt pairs the hosts leave free with, renamed from UndoRedoKeys.h once it grew the second pair (the references to that name above are this header under its old name). matchUndoRedoKey / answerUndoRedoKey as before (reading Alt+Z / Alt+Y over both the key code and the printed character and refusing Command, Ctrl and Shift so the whole Alt+Shift family stays the host's, claiming the press only when that panel holds the step, and closePending naming the half-typed numeric buffer the tracker closes on the press before stepping); matchClipboardKey / answerClipboardKey the new steps added to it (a ClipboardKey of none, copy, paste or cut, the letters read the same two ways, Alt+C copying what the tracker holds selected, Alt+V pasting at the cursor with everything and Alt+X cutting, which is that copy followed by emptying exactly the cells it took so the paste after it moves them, and the answer claiming the press whenever that panel holds the step rather than only when the step did something, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor, next to copying, and a paste answered twice would walk the undo line twice); matchSliceKey / answerSliceKey the clip slice at the playhead added beside them, the s read the same two ways over the key code and the printed character, an Alt+Shift or Ctrl spelling refused so the whole Alt+Shift family and the host's own save stay the host's, and the press claimed whenever the panel holds the slice rather than only when the slice did something, since s is one of the note-entry letters and an Alt held s that fell through would type a C sharp at the cursor beside splitting a clip, while there is no Ctrl spelling of the slice left for a host and the plug-in to disagree about; matchSliceKey / answerSliceKey the clip slice at the playhead added beside them, the s read the same two ways over the key code and the printed character, Alt+Shift and Ctrl refused so the whole Alt+Shift family and the host's own save stay its, and the press claimed whenever the panel holds the slice rather than only when the slice did something, since s is one of the note-entry letters and an Alt held s that fell through would type a C sharp at the cursor beside splitting a clip, and there is no Ctrl spelling of the slice left in any panel for a host and the plug-in to disagree about.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel, unchanged this round: the Command column's three kinds already had the teal of theme::cmdCC and the orange of theme::cmdMacro, and theme::cmdOther, the lilac that had been going unused, is what the pitch bend's letter, its decimal argument and its carried spelling are now painted in.
 /media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp: the sqrtf and atan2f defined inside the plug-in so its libm requirement stays portable, aliased hidden in assembly and built without LTO.
@@ -2632,7 +2781,29 @@ dropping them at one row and a B doing the same at another, the Settings tab exp
 name, and the Settings tab's Snap to grid row standing in for the row that used to switch the
 spelling on one undoable action and back on another - each of them still one point of the undo line,
 which is what keeps the undo caps the later sections ride where they were; and EditorShot lost the
---hex flag its usage header and parse block used to carry.
+--hex flag its usage header and parse block used to carry. This round they moved with the step's
+own note-off: CoreTest 279, +14, adds three arpeggiator playback sections on the macro's own offsets
+rather than on absolute samples, since the notes h.notes and the raw events h.raw name are block-relative
+and only their order inside the clip is what the engine promises - one opening mid-run putting its release
+between the two note-ons either side of it with one release per opening, one at a run's head and the tail
+of the same run, where the head's opening releases nothing and the next step's note-on is the very next
+event after the previous row's release, so nothing of its own was there to cut, and one looped cycle
+stepping through its openings and sounding itself again after the single release, its note-on of the pitch
+the cycle opened counted twice with only one release of that pitch between them; plus two round-trip checks
+putting an opening at a step and reading it back through the wider saved block, and a hand-built ARP record
+of four one-byte steps, typed RETREKTOR rather than at the shape a state writes so it reads at all, widening
+with its jumps, its steps that sound nothing and their absence intact - the trap one such fixture had
+already shown elsewhere, a root typed otherwise leaving fromValueTree to answer early with no macros at
+all and an o.findArp (id)->steps deref then faulting at once; UiTest 629, +10, adds one self-contained
+section after every section that reads the undo line's depth, since one more edit made upstream of those
+checks moves the depth the paste and clipboard deltas ride and had already shown that trap twice, driving
+the panel's own + Add macro leaving the cursor parked on the fresh macro's first step, the backtick spelling
+it there claiming the press, spending exactly one point of the line for that one press and leaving the cursor
+where it was, the opened step read back through the model as the sentinel and back through the panel's own
+stepLabel as OFF against an empty one reading --, the step taken back to empty by Ctrl+Z and put again by
+Ctrl+Y, and Backspace clearing the opened step at a point of its own; and EditorShot's --arp= grew the token
+off, accepted the same way its own backtick is, so one flag can name either spelling and the Macros-tab shot
+can draw the OFF cells among the jumps rather than only dashes.
 /media/data2/GameDev/Plugins/ReTrektor/JUCE: vendored framework.
 Important Context
 Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) (build dir currently configured and passing).
@@ -2646,7 +2817,63 @@ than the live song, so a test writing at the model layer hands it over with proc
 and trimUndoLine caps the undo line at the Settings' undoSteps by erasing the oldest states, so the
 depth checks that ride that cap move with every edit made upstream of them.
 Editor screenshot: DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot /tmp/opencode/editor.png 1240 760.
-Git (newest first): 9cda2f5 the carried argument follows the newest argument the column entered
+Git (newest first): 5a14699 an arpeggiator macro step spells the note column's note-off: the backtick
+the note entry answers there opens a step, that step opens only the note its own run was holding rather
+than sounding one of its own, and the saved steps block grew to two bytes a step so the opening reads back
+as it was. One step's int widened rather than a flag beside it, since a step already used every value above
+-128 as a jump and -128 as the step that sounds nothing, so there was no room left for a third spelling and
+the ask could not be read at all until one more bit of width was given to it: ArpMacro::steps went to
+std::vector<std::int16_t>, kArpEmptyStep stayed at -128, the new kArpNoteOffStep took -129 below it and the
+new kArpTopStep capped a typed jump at ±127 so the two spellings below -128 are the only values a step can
+hold that are not jumps, setArpStep and the octave snap letting both sentinels through untouched on either
+side - which is what keeps the opening a shape rather than a landing the snap would have folded into a
+note. The engine answers it inside flushArp rather than as another kind of row: at that subtick it stops
+only the note this very run entered, through stopNote on the state's own arpNote and only while the state
+still holds that very note, then sounds nothing and still counts the step, so the run stays where it was,
+a looped cycle's boundaries stay exact beside the loop and nothing a column, another run or the row itself
+was holding is cut by a step; a step of OFF at a run's head therefore releases nothing of its own, since
+the column's own note is still owned lower down and the row's note-off takes it away there, and the note an
+opening cut is not sounded again until a later step names one. closeArp and endArp, the row's whole `A 0`
+release, the note-off taking the column's note away and the clip end's close all stayed as they were beside
+it. The saved ARP block writes two bytes a step little endian because the opening sits below what one byte
+can name, and the reader tells the two spellings apart by the length the block declares rather than by what
+it finds - a one-byte block is exactly as long as half a wide one's - so an older state's steps widen
+sign extended with their jumps, their steps that sound nothing and their absence intact, which is what
+lets a step beyond a one-byte jump and an opening survive a state while a project saved before this round
+keeps what it had. The Macros tab shares one spelling rather than keeping a second: the panel's file-local
+stepText lambda became the public MacrosPanel::stepLabel (int step), which the strip's paint and the tests
+read, so OFF, the note column's own word for a release rather than === which is not a step, is what an
+opened cell draws in the jump's own orange and an empty one draws -- in the release's dim, the band's alpha
+and the colour rule otherwise untouched; the backtick and its shifted tilde, the pair the note entry answers
+alike, write the opening at the step cursor, claim the press so no letter of the note table is typed beside
+it, fire onModelChanged once for it and leave the cursor on the step it opened rather than stepping past
+it the way Delete and Backspace leave the step they cleared, since stepping past it would run the macro
+past the release the user meant to hear there; and commitStepText now hands the raw value to the setter
+rather than clamping it a second time at the panel, the setter owning that clamp so one rule is not stated
+twice. The tests moved with all three layers: CoreTest 279, +14, names an opening mid-run ordering its
+release between the note-ons either side of it and counting one release per opening, one at a run's head
+releasing nothing while the tail of the same run closes what the next step entered, a looped cycle stepping
+through its openings and sounding itself again after the one release, and that the only note an opening ever
+stops is the one that run entered, so nothing a column or another run was holding is cut - those sections
+asserting the order of the raw events inside the clip rather than at absolute samples, since h.notes and
+h.raw are block-relative; the round trip putting an opening at a step and reading it back through the wider
+block, and a hand-built older ARP record of four one-byte steps widening with its jumps, its empties and its
+absence intact, that fixture's root typed RETREKTOR because fromValueTree answers early for anything else
+and leaves no macros at all, which is what had already made an o.findArp (3)->steps deref fault elsewhere;
+UiTest 629, +10, one self-contained section placed after every section that reads the undo line's depth -
+a step written earlier in the run moves the depth the paste and clipboard deltas ride, the trap two earlier
+sections had already shown - driving the panel's own + Add macro leaving the cursor on the fresh macro's
+first step, the backtick spelling that step and claiming the press, exactly one point of the line for that
+one press, the cursor left where it was, that step then read through the panel's own stepLabel as OFF against
+an empty one reading --, Ctrl+Z taking the step back to empty and Ctrl+Y putting the opening again, and
+Backspace clearing the opened step to the one that sounds nothing at a point of its own; EditorShot's
+--arp= grew the token off beside the literal backtick so one flag can name either spelling, and the Macros-tab
+shot at /tmp/opencode/arp-off.png - 1000x640, --tab=macros --arp=+0,off,+4,-8,off,+12 --macros=4 - draws the
+OFF cells among the jumps in the jump's own orange, against /tmp/opencode/arp-empty.png with dots in the
+same places, whose different sha256 is the cheap proof the word really is drawn rather than a dash; the
+9 files changed being Source/Model.h Source/Model.cpp Source/PlaybackEngine.h Source/PlaybackEngine.cpp
+Source/ui/MacrosPanel.h Source/ui/MacrosPanel.cpp tests/CoreTest.cpp tests/UiTest.cpp tests/EditorShot.cpp.
+9cda2f5 the carried argument follows the newest argument the column entered
 rather than the one the letter above it called with: a row that names only an argument under a
 command already in force answers with that command, so the argument its rows under it carry are the
 one that row entered rather than the one the letter itself called with, which the view had kept
