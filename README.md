@@ -196,7 +196,14 @@ cmake --build tests/build -j"$(nproc)"
   re-triggering the note it measured from: an `A 0` kill sounding the base the run stepped
   from again at its own row, that note being the last one the column sounds, and a release
   spelled by an `o` under a carried call leaving that column sounding its own base note
-  rather than silent below it.
+  rather than silent below it, and one pattern placed twice back to back having
+  one release of that pitch ahead of the note the lower clip enters at its row 0
+  rather than two — that clip's own end being the only thing queued there ahead of
+  that note-on, the stuck-key guard adding no second note-off of a pitch that
+  release had already opened at that very sample of that block, which is what a
+  host answering the sample rather than the order inside one needs so it does not
+  hear that note as opened at once, and nothing of that pitch closing it again over
+  the rows below.
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column chips
   clicked per channel, selection gestures — a click selecting one cell, a drag
@@ -1088,7 +1095,18 @@ sustains the step before it rather than the base note.
   synth. The engine remembers every pitch it has ever sent a note-on for, per
   MIDI channel (survives transport re-arms), always precedes a later note-on
   of such a pitch with a matching note-off, and closes clip ends with a
-  tolerance for hosts that report block bounds slightly short.
+  tolerance for hosts that report block bounds slightly short. The release that
+  channel already put at that same sample is the exception rather than an extra
+  beside it: it is recorded with the pitch, the MIDI channel and the sample of
+  the block it was queued in, and the guard asks that record before adding an
+  opening of its own, which is what a note entered at the very sample a clip's
+  end released that pitch at — one pattern placed twice back to back, holding
+  one pitch at its foot row and at the row below that boundary — has ahead of
+  it: one note-off of that pitch rather than two. Two releases of one pitch
+  around one note-on at one sample is what a host that answers the sample
+  rather than the order inside one reads as the new note being opened at once,
+  while the one release a note change inside one clip already puts ahead of its
+  note works everywhere.
 * Transport re-arm: a fresh start or a transport jump releases what the synth
   may still be holding from the position the transport left, at that block's
   first sample, and those releases are ordered ahead of the note-ons queued for
@@ -1245,9 +1263,19 @@ sustains the step before it rather than the base note.
 * Reaper does not call a MIDI effect while the transport is stopped: stop-time
   note-offs (e.g. transport stopping exactly at a clip end) are silently
   dropped. The safety net above re-articles the key on the next note-on of the
-  same pitch, at the cost of one extra note-off; the moved-clip-from-time-0
-  scenario is covered by the CoreTest "Stuck-note guard" section but has not
-  been retested in Reaper itself yet.
+  same pitch, at the cost of one extra note-off, and that extra one is the only
+  place the shape goes wrong: a second note-off of a pitch beside the note-on
+  one sample later is what a host answering that sample rather than the order
+  inside it reads as the new note being opened right away, which is the reported
+  row-0 note cut at a clip boundary — one pattern placed twice back to back, its
+  foot's note and the next clip's row 0 holding one pitch, a different pitch there
+  having never shown it since that boundary only ever released the other one. That
+  duplicate is now suppressed by recording the release rather than by moving an
+  event, pinned by the CoreTest "A clip boundary re-entering the pitch the
+  clip's foot entered" section at one release ahead of that note-on rather than
+  two and at nothing of that pitch closing the note again after it; the moved-clip-
+  from-time-0 scenario is covered by the CoreTest "Stuck-note guard" section, and
+  neither has been retested in Reaper itself yet.
 * Command kinds beyond plain CC, the arpeggiator call and the pitch wheel (a dedicated
   pitch bend CC105/CC106 pair rather than the standard pitch wheel message, tempo, song
   position) are future work.
@@ -1468,6 +1496,18 @@ last, with the new item greyed while nothing is selected. The wipe shares one
 clearSelectedCells loop with the menu's Clear / Selection so the two do not drift apart,
 and a cut records exactly one point of the undo line, the wipe's alone, since the copy it
 makes changes nothing in the saved song.
+A clip boundary re-entering the pitch the clip above left playing sends one release there rather
+than two: the release a channel queued at a sample is recorded as that pitch, that MIDI channel and
+that sample of the block it was queued in rather than an event being moved or a note-on being started
+later, and the stuck-key guard asks that record before it adds an opening of its own, since two note-offs
+of one pitch around one note-on at one sample is what Reaper read as the note entered at the row below
+the boundary being opened right away while the one release a note change inside one clip already puts
+ahead of its note-on reads right everywhere. The record only reaching as far as the block being queued,
+its three numbers cleared at that block's start by the flush loop over every tracker channel, is what
+keeps a note entered at a same-numbered sample of the block below still asking the guard for its own
+opening, and allNotesOff's own per-channel note-offs not being recorded at all is what keeps a transport
+re-arm and a loop wrap re-articulating exactly as the fixtures above pin, that block being the one a host
+hands over while the transport is stopped and so may never deliver at all.
 Work State
 Completed
 Repo init, JUCE 8.0.9 vendored/committed; CMakeLists.txt for VST3 MIDI effect.
@@ -2685,9 +2725,96 @@ the saved form, and the portability read still topping out at GLIBC_2.38 with GL
 naming no sqrtf or atan2f relocation, the only single-precision names the binary keeps being
 JUCE's own cosf, expf, floorf, logf, powf, roundf, sincosf and sinf; the build still warns only
 of the PluginEditor.cpp -Wshadow pair and the hidden processBlock (double&) overload.
+The row-0 note cut at a clip boundary is the stuck-key guard's second release of one
+pitch beside the note-on one sample later, and that is the whole difference between the
+shape that works and the one that does not: the report "sometimes row 0 note in pattern
+being cut shortly if previous pattern ends with the same note playing. no cut if its
+different note" is heard in Reaper, the note entered at that row being released right away,
+over one pattern used twice back to back. A scratch trace put inside CoreTest named the two
+shapes at the engine rather than at a host: the boundary of a 4-row clip of one channel
+sits at absolute sample 24000, which is block 46 at offset 448 under that harness's 48 kHz,
+120 bpm and 4 rows per beat - a row being 6000 samples of it and one 512-sample block
+spanning 0.021333 ppq - and sent OFF 60, OFF 60, ON 60 all at that one sample when the clip
+below entered the same pitch there, against one OFF then ON 62 when it entered another, the
+first off being that clip's own end releasing its last row and the second the guard
+re-articulating a pitch the synth may still be holding from a stop the host never delivered,
+while in both shapes the row-0 note then sustained to that lower clip's own end. So the
+engine's own ordering was already right and the only structural difference between the two
+shapes was that duplicate note-off, which a host answering the sample rather than the order
+inside one reads as the new note being opened at once rather than re-articulated. The fix
+suppresses that duplicate rather than moving an event: ChannelState grew relNote / relMidiCh
+/ relOffset beside activeNote / activeMidiCh / activeClip, naming the pitch, the MIDI channel
+and the block-relative sample the last note-off this channel queued released, stopNote
+recording those three with every release it queues - the clip's own end, a row's own note
+change and the note an arpeggiator's release or a switched call takes away - process()
+clearing them at the start of every playing block since a release only lives inside the block
+being queued and a note entered at a same-numbered sample of the block below it still asks the
+guard for its own opening, and the guard in startNote asking that record before it adds an
+opening of its own, which is what leaves a note entered at the very sample one of that
+channel's releases opened its own pitch at having that one release ahead of it and no second
+one beside its note-on; reset() takes the three back with its own c = ChannelState ().
+allNotesOff's own per-channel note-offs are deliberately not recorded, that block being the
+one the transport hands over while stopped and may never deliver at all, which is why the
+guard still re-articles there. What did not move is the ordinary one release plus one note-on
+at one sample a note change inside a clip and a same-pitch re-trigger at a row already had,
+neither of them reaching the record since the change releases a pitch other than the one
+entered below it and a re-trigger sits at a sample no release of that pitch was queued at, or
+the re-arm and loop-wrap allNotesOff ordering the fixtures above already pin. CoreTest went
+from 314 checks to 319 with a section of its own, "A clip boundary re-entering the pitch the
+clip's foot entered", placed ahead of the transport re-arm ones rather than beside the stuck-
+note one: one 4-row pattern holding one pitch at its head row and at its foot row, a second
+clip of that same pattern placed at the first's own end through patternLengthBeats, 100 blocks
+played past that second clip's own end, the pitch entered at 4 places and released 4 times
+rather than the 5 the guard's extra made before this fix, and its raw ordering naming the third
+note-on of that pitch having exactly one note-off of it ahead of it rather than two - the shape
+a note change inside one clip already sends - and nothing of that pitch right after it, so that
+note still sounds over the rows below its row 0. The scratch trace that found the shape, one
+pattern used twice back to back printed block by block with absolute sample positions and a
+run per shape, was deleted once that section stood in its place. The plugin rebuilt with only
+the warnings the tree has always shown - the PluginEditor.cpp -Wshadow pair, the hidden
+processBlock (double&) overload, the -Wsign-conversion notes against the stuck-key guard's own
+bitset test and set and the ui layer's deprecated and unhandled-switch ones - and CoreTest 319,
+UiTest 676 and Smoke 13 all came back PASS with 0 failures, the serialised state still 2392
+bytes since the three numbers are engine state rather than saved state, against the bundle
+refreshed by rsync -a --checksum over its DIRECTORY rather than its single .so, the built and
+installed binary both sha256 42f217c3d7f32a9f6cadb8284e2416c599ddf784d025bd91ce3138799e88ef94
+with the 18450614c5e9862582472bd0a56e2f7261954d4ba86fe87877151ab4083c30a6 the previous round
+carried gone, as expected since only the engine changed. The change is engine-only, so no new
+shot was invented and the four pinned ones came back byte-identical rather than a fifth being
+made: /tmp/opencode/slide-u.png still c19a018bf14bb9e1ae5b306c2ba8a88aadda0ff4ef3c301e674d242c2c6382fc
+at --slide=6 --slide-arg=12, /tmp/opencode/slide-d.png still e1a76f3baf61481d2ee462be4c183d1d9551dbc00dd0588b8935fa217b9fe149
+at --slide-down=10 --slide-arg=3, /tmp/opencode/slide-off.png still 5386fb80f9ccd0434cf122048522bb9e36e19eec98b8be9e50003b222afe5d26
+at --slide=6 --slide-arg=128 and /tmp/opencode/slide-stp.png still c1fc0fa130b2d570389be930639820e04f1655f1c1126be872751fda952a19bd
+at --slide-down=10 --slide-arg=129, the four pictures being the proof that nothing about the
+drawing, the typing or the layout moved. The portability read still tops out at GLIBC_2.38 with
+GLIBCXX_3.4.32 and names no sqrtf or atan2f relocation, the single-precision names the binary
+keeps being JUCE's own cosf, expf, floorf, hypotf, logf, powf, roundf, sincosf, sinf and tanf,
+and the release record is three ints of engine state so it asks nothing of either library.
 
 Active
-Nothing is open in the code: this round's changes, the argument field's two letter spellings OFF
+Nothing is open in the code: this round's change is landed, built, installed and tested - a
+release of a pitch a channel queued at a sample being recorded as that pitch, that MIDI channel
+and that sample of the block it was queued in, the stuck-key guard in startNote asking that record
+before it adds an opening of its own, and process() clearing those three at the start of every
+playing block since a release only lives inside the block being queued, so a note entered at a
+same-numbered sample of the block below it still asks the guard for its own opening - which is
+what one pattern placed twice back to back, its foot's note and the next clip's row 0 holding one
+pitch, now hands a host: one note-off of that pitch ahead of the note-on that lower clip enters at
+its row 0 rather than two, and nothing of that pitch closing that note after it. What that duplicate
+did to the note is known only from the hosts and only from the report: it is Reaper where the row-0
+note was heard released right away, while the engine's own ordering was already right in both shapes,
+the boundary's release and its note-on queued in the order a host that reads the order inside a
+sample needs and the row-0 note sustaining to that lower clip's own end either way. What the ordinary
+shapes keep is the one release plus one note-on at one sample a note change inside a clip and a
+same-pitch re-trigger at a row already had, since a change releases a pitch other than the one
+entered below it and a re-trigger sits at a sample no release of that pitch was queued at, so neither
+of them reaches the record, and the re-arm and loop-wrap allNotesOff ordering is pinned as it was by
+the sections above. Not recording allNotesOff's own per-channel note-offs is this round's one
+deliberate call rather than an open question: that block is what the transport hands over while it is
+stopped, so those releases may never be delivered at all and a pitch opened there is not one a host
+was already shown to be holding.
+
+Nothing is open in the code beside that hearing: the argument field's two letter spellings OFF
 and STP, the wheel being ended rather than left bent under an arpeggiator call on its own column,
 a slide row closing the arpeggiator run that column was in while the same two commands on separate
 tracker channels of one MIDI channel work together, and an arpeggiator's release re-triggering the
@@ -2800,7 +2927,21 @@ start reached by a forward seek should play the row as a wrap does is the user's
 current build keeps that case honouring the Settings row.
 Blocked
 No Reaper installed; VST3 host testing limited to JUCE smoke test + Carla
-availability. The modal routing that made the Alt pair inert cannot be
+availability.
+This round's one change is the same shape of cover rather than a stronger one: CoreTest names
+the boundary of two clips of one pattern as one note-off of that pitch ahead of the note-on the
+lower clip enters at its row 0 rather than two, that note-on still being reached at all, and
+nothing of that pitch closing it right after or anywhere over that lower clip's rows, with the
+counts saying 4 entries and 4 releases rather than the 5 the guard's extra made, and the raw
+event order rather than any block-relative offset being what names that shape; but where Reaper's
+own MIDI receiver puts two note-offs and a note-on handed at one sample, what it does with the
+one release and one note-on at one sample the plug-in now hands it, how long it holds the note
+that boundary's own release cut before that note-on, and whether a receiver that coalesces what
+it is handed at one sample now hears one release there rather than two, are known from the report
+and from the hosts rather
+than from a host the tests can drive, and the moved-clip-from-time-0 stuck-note scenario the
+section above pins is still unconfirmed there too.
+The modal routing that made the Alt pair inert cannot be
 reproduced by the menu tests, which call the menu callback directly rather than
 going through showMenuAsync or startDragging, so both the per-panel answer and the
 focus hand-back are covered at the panel and at the drop and pinned by reading
@@ -2980,6 +3121,25 @@ hosts can name, whether the sub-row steps of a ramp whose clip ran out are heard
 dropped with it, and whether a host shows the dim span carried beside a carried letter moving to the
 newest one an argument-only row entered rather than the one the letter itself named.
 Next Move
+Confirm in Reaper that a clip boundary entering the pitch the clip above left playing is heard as one
+note rather than as a cut: one pattern placed twice back to back, its foot's note and its own row 0
+holding one pitch at the default 4 rows per beat so the first clip's end lands exactly on the lower
+clip's row 0, that note sounding from the boundary down over the rows below it rather than opening at
+once, and its only release below there being the next row that names that pitch re-articulating it the
+way a note change inside one clip already does rather than a second note-off of that pitch sitting
+beside that note-on at one sample. That is the one thing this round changed, the guard's extra release
+of a pitch that boundary's own end had already released there, and what has to have stayed is the rest
+of that shape: a boundary entering a different pitch still cutting the pitch above it and starting the
+new one, a note change inside one clip still cutting at the row that named it, one pitch struck again
+at a row still re-articulating once rather than twice, a note entered at the row a clip ends on still
+being released by that clip's own end at that same sample, and a transport re-arm or a loop wrap still
+putting its channel-wide releases ahead of the note-on that lands at its own first sample rather than
+after it, the stuck-key guard still opening a pitch the state no longer holds on its own there since
+allNotesOff records nothing. Ask the same boundary of Bitwig, which honours an all-notes-off where
+Reaper's receivers ignore one, and of Carla, since one fewer note-off of one pitch at one sample is
+what those receivers were being handed before as well. And ask whether the guard's own extra note-off
+is still heard where a stop the host never delivered took the releases away, the moved-clip-from-time-0
+scenario being one CoreTest names and neither host has been asked of yet.
 Confirm in Reaper and Bitwig that the argument field answers the two letters this round gave it rather
 than passing the press to the host first, so an o typed beside a U, a D or a B is heard as the plug-in's
 OFF rather than nothing at all or a host action, an s typed beside one of the three is heard as the STP
@@ -3404,7 +3564,21 @@ own extra note-off of the pitch it re-articles. flushSlide beside flushArp at al
 stepPpq of (1 / rowsPerBeat) / subticks are as they were, and so is the ramp's own arithmetic of slideFrom + (slideTo
 - slideFrom) * slideCount / jmax (1, slideTotal), a row's own sub-row steps still being flushed only after that row's
 command answered, which is why an OFF or an STP read at a row is answered from the point the ramp reached at the last
-sub-row step before that row rather than from one of that row's own.
+sub-row step before that row rather than from one of that row's own. The release record a channel now
+keeps beside activeNote / activeMidiCh / activeClip: relNote / relMidiCh / relOffset naming the pitch,
+the MIDI channel and the block-relative sample the last note-off this channel queued released, written
+by stopNote with every release it queues - the clip's own end, a row's own note change, an arpeggiator
+opening or a switched call - cleared at the start of every playing block by the flush loop over every
+tracker channel in process(), since a release only lives inside the block being queued and a note entered
+at a same-numbered sample of the block below it still asks the guard for its own opening, and asked by
+the stuck-key guard in startNote before it adds an opening of its own, which is what leaves a note entered
+at the very sample one of that channel's releases opened its own pitch at having one release ahead of it
+rather than two - the boundary of one pattern placed twice back to back being that shape, and the second
+release there being what a host answering the sample rather than the order inside one read as the new note
+being opened at once. allNotesOff's own per-channel note-offs are deliberately not recorded, that block
+being the one the transport hands over while it is stopped and so possibly never delivered at all, which
+is why a re-arm still asks the guard for its own opening there, and reset() takes the three back with its
+own c = ChannelState ().
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock, the size of the last GUI shown, and the undo line (undoStates holding the saved song XML with undoCursor and undoBytes counted in UTF-8 bytes, pushUndoPoint appending what a model change reached and skipping one that changed nothing, undo() / redo() stepping and refreshing the snapshot, resetUndoHistory anchoring a fresh line for a state the host hands back, getUndoDepth / getUndoRedoCount naming what is left to walk, trimUndoLine dropping the oldest states against the Settings depth and a 32 MB budget while never dropping the state the model is in or one ahead of the cursor, and stepUndoHistory keeping the pattern clipboard, the edit playhead and the mirrored transport position a saved state does not carry).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size, wiring the tools panel's isCellSelected hook to the tracker's selection, and the shortcuts where Ctrl+C/V name the cell clipboard (copySelectionToClipboard / pasteClipboardAtCursor) while the pattern clipboard's Ctrl+Shift+C / Ctrl+Shift+V pair is refused rather than answered, its two doCopy() / doPaste (bool forceUnique) members and its Ctrl+X slice branch gone altogether with that pair, the undo funnel commitEdit() (record the point the model reached, then refresh, so every component's onModelChanged ends in it while the bottom bar's OCT / STEP / CHANNELS handlers and selectPattern() record their own), performUndo / performRedo stepping the plug-in's line and refreshing the Settings panel as well because its rows hold their own values, and the Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z shortcuts with the Alt+Z / Alt+Y spellings the hosts leave free answering the same two steps, one each since the whole Alt+Shift family is refused rather than spent on a redo alias the hosts swallow, the Alt branches matching the letter over the key code and the printed character, all of them reaching the editor while every panel answers the Alt pair as well through one wireUndoRedo lambda that injects performUndo / performRedo into the tracker, timeline, pool, settings, tools and macros panels, so whichever panel the host routed the press to walks one point of the same line rather than one the panel owns, and one wireFocusRescue lambda injecting the same shape's focusRescue member into the tracker, timeline and pool so the panel that closed a menu, an alert or a drag hands keyboard focus back to the tracker (and to itself where the tracker is hidden), which is what makes the whole keyboard heard again rather than only the editor's own shortcuts, and one wireClipboard lambda injecting the cell clipboard's Alt steps as copyStep / pasteStep / cutStep members into all six panels with the tracker's own copySelectionToClipboard, pasteClipboardAtCursor (kPasteAll) and cutSelectionToClipboard, and one wireSlice lambda injecting the editor's own doSlice as a sliceStep member into all six of them beside those clipboard steps, so an Alt+C / Alt+V / Alt+X reaches one cell clipboard and an Alt+S reaches one clip slice at one snapped beat whichever panel the host routed the press to, and one press of either leaves one point of the undo line rather than two, the editor's own keyPressed answering those steps through the shared matchClipboardKey and answerSliceKey next to a Ctrl+C / Ctrl+V pair that refuses Shift so the hosts keep their own Ctrl+Shift+C / Ctrl+Shift+V meaning and no Ctrl+X branch left to it at all, and its first lines including the renamed header so no panel and the editor can disagree about what the Alt letters name.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom, ruler (bar numbers only, no transport readout), and the Alt pair of undo and redo answered in its keyPressed, which is where a press aimed at undo has to be heard while the timeline's own clip menu is open or while a pattern is being dropped onto it, and a focusRescue member it calls at the end of both context menus and ahead of the playback guard in its drop, since both the popup and the dragged item are parentless desktop windows that take the keyboard focus with them when they close, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, chained through the 4-argument answerClipboardKey so an Alt+C / Alt+V / Alt+X pressed while this panel routes the press reaches the tracker's cell clipboard rather than the host's, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape, so an Alt+S heard while this panel holds the press splits the clip under the playhead that the timeline's own "Slice at playhead" menu item reaches rather than leaving the Ctrl+X spelling the host already spent on its own cut.
@@ -3432,7 +3606,7 @@ a hold's STP keep their last glyph and the comment naming them rather than only 
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel, unchanged this round: the Command column's four kinds already had the three colours its entry gives them, the teal of theme::cmdCC beside the orange of theme::cmdMacro beside the lilac of theme::cmdOther, that lilac having first been used by the pitch bend's letter, its decimal argument and its carried spelling, and the two slide letters and their decimal row counts joining it rather than bringing a fourth colour in, so the Command column now has three colours for four kinds rather than four.
 /media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp: the sqrtf and atan2f defined inside the plug-in so its libm requirement stays portable, aliased hidden in assembly and built without LTO.
 /media/data2/GameDev/Plugins/ReTrektor/tests/CMakeLists.txt: smoke/core/editor-shot test targets.
-/media/data2/GameDev/Plugins/ReTrektor/tests/CoreTest.cpp, UiTest.cpp, SmokeTest.cpp, EditorShot.cpp: automated verification harnesses (CoreTest drives the interpolation predicate directly with rectangle masks and a holed mask and pastes a cell clipboard built the way the tracker builds it, UiTest drives the selection gestures and the cell clipboard through juce::ModifierKeys-carrying mouse events and the editor's keyPressed for Ctrl+C, Ctrl+V and the Shift pair, and drives every panel's own keyPressed for the Alt+C / Alt+V / Alt+X steps, so each of the six panels is shown copying, cutting and pasting the tracker's selection at a fresh anchor with the cut leaving exactly the cells it took empty, the selection still painted and the cursor unmoved so the paste after it moves the cut cells to the anchor, and each of them refusing an Alt+Shift spelling and the Ctrl spellings instead; its fixture now puts the data into the selected cells through the clipboard and a paste rather than a silent write, since a cut that returns the model to the state the undo cursor already sits on is deduped and would leave no point for the checks to count; CoreTest drives the additive spelling of the same mask over the same clipboard, so the entries that carry something land their own fields on top of what the target carried while the fields the cell left empty keep the target's value, a one-field additive paste counts only the entry that really carries that field, and an all-empty clipboard cell reports nothing written where the plain spelling still writes it, UiTest drives that submenu pair's whole-buffer and one-field additive leaves through the same paste calls their callback makes at a clicked cursor, kPasteAll | kPasteAdditive and kPasteVol | kPasteAdditive, the one-field one showing a copied cell that does not carry that field skipped whole so the target keeps its value there while the copied cell that does carry one lands at its offset below the anchor and writes nothing else of its own, gives every panel the editor's sliceStep and splits one fresh clip of a fresh pattern for every Alt+S press at its own middle row so one press turns one clip into two over two new patterns and leaves exactly one point of the line, reads the cell the cursor sits on back again to show the Alt held s typed no C sharp, takes the lowercase Alt+s X11 hands over, refuses an Alt+Shift s and a Ctrl s and the editor's Ctrl+X and dropped Ctrl+Shift pair while the pattern clipboard and the clip count stay put, and still claims the slice while the transport runs without splitting, its fixture putting the rows the additive paste filled back to empty once it is done with them, since hidden rows survive a shortening only while they hold data and the shortening checks below read that, and its additive one-field paste staying over the cursor the block above left rather than moving the cursor up the pattern, since moving it lets ensureCursorVisible scroll the view and the blocks below map their clicks through it; EditorShot can hold a selection with --select=r0,c0,r1,c1 and paste it at a cursor with --paste-at=row,ch, and can walk the undo line with --undo=N / --redo=N before it renders, so a shot shows what an earlier action left behind retracted; CoreTest names the arpeggiator at the layer below a host, the grow-only table's defaults arriving as eight steps that sound nothing and the firstUndefArpId / lastDefArpId pair, the steps growing adds sounding nothing rather than a ramp the model no longer has, a run whose row's own note is its first step with its eight seeded steps landing a sixth of a row apart in order and spilling past the row that called them — six of its playback fixtures now say for themselves which offsets they are listening for through a file-scope seedSteps (Song&, int id, int jump) helper rather than trusting a ramp the model no longer builds — a looped run cycling past that row with its cycle boundaries exact, a finished unlooped run leaving its last step's note held, a row naming only the argument under a carried call switching to the macro that id names and restarting at its first step while an undefined id sounds nothing but still stops the run above it, the switched macro stepping its own offsets off the note the column named rather than off the note the run was left sounding with its two named offsets moved to the two only that base can reach, the note the run above left holding reaching the host as a note-off ordered ahead of any of the new run's note-ons, a call under a note-off in a column that names no note having nothing to step from while the same call carried onto a note entering below it steps from that one, an A 0 call releasing as a plain note-off with only the stuck-key guard's own extras around it and no All Sound Off, a call written in the note-off's own row being answered there rather than
+/media/data2/GameDev/Plugins/ReTrektor/tests/CoreTest.cpp, UiTest.cpp, SmokeTest.cpp, EditorShot.cpp: automated verification harnesses (CoreTest drives the interpolation predicate directly with rectangle masks and a holed mask, names one clip boundary of one pattern used twice back to back as one release of that pitch ahead of the note the lower clip enters at its row 0 rather than two - that clip's own end being the only thing queued there ahead of that note-on, and nothing of that pitch closing it again over the rows below - and pastes a cell clipboard built the way the tracker builds it, UiTest drives the selection gestures and the cell clipboard through juce::ModifierKeys-carrying mouse events and the editor's keyPressed for Ctrl+C, Ctrl+V and the Shift pair, and drives every panel's own keyPressed for the Alt+C / Alt+V / Alt+X steps, so each of the six panels is shown copying, cutting and pasting the tracker's selection at a fresh anchor with the cut leaving exactly the cells it took empty, the selection still painted and the cursor unmoved so the paste after it moves the cut cells to the anchor, and each of them refusing an Alt+Shift spelling and the Ctrl spellings instead; its fixture now puts the data into the selected cells through the clipboard and a paste rather than a silent write, since a cut that returns the model to the state the undo cursor already sits on is deduped and would leave no point for the checks to count; CoreTest drives the additive spelling of the same mask over the same clipboard, so the entries that carry something land their own fields on top of what the target carried while the fields the cell left empty keep the target's value, a one-field additive paste counts only the entry that really carries that field, and an all-empty clipboard cell reports nothing written where the plain spelling still writes it, UiTest drives that submenu pair's whole-buffer and one-field additive leaves through the same paste calls their callback makes at a clicked cursor, kPasteAll | kPasteAdditive and kPasteVol | kPasteAdditive, the one-field one showing a copied cell that does not carry that field skipped whole so the target keeps its value there while the copied cell that does carry one lands at its offset below the anchor and writes nothing else of its own, gives every panel the editor's sliceStep and splits one fresh clip of a fresh pattern for every Alt+S press at its own middle row so one press turns one clip into two over two new patterns and leaves exactly one point of the line, reads the cell the cursor sits on back again to show the Alt held s typed no C sharp, takes the lowercase Alt+s X11 hands over, refuses an Alt+Shift s and a Ctrl s and the editor's Ctrl+X and dropped Ctrl+Shift pair while the pattern clipboard and the clip count stay put, and still claims the slice while the transport runs without splitting, its fixture putting the rows the additive paste filled back to empty once it is done with them, since hidden rows survive a shortening only while they hold data and the shortening checks below read that, and its additive one-field paste staying over the cursor the block above left rather than moving the cursor up the pattern, since moving it lets ensureCursorVisible scroll the view and the blocks below map their clicks through it; EditorShot can hold a selection with --select=r0,c0,r1,c1 and paste it at a cursor with --paste-at=row,ch, and can walk the undo line with --undo=N / --redo=N before it renders, so a shot shows what an earlier action left behind retracted; CoreTest names the arpeggiator at the layer below a host, the grow-only table's defaults arriving as eight steps that sound nothing and the firstUndefArpId / lastDefArpId pair, the steps growing adds sounding nothing rather than a ramp the model no longer has, a run whose row's own note is its first step with its eight seeded steps landing a sixth of a row apart in order and spilling past the row that called them — six of its playback fixtures now say for themselves which offsets they are listening for through a file-scope seedSteps (Song&, int id, int jump) helper rather than trusting a ramp the model no longer builds — a looped run cycling past that row with its cycle boundaries exact, a finished unlooped run leaving its last step's note held, a row naming only the argument under a carried call switching to the macro that id names and restarting at its first step while an undefined id sounds nothing but still stops the run above it, the switched macro stepping its own offsets off the note the column named rather than off the note the run was left sounding with its two named offsets moved to the two only that base can reach, the note the run above left holding reaching the host as a note-off ordered ahead of any of the new run's note-ons, a call under a note-off in a column that names no note having nothing to step from while the same call carried onto a note entering below it steps from that one, an A 0 call releasing as a plain note-off with only the stuck-key guard's own extras around it and no All Sound Off, a call written in the note-off's own row being answered there rather than
 dropped with the note, its steps measured off the note that row was releasing while its note-ons
 are counted and its release read through the RawEvent order as a note-off arriving ahead of that
 run's first note-on at one sample, and the release leaving the column carrying no call so a macro
