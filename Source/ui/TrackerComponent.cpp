@@ -42,28 +42,54 @@ namespace
         }
     }
 
+    /** Whether the argument a row names puts the command it belongs to away
+        rather than naming a new one: the arpeggiator's release spells itself two
+        ways, the 0 beside the call letter and the OFF the entry writes for an o,
+        and a 0 under a carried call is the release as much as the row that named
+        both letters is. The two slide letters take the OFF spelling the same way,
+        where it answers for the wheel being put back at its centre rather than for
+        a slide of no rows at all, and the entry writes the same 0 beside a carried
+        or named slide letter for it, which is why a 0 there releases too - a 0
+        beside the bend letter keeps naming the wheel's own bottom, the point the
+        wheel reads rather than a command being put away. Only the STP spelling
+        asks to be carried on, since a row beside it only stops the move the wheel
+        was making and leaves the letter in force under it. A row that puts a
+        command away leaves the column carrying nothing below it. */
+    bool commandArgumentReleases (int cmd, int cmdVal)
+    {
+        if (cmdVal == kArgOff)
+            return true;
+
+        if (cmdVal != 0)
+            return false;
+
+        return cmd == kArpCmd || cmd == kSlideUpCmd || cmd == kSlideDownCmd;
+    }
+
     /** Whether a row that named a command leaves one in force for the rows
-        below it: the arpeggiator release, the letter A with its 0, releases the
-        run the column was calling and leaves the column calling nothing, which
-        is what stops the tracker drawing a carried letter and argument over the
+        below it: the releases above leave the column calling nothing, which is
+        what stops the tracker drawing a carried letter and argument over the
         rows below it and matches the engine answering no row there that names
-        only an argument. Every other command, a bend letter or a slide letter,
-        leaves its letter and its argument in force, so the rows under a slide
-        carry the span that slide is still taking toward its extreme. */
+        only an argument. Every other command, a bend letter, a slide letter or
+        a plain CC, leaves its letter and its argument in force, so the rows
+        under a slide carry the span that slide is still taking toward its
+        extreme and the rows under an STP carry the letter that was holding the
+        wheel at its own point. */
     bool commandLeavesCarry (const Cell& cell)
     {
-        return cell.cmd != kEmpty && ! (cell.cmd == kArpCmd && cell.cmdVal == 0);
+        return cell.cmd != kEmpty && ! commandArgumentReleases (cell.cmd, cell.cmdVal);
     }
 
     /** Steps what a column carries for its command by the row it is carried into,
         the letter and the argument together: a row that named a command leaves that
-        one, the arpeggiator release leaving none, and a row that named only an
-        argument belongs to the command already in force above it, so it answers
-        with that command and leaves the argument it named itself in force for the
-        rows below rather than the one the letter above called with. An argument of
-        0 read under a carried call is the release as much as A 0 is, which matches
-        the engine clearing the command it answers with at that row and is what
-        stops a letter and an argument being drawn over the rows under it. */
+        one, a release leaving none, and a row that named only an argument belongs
+        to the command already in force above it, so it answers with that command
+        and leaves the argument it named itself in force for the rows below rather
+        than the one the letter above called with - unless that argument is itself
+        a release, an OFF read under a carried command or a 0 read under a carried
+        call or a carried slide letter, which puts that command away there exactly
+        the way the engine clears the command it answers with, and is what stops a
+        letter and an argument being drawn over the rows under it. */
     void stepCommandCarry (int& cmd, int& cmdVal, const Cell& cell)
     {
         if (cell.cmd != kEmpty)
@@ -84,7 +110,7 @@ namespace
 
         if (cmd >= 0 && cell.cmdVal != kEmpty)
         {
-            if (cmd == kArpCmd && cell.cmdVal == 0)
+            if (commandArgumentReleases (cmd, cell.cmdVal))
             {
                 cmd = -1;
                 cmdVal = -1;
@@ -850,11 +876,22 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                 const bool slideCall = cmdNum == kSlideUpCmd
                                                       || cmdNum == kSlideDownCmd;
 
-                                if (arpCall && cmdVal == 0)
+                                if (( arpCall && cmdVal == 0 ) || cmdVal == kArgOff
+                                    || ( slideCall && cmdVal == 0 ))
                                     // the release reads as what it does rather than
-                                    // as a bare 0, which is why the column stops
-                                    // carrying the call on below it
+                                    // as a number: an arpeggiator's going off, spelled
+                                    // by the 0 the row named or by the OFF the entry
+                                    // writes for an o, and a wheel letter beside an
+                                    // OFF, which puts the wheel back at its centre
+                                    // instead of making it climb - a 0 read under a
+                                    // slide letter means the same thing, which is why
+                                    // the column stops carrying the letter below it
                                     text = "OFF";
+                                else if (cmdVal == kArgStp)
+                                    // the STP spelling reads as the hold it asks for:
+                                    // the wheel left sitting on the point it had got
+                                    // to rather than moved over the rows below
+                                    text = "STP";
                                 else
                                     text = valueString (cmdVal, fieldGlyphs (Field::cmdVal));
 
@@ -1534,7 +1571,7 @@ int TrackerComponent::maxDigitsFor (Field field) const
         case Field::vol: return 3; // 0-127
         case Field::pan: return 3; // 0-127
         case Field::cmdNum: return 3; // a plain CC 0-127
-        case Field::cmdVal: return 3; // 0-127, or the release's OFF
+        case Field::cmdVal: return 3; // 0-127, or the release's OFF and a hold's STP
         default: return 0;
     }
 }
@@ -1548,7 +1585,7 @@ int TrackerComponent::fieldGlyphs (Field field) const
         case Field::vol: return 3; // 0-127
         case Field::pan: return 3; // 0-127
         case Field::cmdNum: return 3; // a plain CC, or one letter for a command kind
-        case Field::cmdVal: return 3; // the argument is always decimal, so a macro id, a point on the wheel or the release's OFF need three
+        case Field::cmdVal: return 3; // the argument is always decimal, so a macro id, a point on the wheel, the release's OFF or a hold's STP need three
         default: return 1;
     }
 }
@@ -1583,8 +1620,9 @@ int TrackerComponent::carriedCommandNumber (int row, int ch) const
     // the walk goes down from the top of the column to the row rather than up from
     // the row, because what a row leaves in force also depends on the arguments the
     // rows above it named on their own, which a bottom-up walk cannot see; a row
-    // naming only a 0 under a carried call releases it there and leaves the column
-    // calling nothing for the rows below
+    // naming only a release under a carried command, an OFF or a 0 under a call or
+    // a slide letter, releases it there and leaves the column carrying nothing for
+    // the rows below
     int cmd = -1;
     int cmdVal = -1;
     const int top = juce::jmin (row, (int) p.rows.size());
@@ -1614,6 +1652,25 @@ int TrackerComponent::carriedCommandValue (int row, int ch) const
     return cmdVal;
 }
 
+int TrackerComponent::commandKindAt (int row, int ch) const
+{
+    auto& p = pattern();
+
+    if (ch < 0 || ch >= p.channels)
+        return -1;
+
+    // the argument field belongs to whichever command its row answers against: a
+    // row that named a command of its own answers against that one, and a row that
+    // named only an argument answers against the command the column carries above
+    // it, so this names the kind a row's argument belongs to whichever of the two
+    // the row is, which is what tells the entry whether an OFF or an STP spelling
+    // means anything at the cursor at all
+    if (row < (int) p.rows.size() && p.rows[(size_t) row][(size_t) ch].cmd != kEmpty)
+        return p.rows[(size_t) row][(size_t) ch].cmd;
+
+    return carriedCommandNumber (row, ch);
+}
+
 void TrackerComponent::applyValue (Field field, int value)
 {
     auto& cell = pattern().cell (cursorRow, cursorChannel);
@@ -1633,6 +1690,21 @@ void TrackerComponent::applyValue (Field field, int value)
 
         case Field::cmdVal:
             cell.cmdVal = clampValue (field, value);
+
+            // a 0 typed beside a slide letter is the release the o would have
+            // written rather than a slide over no rows at all: the narrowest slide
+            // the field can name takes one row, so the entry lands the OFF argument
+            // the drawing reads and the engine answers by putting the wheel back at
+            // its centre. A 0 beside the call letter keeps the release spelling the
+            // arpeggiator already has, and one beside the bend letter keeps naming
+            // the wheel's own bottom rather than switching anything off
+            if (cell.cmdVal == 0)
+            {
+                const int kind = commandKindAt (cursorRow, cursorChannel);
+
+                if (kind == kSlideUpCmd || kind == kSlideDownCmd)
+                    cell.cmdVal = kArgOff;
+            }
 
             // typing an argument below a row that named a command leaves the cell
             // implicit, so the row plays that carried command; only a column the
@@ -1914,6 +1986,37 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
                                                                                          : 0;
 
                 markChanged();
+                repaint();
+                return true;
+            }
+        }
+
+        // the argument field spells the wheel's own states as letters rather than
+        // as numbers, since the field only ever spells 0..127 and neither of the
+        // two is a number: an o lands the OFF argument, which switches the
+        // pitchbending off and puts the wheel back at its centre, and an s lands
+        // the STP one, which stops whatever move the wheel was making and leaves
+        // it sitting on the point it had got to. An o also goes off an
+        // arpeggiator run, the release the 0 beside the call letter already
+        // spells, but an s asks for nothing beside a call or a plain CC, since
+        // neither has a wheel to stop, so a letter neither of them means where
+        // the cursor sits is left alone rather than writing a value or typing a
+        // note beside it, and the cell's value stays as it was
+        if (cursorField == Field::cmdVal)
+        {
+            const int kind = commandKindAt (cursorRow, cursorChannel);
+            const bool wheelKind = kind == kBendCmd || kind == kSlideUpCmd || kind == kSlideDownCmd;
+            const bool arpKind = kind == kArpCmd;
+
+            const int letterVal = text == 'o' || text == 'O' ? ( wheelKind || arpKind ? kArgOff : kEmpty )
+                                : text == 's' || text == 'S' ? ( wheelKind ? kArgStp : kEmpty )
+                                                             : kEmpty;
+
+            if (letterVal != kEmpty)
+            {
+                p.cell (cursorRow, cursorChannel).cmdVal = letterVal;
+                markChanged();
+                advanceRow (juce::jmax (1, song.settings.stepSkip));
                 repaint();
                 return true;
             }

@@ -131,6 +131,12 @@ public:
         column carries none. */
     int carriedCommandValue (int row, int ch) const;
 
+    /** The command kind a row's argument belongs to: the row's own command where
+        the row named one, and the one the column carries above it where the row
+        named only an argument, so the entry knows whether an OFF or an STP
+        spelling means anything there at all. */
+    int commandKindAt (int row, int ch) const;
+
     //== Geometry exposed to the tests and any host-facing tool ================
     Field getCursorField() const noexcept { return cursorField; }
     juce::Rectangle<int> fieldBoundsFor (int channel, Field field) const

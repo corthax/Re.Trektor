@@ -40,7 +40,13 @@
     field cannot be typed as and only the letter itself can name; --slide-arg=VAL
     says how many rows the slide takes to reach its extreme, so the argument is
     drawn in decimal beside the letter, and with no --slide-arg the row slides
-    over 12 rows rather than over the default 8 its letter entry leaves.
+    over 12 rows rather than over the default 8 its letter entry leaves. The two
+    arguments the entry writes as letters rather than as numbers can be named here
+    the same way by their own values: --slide-arg=128 is the OFF the o writes, which
+    the drawing reads as OFF rather than as a number above the field's top, and
+    --slide-arg=129 is the STP its s writes, drawn STP, so a shot can show the two
+    spellings beside a slide letter; the narrowest slide a row can ask for is one
+    row, since a 0 beside a slide letter is the entry's own way of spelling OFF.
 
     --cmd-carry writes the command column's carried case in both channels: a row
     that names only an argument under the explicit CC the demo already has at row

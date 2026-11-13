@@ -34,11 +34,24 @@ constexpr int kMidiChannelCount = 16;
 
     A slide's argument says how many rows the slide takes rather than where on
     that wheel it goes: the row that named the letter leaves the wheel where it
-    already is and the extreme sits that many rows below it, so an argument of 0
-    jumps there on the naming row itself and the widest slide the field can name
-    takes 127 rows. A row that names the letter and leaves the argument empty
-    takes the default span of kSlideDefaultSpan rows, the number the entry
-    writes so the cell spells the slide it asks for. */
+    already is and the extreme sits that many rows below it, so the widest slide
+    the field can name takes 127 rows and the narrowest takes 1. A row that names
+    the letter and leaves the argument empty takes the default span of kSlideDefaultSpan
+    rows, the number the entry writes so the cell spells the slide it asks for.
+
+    Two of the argument field's spellings name no number at all but the wheel's
+    own state, entered as letters rather than typed as a number since the field
+    only ever spells 0..kCcTop: the o the entry answers lands the OFF value, which
+    switches the pitchbending off and puts the wheel back at its centre, and the s
+    it answers beside a wheel letter lands the STP value, which stops whatever
+    move the wheel was making and leaves it sitting on the point it had got to.
+    A 0 entered beside a slide letter is the same release rather than a span of
+    no rows, so the span 0 no longer means anything and a slide always takes at
+    least one row, while a 0 beside a bend letter keeps naming the wheel's own
+    bottom. An argument that is neither a number nor one of those letters is
+    ignored and leaves the cell's value as it was. */
+constexpr int kArgOff = 128;  // the argument that reads OFF: an arpeggiator going off or the wheel's release
+constexpr int kArgStp = 129;  // the argument that reads STP: the wheel held at the point it is at
 constexpr int kMaxArpMacros = 127; // arpeggiator macros, ids 1..127; the id 0 call releases
 constexpr int kMaxArpSteps = 64;   // most steps one arpeggiator macro can hold
 constexpr int kArpCmd = 128;       // command value 128 calls an arpeggiator, entered as A
@@ -72,7 +85,7 @@ struct Cell
     int vol = kEmpty;     // kEmpty or 0..127
     int pan = kEmpty;     // kEmpty or 0..127
     int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D)
-    int cmdVal = kEmpty;  // kEmpty or 0..127: a macro id, a point on the wheel, or a slide's rows
+    int cmdVal = kEmpty;  // kEmpty, 0..127: a macro id, a point on the wheel or a slide's rows; kArgOff = OFF and kArgStp = STP above the field's own top
 
     bool empty() const noexcept
     {

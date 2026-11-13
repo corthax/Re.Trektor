@@ -111,18 +111,19 @@ private:
             so the wheel is interpolated between the rows instead of jumping to a
             new point once on each of them. The row that named the letter is the
             ramp's start, so the wheel sits where it was there and the extreme sits
-            slideSpan rows below it; a span of 0 jumps there on the naming row
-            itself. The ramp's next step is counted from its start rather than read
-            off the row - slideOrigin plus slideCount step widths - which is what
-            makes a row a transport jump makes this block play again land on the
-            same point of the ramp instead of advancing it twice, and what leaves
-            the steps a block could not reach waiting for the block that does.
-            slideTotal is the whole ramp, the span over that same grid, and
-            slideCount how much of it has already moved the wheel, which is what
-            makes a release point able to tell whether the ramp still has steps
-            left to run, the wheel having reached the extreme being told on its
-            own. slideRowEnd is the end of the row the engine last processed, the
-            bound a ramp's waiting steps are flushed up to. */
+            slideSpan rows below it; the OFF argument switches the wheel off at
+            this row and the STP one holds it at the point it is at, so a span is
+            never fewer than one row. The ramp's next step is counted from its
+            start rather than read off the row - slideOrigin plus slideCount step
+            widths - which is what makes a row a transport jump makes this block
+            play again land on the same point of the ramp instead of advancing it
+            twice, and what leaves the steps a block could not reach waiting for
+            the block that does. slideTotal is the whole ramp, the span over that
+            same grid, and slideCount how much of it has already moved the wheel,
+            which is what makes a release point able to tell whether the ramp
+            still has steps left to run, the wheel having reached the extreme
+            being told on its own. slideRowEnd is the end of the row the engine
+            last processed, the bound a ramp's waiting steps are flushed up to. */
         bool slideOn = false;                    // a slide is in force in this column
         double slideOrigin = -1.0;               // where the ramp leaves the wheel, in transport beats
         int slideSpan = 1;                       // rows the ramp takes to reach slideTo
@@ -185,7 +186,9 @@ private:
             to run, which is what a release point asks before it decides that a
             wheel sitting at the centre has nothing to take back. A ramp that
             reached its extreme has its wheel sitting at a point of the column's
-            own rather than still climbing, which is told here too. */
+            own rather than still climbing, which is told here too, and so has a
+            ramp the OFF argument put away and an STP argument left holding the
+            wheel's own point - neither of which is still running. */
         bool slideRunning() const noexcept
         {
             return slideOn && slideCount <= slideTotal;
@@ -230,20 +233,27 @@ private:
                      double ppqLimit, double ppqPerSample, int numSamples,
                      const Song& song);
 
-    /** A row naming the arpeggiator command: id 0 releases what the run is
-        holding and ends it, and leaves the column not calling a macro below it,
-        which is what stops a further row naming only an argument being answered
-        there and stops the tracker drawing a carried call over those rows;
-        another id stops the run above it and starts or restarts that macro's
-        run. Its steps measure from the note the column last named, which is the
-        call row's own note where it had one, and the note a note-off row is
-        releasing where its cell holds a note-off instead - such a row's call is
-        answered, not ignored, and the note-off takes the note away for the rows
-        below it. A row that also names a note has already played its first step,
-        so its run starts at the next one. */
+    /** A row naming the arpeggiator command: the release call, id 0 or the OFF
+        argument the entry also writes for an o, releases what the run is holding,
+        ends it and strikes the note the run measured from again at this row, so
+        the column goes back to sounding its own base note rather than only losing
+        the run's note; the row that names a note-off of its own is what the note
+        column already released, so its call answers the run without re-striking
+        anything, and noteOffRow says which of the two a row is. The release also
+        leaves the column not calling a macro below it, which is what stops a
+        further row naming only an argument being answered there and stops the
+        tracker drawing a carried call over those rows. Another id stops the run
+        above it and starts or restarts that macro's run, its steps measuring from
+        the note the column last named, which is the call row's own note where it
+        had one, and the note a note-off row is releasing where its cell holds a
+        note-off instead - such a row's call is answered, not ignored, and the
+        note-off takes the note away for the rows below it. A row that also names
+        a note has already played its first step, so its run starts at the next
+        one. The STP argument means nothing beside an arpeggiator call, so such a
+        row sounds nothing and leaves the run above it alone. */
     void arpCommand (std::vector<PendingEvent>& events, int ch, int id,
                      int offset, double rowPpq, const juce::Uuid& clipUid,
-                     bool noteOnRow, const Song& song);
+                     bool noteOnRow, bool noteOffRow, const Song& song);
 
     /** Closes the arpeggiator run this channel is in: the note its last step
         entered is released, which is what a switch to another command and a
@@ -252,6 +262,16 @@ private:
         the column itself struck is left alone, and a finished run's last step
         is not closed where the run simply ran out of steps. */
     void closeArp (std::vector<PendingEvent>& events, int offset, int ch);
+
+    /** Ends the pitch wheel this channel has in force: the message that puts the
+        wheel back at its centre when the channel had left it bent, and no wheel
+        and no ramp in force below that, which is what an arpeggiator call beside
+        a wheel that was bent does - the run's own note-offs belong to the column,
+        but the wheel is a state the whole channel carries, so the row that calls
+        the arpeggiator is what has to put it right. A ramp that was still climbing
+        with its wheel never having left the centre has only itself to put away,
+        which is why no message is what ends it. */
+    void endWheel (std::vector<PendingEvent>& events, int ch, int midiCh, int offset);
 
     /** Moves the pitch wheel for one row that named the bend letter: the row's
         argument names a point on it, 0 at the bottom and 127 near the top, so an
@@ -263,19 +283,30 @@ private:
     void bendTo (std::vector<PendingEvent>& events, int ch, int midiCh,
                  int argument, int offset, const juce::Uuid& clipUid);
 
-    /** Arms the ramp of one row that named a slide letter: the argument says how
-        many rows the slide takes, the empty one taking the default span and one
-        below 0 being clamped, and the ramp runs from where the wheel already is
-        to the extreme the letter names. The row that named the letter is the
-        ramp's own start, so arming sends nothing and leaves the wheel where it
-        was, which is what keeps that row's own note straight and puts the
-        extreme span rows below; the wheel is moved by flushSlide over the sub-row
-        grid below this. A further row under a carried letter re-arms the ramp with
-        its own span from where the wheel had got to, so a slide can be retargeted
-        as it runs, and the ramp belongs to this row's position rather than to the
-        row, which is what an argument-only row reaching its extreme the number of
-        rows below it it asked for means. */
-    void slideCommand (int ch, double rowPpq, int argument, bool up,
+    /** Answers one row that named a slide letter, or one that named only an
+        argument under a letter carried above it: the argument says how many
+        rows the slide takes rather than where on the wheel it goes, the empty
+        one taking the default span and one below 0 being clamped, and the ramp
+        runs from where the wheel already is to the extreme the letter names.
+        The row that named the letter is the ramp's own start, so arming sends
+        nothing and leaves the wheel where it was, which is what keeps that
+        row's own note straight and puts the extreme span rows below; the wheel
+        is moved by flushSlide over the sub-row grid below this. A row beside an
+        OFF argument puts that wheel away instead, sending the message that leaves
+        it at its centre and leaving no wheel and no ramp bent below it, and a row
+        beside an STP argument ends the ramp while leaving the wheel sitting at the
+        point it had got to, which is what holds that pitch over the rows below.
+        Either row closes an arpeggiator run this column was in, since a slide and
+        a run cannot both be in force in one column: the note the run's last step
+        entered is released at this row and the run ends, while a run another
+        column of the same MIDI channel was in stays where it is. A further row
+        under a carried letter re-arms the ramp with its own span from where the
+        wheel had got to, so a slide can be retargeted as it runs, and the ramp
+        belongs to this row's position rather than to the row, which is what an
+        argument-only row reaching its extreme the number of rows below it it asked
+        for means. */
+    void slideCommand (std::vector<PendingEvent>& events, int ch, int offset,
+                       double rowPpq, int argument, bool up, bool noteOnRow,
                        const juce::Uuid& clipUid, const Song& song);
 
     void processRow (const Pattern& pattern, const Clip& clip, int row,

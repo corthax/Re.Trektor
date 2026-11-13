@@ -524,13 +524,16 @@ int main()
             if (e.kind == 3)
                 ++soundOff;
 
-        // the steps at 0..17000 samples play (18); the looped run would carry
-        // on below the kill if the call did not end it; the guard's stuck-key
+        // the steps at 0..17000 samples play (18), and the release re-triggers the
+        // base note the run measured from at its own row (19); the looped run would
+        // carry on below the kill if the call did not end it; the guard's stuck-key
         // releases add a note-off of 64 at each re-struck step on top of the
         // release at the kill itself
-        check (onCount == 18, "the kill stops the run at its row, got " + juce::String (onCount));
+        check (onCount == 19, "the kill stops the run at its row and adds the base note the release re-triggers, got " + juce::String (onCount));
         check (off64 == 5, "the note the last step held is released at the kill along the re-articulations");
         check (soundOff == 0, "the release reaches the synth as a plain note-off, not as an All Sound Off");
+        check (! h.notes.empty() && h.notes.back().on && h.notes.back().note == 60,
+               "the release goes back to the note the run measured from rather than only cutting the sound, that note being what the column still sounds below the kill");
     }
     {
         std::cout << "The release leaves the column carrying no call\n";
@@ -564,7 +567,8 @@ int main()
 
         check (std::find (ons.begin(), ons.end(), 96) == ons.end() && std::find (ons.begin(), ons.end(), 100) == ons.end(),
                "a row naming only an argument under a release answers nothing, so the macro it would have switched to stays unplayed");
-        check (ons.size() == 12, "the release stops the run at its row and nothing restarts below it, got " + juce::String ((int) ons.size()));
+        check (ons.size() == 13, "the release stops the run at its row and the base note it re-triggers is the only note below it, got " + juce::String ((int) ons.size()));
+        check (! ons.empty() && ons.back() == 60, "and the release re-triggers the note the run measured from, so the column goes back to sounding its own note rather than going silent");
     }
     {
         std::cout << "Empty steps sustain and out-of-range steps snap by octaves\n";
@@ -1122,6 +1126,19 @@ int main()
         check (q.patterns[0].cell (2, 0).cmd == kBendCmd && q.patterns[0].cell (3, 0).cmd == kSlideUpCmd
                && q.patterns[0].cell (4, 0).cmd == kSlideDownCmd,
                "this build's own three wheel values read back as themselves, the letters being the only way to name them");
+
+        Song w;
+        w.patterns[0].cell (0, 0).cmd = kSlideUpCmd;
+        w.patterns[0].cell (0, 0).cmdVal = kArgStp;
+        w.patterns[0].cell (1, 0).cmd = kSlideDownCmd;
+        w.patterns[0].cell (1, 0).cmdVal = kArgOff;
+        Song z;
+        z.fromValueTree (w.toValueTree());
+        check (z.patterns[0].cell (0, 0).cmdVal == kArgStp && z.patterns[0].cell (1, 0).cmdVal == kArgOff,
+               "the STP and OFF spellings of the argument field survive the saved form unchanged, being saved as the argument's own number above the field's top");
+
+        check (kArgOff > kCcTop && kArgStp > kCcTop,
+               "both spellings sit above the highest number the argument field can spell, so a typed digit run cannot invent either of them");
     }
     {
         std::cout << "Pitch slide up (the wheel climbing to its top over the rows its argument names)\n";
@@ -1169,7 +1186,7 @@ int main()
                "the row that named the slide sends no message of its own, so the note it struck is played straight and the wheel first moves on a sub-row of that same row rather than a row below it");
     }
     {
-        std::cout << "Pitch slide down (an argument of 0 reaching the wheel's bottom on its own row)\n";
+        std::cout << "A slide's OFF argument putting a bent wheel back at its centre\n";
         Harness h;
         auto& p = h.song.patterns[0];
         p.setLength (16);
@@ -1178,19 +1195,26 @@ int main()
         c0.note = 60;
         c0.inst = 0;
         c0.vol = 100;
-        c0.cmd = kSlideDownCmd;
-        c0.cmdVal = 0; // no rows to travel over: the wheel jumps to the bottom here
+        c0.cmd = kBendCmd;
+        c0.cmdVal = 0; // a 0 beside the bend letter keeps naming the wheel's bottom
 
-        p.cell (6, 0).note = 61; // a note further down, played at the bottom it jumped to
+        auto& c1 = p.cell (4, 0);
+        c1.cmd = kSlideDownCmd;
+        c1.cmdVal = kArgOff; // the OFF the entry writes for an o, beside a slide letter
+
         p.cell (8, 0).note = kNoteOff;
 
         // 94 blocks reach 2.005 ppq, past the row 8 that sits at 2.0
         h.runBlocks (94);
 
+        // the OFF puts the wheel the bend row had left at its bottom back at its
+        // centre on its own row, and the note-off below then has nothing left to
+        // take back: the OFF left no wheel bent and no ramp climbing under it
         check (h.bends.size() == 2 && h.bends[0] == kBendBottomPos && h.bends[1] == kBendCentrePos,
-               "an argument of 0 puts the wheel at its bottom on the naming row itself, and a note-off below takes it back");
-        check (h.notes.size() == 4 && h.notes[1].on == false && h.notes[3].on == false,
-               "the two notes of the column are released as usual, so a slide that reached its extreme leaves the wheel held like a bend does");
+               "the OFF argument beside a slide letter puts the wheel back at its centre on its own row, the 0 beside the bend letter itself still naming the wheel's bottom");
+
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false && h.notes[1].note == 60,
+               "the note that row struck is held to the note-off below, the OFF putting the wheel away rather than ending the note");
     }
     {
         std::cout << "Pitch slide retargeted by argument rows under a carried letter\n";
@@ -1284,6 +1308,200 @@ int main()
                 channelNamed = true;
 
         check (channelNamed, "the row's instrument names the MIDI channel its command reaches, which is also where the take-back goes");
+    }
+
+    //== A slide's OFF and STP arguments ======================================
+    {
+        std::cout << "A slide's STP argument holding the wheel partway up its ramp\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kSlideUpCmd;
+        c0.cmdVal = 4; // four rows toward the wheel's top
+
+        p.cell (2, 0).cmdVal = kArgStp; // the STP the entry writes for an s, under the carried letter
+
+        p.cell (8, 0).note = kNoteOff;
+
+        h.runBlocks (94);
+
+        // the letter's ramp walks six sub-rows a row, so eleven of its steps had
+        // run above the STP row: the wheel holds the point the eleventh reached
+        // rather than the point a whole row reaches for, and nothing moves it
+        // again until the note-off below takes it back
+        static const int stpWheel[] = { 8533, 8874, 9215, 9557, 9898, 10239, 10581, 10922, 11263, 11604,
+                                        11946, kBendCentrePos };
+        check (h.bends.size() == 12 && h.bends == std::vector<int> (stpWheel, stpWheel + 12),
+               "the STP argument stops the ramp partway up and leaves the wheel holding the point its sub-rows had reached until the note-off below takes it back");
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false && h.notes[1].note == 60,
+               "the STP says nothing about the column's note, the note that row struck still being held under it bent at the pitch it was holding");
+    }
+    {
+        std::cout << "A slide's OFF spelled by an argument row under a carried letter\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kSlideUpCmd;
+        c0.cmdVal = 4; // four rows toward the wheel's top
+
+        p.cell (2, 0).cmdVal = 0; // the 0 the entry writes beside a slide letter, read as OFF
+
+        p.cell (5, 0).cmdVal = 2; // an argument row below the letter that is no longer in force
+
+        p.cell (8, 0).note = kNoteOff;
+
+        h.runBlocks (94);
+
+        // the OFF answers at its own row, the wheel going from the point its
+        // sub-rows had reached back to the centre in one message rather than
+        // continuing to climb; the letter leaves nothing carried below, so the
+        // argument row further down names no ramp of its own and the note-off
+        // has nothing left to take back
+        static const int offWheel[] = { 8533, 8874, 9215, 9557, 9898, 10239, 10581, 10922, 11263, 11604,
+                                        11946, kBendCentrePos };
+        check (h.bends.size() == 12 && h.bends == std::vector<int> (offWheel, offWheel + 12),
+               "the 0 read under a carried slide letter is the OFF argument: the wheel goes back to its centre there and the rows below name nothing, the note-off adding no take-back of its own");
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false && h.notes[1].note == 60,
+               "the release puts the wheel away rather than the column's note, that note still being held to the note-off below it");
+    }
+    {
+        std::cout << "An arpeggiator call on a column whose wheel a bend row left bent\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (2, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kBendCmd;
+        c0.cmdVal = 100; // the wheel left at 12800
+
+        auto& c1 = p.cell (4, 0);
+        c1.cmd = kArpCmd;
+        c1.cmdVal = 1; // the call, striking no note of its own
+        seedSteps (h.song, 1, 4);
+        h.song.setArpLooped (1, true);
+
+        p.cell (8, 0).note = kNoteOff;
+
+        h.runBlocks (94);
+
+        check (h.bends.size() == 2 && h.bends[0] == 100 * kBendStep && h.bends[1] == kBendCentrePos,
+               "the call on a column whose wheel was bent puts that wheel back at its centre at its own row, the run's own note-offs not being what does it");
+
+        int noteOns = 0;
+        for (auto& n : h.notes)
+            if (n.on)
+                ++noteOns;
+
+        check (noteOns > 10, "and the call's run keeps stepping below that row, its steps measured from the note the column named rather than from any step the run above had reached, got " + juce::String (noteOns));
+    }
+    {
+        std::cout << "A slide row closing the arpeggiator run this column was in\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 1;
+        seedSteps (h.song, 1, 4);
+        h.song.setArpLooped (1, true);
+
+        auto& c2 = p.cell (2, 0);
+        c2.cmd = kSlideUpCmd;
+        c2.cmdVal = 2; // a bare slide row: the run above it cannot stay in force with a ramp
+
+        p.cell (6, 0).note = 61; // a note below the ramp's own rows
+        p.cell (8, 0).note = kNoteOff;
+
+        h.runBlocks (94);
+
+        static const int climb[] = { 8874, 9557, 10239, 10922, 11604, 12287, 12970,
+                                     13652, 14335, 15017, 15700, kBendTopPos, kBendCentrePos };
+        check (h.bends.size() == 13 && h.bends == std::vector<int> (climb, climb + 13),
+               "the slide row arms a ramp of its own from the wheel's centre, the run above it having said nothing about the wheel, and the note-off below takes the climb back");
+
+        int closeOffs = 0;
+        int onsAbove = 0;
+        int noteBelowClose = -1;
+
+        for (int i = 0; i < (int) h.notes.size(); ++i)
+        {
+            const auto& n = h.notes[(size_t) i];
+
+            if (n.on && n.note != 61)
+                ++onsAbove;
+            else if (! n.on && n.note == 72)
+                ++closeOffs;
+
+            if (noteBelowClose < 0 && n.on && n.note == 61)
+                noteBelowClose = i;
+        }
+
+        check (onsAbove == 12, "the run sounds its own note and eleven steps above the closing row and nothing of its own below it, got " + juce::String (onsAbove));
+        check (closeOffs == 3, "the note the run's last step entered is released at the closing row along with the release the step above it made and the guard's stuck-key one, the run having been closed there rather than left holding it, got " + juce::String (closeOffs));
+        check (noteBelowClose > 0 && h.notes[(size_t) (noteBelowClose - 1)].on == false
+               && h.notes[(size_t) (noteBelowClose - 1)].note == 72,
+               "the release ahead of the note the column strikes below the ramp is the one that closes the run, so the run leaves nothing sounding under it");
+        check (h.notes.back().on == false && h.notes.back().note == 61,
+               "the note the column strikes below the ramp is held until the note-off releases it, the run having been closed well above it");
+    }
+    {
+        std::cout << "A slide and an arpeggiator on two tracker channels of one MIDI channel\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.channels = 2;
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kArpCmd;
+        c0.cmdVal = 1;
+        seedSteps (h.song, 1, 4);
+        h.song.setArpLooped (1, true);
+
+        auto& c1 = p.cell (2, 1);
+        c1.inst = 0; // the same MIDI channel as the run's own column
+        c1.cmd = kSlideUpCmd;
+        c1.cmdVal = 2;
+
+        h.runBlocks (94);
+
+        static const int climb[] = { 8874, 9557, 10239, 10922, 11604, 12287, 12970,
+                                     13652, 14335, 15017, 15700, kBendTopPos };
+        check (h.bends.size() == 12 && h.bends == std::vector<int> (climb, climb + 12),
+               "the slide of the second channel climbs to the wheel's top over the two rows its argument names, the run above leaving the wheel at the centre to start from");
+
+        int runStepsBelow = 0;
+        bool oneChannelOnly = true;
+        for (auto& n : h.notes)
+        {
+            if (n.channel != 1)
+                oneChannelOnly = false;
+
+            if (n.on)
+                ++runStepsBelow;
+        }
+
+        check (runStepsBelow > 20, "the run above keeps stepping below that channel's slide row, the two commands being in separate columns cooperating rather than one switching the other off, got " + juce::String (runStepsBelow));
+        check (oneChannelOnly, "both columns name the same MIDI channel, so the wheel the slide moves is the one the run's notes are played against");
     }
 
     //== Grid snapping ========================================================

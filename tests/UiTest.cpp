@@ -3241,6 +3241,109 @@ int main()
         if (auto* pat = song.activePattern())
             check (pat->length > 23, "the fixture reaches past the rows this section typed into");
 
+        //== The argument field's OFF and STP spellings ======================
+        // the argument field spells two of the wheel's own states as letters
+        // rather than as numbers, since it only ever spells 0..127 and neither
+        // of the two is a number: an o writes the OFF argument, which switches
+        // the pitchbending off and puts the wheel back at its centre, and an s
+        // writes the STP one, which stops whatever move the wheel was making and
+        // leaves it sitting on the point it had got to. A 0 typed beside a slide
+        // letter is the same release rather than a slide over no rows at all, an
+        // o also goes off an arpeggiator run, standing for the id 0 that release
+        // already spells, an s asks for nothing beside a call since a run has no
+        // wheel to stop, and a letter neither claim owns is left alone rather
+        // than writing a value or typing a note beside it
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum,
+               "back on the command number field to name a slide of the wheel again");
+
+        tracker->setCursorRow (24);
+        tracker->keyPressed (juce::KeyPress ('D', juce::ModifierKeys(), 'D'));
+        check (cmdAt (24) == rtr::kSlideDownCmd && argAt (24) == rtr::kSlideDefaultSpan,
+               "the letter leaves a slide in force with its default span beside it");
+        check (tracker->commandKindAt (24, 0) == rtr::kSlideDownCmd,
+               "the row's own argument belongs to the command that row named");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdVal,
+               "and the cursor moves onto that row's argument field");
+
+        const int depthBeforeZero = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (argAt (24) == rtr::kArgOff, "a 0 typed beside a slide letter is the OFF argument rather than a slide over no rows, the entry having to leave a span of at least one row behind");
+        check (proc.getUndoDepth() == depthBeforeZero + 1, "and typing that argument is one undoable action");
+        check (tracker->carriedCommandNumber (25, 0) < 0, "the OFF leaves the column carrying no slide below it, so a row naming only an argument there answers nothing");
+
+        tracker->setCursorRow (26);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('U', juce::ModifierKeys(), 'U'));
+        check (cmdAt (26) == rtr::kSlideUpCmd && argAt (26) == rtr::kSlideDefaultSpan,
+               "a slide of the wheel's top named again, its argument left at the default span");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+
+        const int depthBeforeStp = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('s', juce::ModifierKeys(), 's'));
+        check (argAt (26) == rtr::kArgStp, "the s typed in the argument field writes the STP argument, the row being drawn STP rather than as a number above the field's own top");
+        check (proc.getUndoDepth() == depthBeforeStp + 1, "and writing that spelling is one undoable action of its own");
+        check (cmdAt (26) == rtr::kSlideUpCmd, "the letter stays in force beside an STP, which only stops the move the wheel was making and puts nothing away");
+        check (tracker->carriedCommandNumber (27, 0) == rtr::kSlideUpCmd && tracker->carriedCommandValue (27, 0) == rtr::kArgStp,
+               "so the rows under an STP carry the letter and that argument, drawn dimmer like any other carried value");
+
+        // the letter is still carried below, so the same claim answers there
+        tracker->setCursorRow (28);
+        const int depthBeforeOff = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('o', juce::ModifierKeys(), 'o'));
+        check (argAt (28) == rtr::kArgOff, "an o read under the carried letter writes the OFF argument there, spelled by a letter rather than typed as a number");
+        check (cmdAt (28) == rtr::kEmpty, "the row stays implicit, the argument being the only thing it names");
+        check (proc.getUndoDepth() == depthBeforeOff + 1, "and that write is one undoable action of its own");
+        check (tracker->carriedCommandNumber (29, 0) < 0, "an OFF row leaves the column carrying nothing below it however it was reached, the row's own letter or a carried one");
+
+        // a letter neither claim owns is left alone: q is a note letter this
+        // panel types in the note column only
+        tracker->setCursorRow (29);
+        tracker->keyPressed (juce::KeyPress ('q', juce::ModifierKeys(), 'q'));
+        check (cmdAt (29) == rtr::kEmpty && argAt (29) == rtr::kEmpty,
+               "an unclaimed letter in the argument field is ignored and leaves the cell's value as it was");
+        check (song.activePattern() != nullptr && song.activePattern()->cell (29, 0).note == rtr::kEmpty,
+               "and it types no note beside it, the claim being only this field's letters");
+
+        // beside an arpeggiator call the two spellings split: the o goes off the
+        // run and the s asks for nothing, a run having no wheel to stop
+        tracker->setCursorRow (30);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('A', juce::ModifierKeys(), 'A'));
+        check (cmdAt (30) == rtr::kArpCmd && argAt (30) == 0, "the call letter starts at the release, its argument being the id 0 the release spells");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        tracker->keyPressed (juce::KeyPress ('s', juce::ModifierKeys(), 's'));
+        check (argAt (30) == 0, "an s beside the call is ignored rather than written: a run has no wheel to stop, and the argument the entry left behind stays in the cell");
+
+        tracker->setCursorRow (31);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('A', juce::ModifierKeys(), 'A'));
+        check (cmdAt (31) == rtr::kArpCmd && argAt (31) == 0, "the call named again, its argument at the release");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        tracker->keyPressed (juce::KeyPress ('o', juce::ModifierKeys(), 'o'));
+        check (argAt (31) == rtr::kArgOff, "an o beside the call writes the OFF spelling of that same release, which the engine answers by going off and re-triggering the note the run measured from");
+        check (tracker->carriedCommandNumber (32, 0) < 0, "and the release leaves the column carrying no call below it, spelled the same way the 0 beside the letter does");
+
+        if (auto* pat = song.activePattern())
+            check (pat->length > 31, "the fixture reaches past the rows the spellings were typed into");
+
         // the rows this section parked the cursor on are below the window the
         // checks after it click into, so the view is brought back to the top
         tracker->keyPressed (juce::KeyPress (juce::KeyPress::homeKey, juce::ModifierKeys(), 0));

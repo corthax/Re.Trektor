@@ -47,15 +47,11 @@ void PlaybackEngine::allNotesOff (std::vector<PendingEvent>& events, int offset,
         if (c.activeNote >= 0)
             events.push_back ({ offset, 0, juce::MidiMessage::noteOff (c.activeMidiCh + 1, c.activeNote) });
 
-        if (c.lastBendPos != kBendCentrePos)
-        {
-            events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (c.activeMidiCh + 1, kBendCentrePos) });
-            c.endBend();
-        }
-        else if (c.slideRunning())
-            c.endBend(); // a ramp whose rows the column stopped having has nothing
-                         // left to reach its extreme, which is what takes it back
-                         // even before the wheel had moved off the centre
+        // a wheel this channel had left bent, or a ramp still climbing under it,
+        // is put back here: endWheel sends the message that says so only where the
+        // wheel itself had moved, which is what a ramp whose sub-rows had not
+        // reached one yet needs nothing but putting away
+        endWheel (events, i, c.activeMidiCh + 1, offset);
 
         c.activeNote = -1;
         c.lastRow = -1;
@@ -120,18 +116,34 @@ void PlaybackEngine::stopNote (std::vector<PendingEvent>& events, int offset, in
 
     auto& c = channels[(size_t) ch];
 
-    if (c.lastBendPos != kBendCentrePos)
-    {
-        events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh + 1, kBendCentrePos) });
-        c.endBend();
-    }
-    else if (c.slideRunning())
-        c.endBend(); // a slide the column was climbing is over at a note-off even
-                     // when the ramp had not moved the wheel off the centre yet,
-                     // which is why nothing keeps climbing underneath the note-off
+    // the wheel this channel had left bent, or a ramp still climbing under it,
+    // goes back to its centre with the note this row releases, at this row's own
+    // sample and ahead of anything else the row asks for
+    endWheel (events, ch, midiCh + 1, offset);
 
     if (c.activeNote == note)
         c.activeNote = -1;
+}
+
+//==============================================================================
+/** Ends the pitch wheel this channel has in force: the message that puts it back
+    at its centre only where the channel had actually left it bent, and no wheel
+    and no ramp in force below that. A ramp that was still climbing while its own
+    wheel never left the centre has only itself to put away, which is why no
+    message is what ends it. The channel the message goes to is the one the row
+    that ends the wheel names, the same way a bend row's own instrument names it,
+    rather than the one a note the channel was holding came from. */
+void PlaybackEngine::endWheel (std::vector<PendingEvent>& events, int ch, int midiCh, int offset)
+{
+    auto& c = channels[(size_t) ch];
+
+    if (c.lastBendPos != kBendCentrePos)
+    {
+        events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh, kBendCentrePos) });
+        c.endBend();
+    }
+    else if (c.slideRunning())
+        c.endBend();
 }
 
 //==============================================================================
@@ -268,14 +280,30 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
 
 void PlaybackEngine::arpCommand (std::vector<PendingEvent>& events, int ch, int id,
                                  int offset, double rowPpq, const juce::Uuid& clipUid,
-                                 bool noteOnRow, const Song& song)
+                                 bool noteOnRow, bool noteOffRow, const Song& song)
 {
     auto& c = channels[(size_t) ch];
 
+    // an STP argument beside an arpeggiator call means nothing: a run has no wheel
+    // to stop, so such a row sounds nothing and leaves the run above it as it was
+    if (id == kArgStp)
+        return;
+
+    // the release spells itself two ways: the id 0 a row named beside the call
+    // letter, and the OFF argument the entry writes for an o, which sits above the
+    // field's own top and has to be read as the release before the id is clamped
+    // down, since clamping first would land it on the highest macro instead
+    const bool releaseCall = id == 0 || id == kArgOff;
+
     id = juce::jlimit (0, kMaxArpMacros, id);
 
-    if (id == 0)
+    if (id == 0 || releaseCall)
     {
+        // the note the run measured from, read before the run is put away below:
+        // the column's own note where it has one, the note the call answered
+        // against where a note-off took that away
+        const int base = c.columnNote >= 0 ? c.columnNote : c.arpCallNote;
+
         // the release call: a row that named a note had already released what it
         // was holding before striking its own, and a row that names a note-off
         // released it as the note-off itself, so only a bare row has to
@@ -283,6 +311,21 @@ void PlaybackEngine::arpCommand (std::vector<PendingEvent>& events, int ch, int 
             stopNote (events, offset, ch, c.activeMidiCh, c.activeNote);
 
         c.endArp();
+
+        // turning a run off goes back to the note it stepped from rather than only
+        // cutting the sound: the base note the column named is struck again at this
+        // row, so a row that releases the arpeggiator keeps the column sounding its
+        // own note until something below ends it, its note-off and its clip end
+        // owning that note the way they owned the one a call row struck. A row that
+        // struck a note of its own had just struck that base, and a row that names
+        // a note-off is what took it away on its own, so neither re-strikes
+        if (! noteOnRow && ! noteOffRow && base >= 0 && base <= 127)
+        {
+            const int baseMidiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst);
+            const int baseVel = juce::jlimit (1, 127, c.lastVol > 0 ? c.lastVol : 100);
+            startNote (events, offset, ch, baseMidiCh, base, baseVel);
+            c.activeClip = clipUid; // the re-struck base belongs to the rows this clip has
+        }
 
         // a release leaves the column calling nothing rather than calling id 0,
         // which is what the tracker stops drawing a carried letter and argument
@@ -349,15 +392,57 @@ void PlaybackEngine::bendTo (std::vector<PendingEvent>& events, int ch, int midi
 }
 
 //==============================================================================
-void PlaybackEngine::slideCommand (int ch, double rowPpq, int argument, bool up,
+void PlaybackEngine::slideCommand (std::vector<PendingEvent>& events, int ch, int offset,
+                                   double rowPpq, int argument, bool up, bool noteOnRow,
                                    const juce::Uuid& clipUid, const Song& song)
 {
     auto& c = channels[(size_t) ch];
 
+    // a slide row closes the arpeggiator run this column was in: the two cannot
+    // both be in force in one column, so the note the run's last step entered is
+    // released at this row and the run is over. A row that also struck a note of
+    // its own had already released it as that note's own arrival above, so only
+    // a bare slide row has to release it here. A run another column of the same
+    // MIDI channel was in is left where it is, which is how a slide and a run
+    // written on different columns of one instrument work together rather than
+    // one switching the other off
+    if (c.arpId > 0 && ! noteOnRow)
+        closeArp (events, offset, ch);
+
+    c.endArp();
+
+    if (argument == kArgOff || argument == 0)
+    {
+        // the OFF argument: the wheel is put away rather than made to climb, so
+        // it goes back to its centre, no ramp is armed and nothing stays bent
+        // below this row. The column also carries nothing rather than the slide
+        // letter, which is what leaves an argument-only row further down
+        // unanswered and stops the tracker drawing a carried slide over the rows
+        // under it - the same ending an arpeggiator's release leaves below it
+        const int midiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst) + 1;
+        endWheel (events, ch, midiCh, offset);
+        c.lastCmd = -1;
+        c.lastCmdVal = -1;
+        return;
+    }
+
+    if (argument == kArgStp)
+    {
+        // the STP argument stops whatever move the wheel was making and leaves it
+        // sitting on the point it had got to, which is what holds that pitch over
+        // the rows below: the point is already in force, so no message is sent,
+        // and only the ramp that was moving it is put away. The letter keeps being
+        // carried, so a further row under it can re-arm a ramp of its own or stop
+        // the wheel again
+        c.endSlide();
+        return;
+    }
+
     // the argument says how many rows the slide takes rather than where on the
     // wheel it goes: a row that left it empty takes the default span, and the
-    // field's own widest is the slowest slide it can ask for
-    const int span = argument >= 0 ? juce::jlimit (0, 127, argument) : kSlideDefaultSpan;
+    // narrowest slide the field can ask for takes one row rather than jumping
+    // there on the naming row itself, since a 0 now means the OFF argument above
+    const int span = argument >= 0 ? juce::jlimit (1, 127, argument) : kSlideDefaultSpan;
 
     const int subticks = juce::jmax (1, song.settings.subticksPerRow);
 
@@ -373,8 +458,7 @@ void PlaybackEngine::slideCommand (int ch, double rowPpq, int argument, bool up,
     // arming says nothing about the wheel: the row that named the letter is the
     // ramp's own start, so its first step holds the point the wheel is already at
     // and sends no message of its own, which is what keeps that row's note straight
-    // and leaves the extreme to the step sitting span rows below. Only a span of 0
-    // has its first step at the extreme, and flushSlide sends it at this row.
+    // and leaves the extreme to the step sitting span rows below
 }
 
 //==============================================================================
@@ -491,12 +575,38 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
         if (cell.pan != kEmpty)
             state.lastPan = cell.pan;
 
+        const int midiCh = juce::jlimit (0, kMidiChannelCount - 1, state.lastInst);
+
+        // answers a row that named the bend letter or an argument under a carried
+        // one: its argument names a point on the wheel, so the OFF spelling names the
+        // wheel's centre rather than a number above the field's own top, and an STP
+        // one asks for nothing at all, which is what leaves the wheel sitting at the
+        // point it is at for the rows below
+        auto answerBend = [&] (int argument)
+        {
+            if (argument == kArgStp)
+                return;
+
+            bendTo (events, ch, midiCh, argument == kArgOff ? kBendCentreVal
+                                                            : argument,
+                    offset, clip.uid);
+        };
+
         if (cell.cmd != kEmpty)
         {
             state.lastCmd = cell.cmd;
             state.lastCmdVal = cell.cmdVal;
 
-            if (cell.cmd != kSlideUpCmd && cell.cmd != kSlideDownCmd)
+            if (cell.cmd == kArpCmd)
+            {
+                // an arpeggiator call on the column a pitch wheel was bent in ends
+                // that wheel rather than leaving it bent under the run: a wheel is a
+                // state the whole channel carries, and the row that calls a macro has
+                // nothing else to put it right; a ramp still climbing there has the
+                // same ending, its own rows not being the ones a run steps over
+                endWheel (events, ch, midiCh + 1, offset);
+            }
+            else if (cell.cmd != kSlideUpCmd && cell.cmd != kSlideDownCmd)
             {
                 // a row naming a command that is not a slide leaves no ramp in
                 // force: the wheel such a row asks for is a point rather than a
@@ -506,8 +616,6 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 state.endSlide();
             }
         }
-
-        const int midiCh = juce::jlimit (0, kMidiChannelCount - 1, state.lastInst);
 
         // An explicit volume or pan cell always drives its configured controller
         // (CC7 and CC10 by default, named in the Settings tab). This happens
@@ -562,15 +670,16 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             // named rather than being skipped along with the note
             if (cell.cmd == kArpCmd)
                 arpCommand (events, ch, cell.cmdVal, offset, rowPpq, clip.uid,
-                            noteHere, song);
+                            noteHere, noteOff, song);
             else if (cell.cmd == kBendCmd)
-                bendTo (events, ch, midiCh, cell.cmdVal, offset, clip.uid);
+                answerBend (cell.cmdVal);
             else if (cell.cmd == kSlideUpCmd || cell.cmd == kSlideDownCmd)
                 // a slide names an extreme rather than a point on the wheel, so its
                 // argument arms a ramp the sub-row steps below it walk toward that
-                // extreme
-                slideCommand (ch, rowPpq, cell.cmdVal, cell.cmd == kSlideUpCmd,
-                              clip.uid, song);
+                // extreme, answers an OFF one by putting the wheel away and holds an
+                // STP one by leaving the wheel at the point it had got to
+                slideCommand (events, ch, offset, rowPpq, cell.cmdVal,
+                              cell.cmd == kSlideUpCmd, noteHere, clip.uid, song);
             else
                 events.push_back ({ offset, 3, juce::MidiMessage::controllerEvent (midiCh + 1,
                                                                                   juce::jlimit (0, kCcTop, cell.cmd),
@@ -594,15 +703,16 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // under a carried bend the argument is a new point on the same
                 // wheel, which is also how a row re-asserts the bend a note-off
                 // below the row that asked for it had just taken back
-                bendTo (events, ch, midiCh, cell.cmdVal, offset, clip.uid);
+                answerBend (cell.cmdVal);
             }
             else if (state.lastCmd == kSlideUpCmd || state.lastCmd == kSlideDownCmd)
             {
                 // under a carried slide the argument is a new span rather than a
                 // new point, so the row arms a ramp of its own from where the
-                // wheel had got to: a slide can be retargeted as it climbs
-                slideCommand (ch, rowPpq, cell.cmdVal, state.lastCmd == kSlideUpCmd,
-                              clip.uid, song);
+                // wheel had got to: a slide can be retargeted as it climbs, and an
+                // OFF or STP one answers the same way the letter's own row does
+                slideCommand (events, ch, offset, rowPpq, cell.cmdVal,
+                              state.lastCmd == kSlideUpCmd, noteHere, clip.uid, song);
             }
             else
             {
@@ -610,7 +720,7 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // under a carried call names a new one: id 0 releases what the
                 // run was holding and ends it, another starts that macro
                 arpCommand (events, ch, cell.cmdVal, offset, rowPpq, clip.uid,
-                            noteHere, song);
+                            noteHere, noteOff, song);
             }
         }
 
