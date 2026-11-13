@@ -1273,9 +1273,12 @@ sustains the step before it rather than the base note.
   duplicate is now suppressed by recording the release rather than by moving an
   event, pinned by the CoreTest "A clip boundary re-entering the pitch the
   clip's foot entered" section at one release ahead of that note-on rather than
-  two and at nothing of that pitch closing the note again after it; the moved-clip-
-  from-time-0 scenario is covered by the CoreTest "Stuck-note guard" section, and
-  neither has been retested in Reaper itself yet.
+  two and at nothing of that pitch closing the note again after it. That boundary
+  has since been asked again, one pattern placed twice back to back, in the host
+  the report was seen in, and no abrupt cut was heard there, so the report's own
+  shape is gone in that host rather than only in the fixture; what that section
+  still covers at the engine alone is the moved-clip-from-time-0 scenario, which
+  has not been asked in a host at all.
 * Command kinds beyond plain CC, the arpeggiator call and the pitch wheel (a dedicated
   pitch bend CC105/CC106 pair rather than the standard pitch wheel message, tempo, song
   position) are future work.
@@ -2789,7 +2792,15 @@ at --slide-down=10 --slide-arg=129, the four pictures being the proof that nothi
 drawing, the typing or the layout moved. The portability read still tops out at GLIBC_2.38 with
 GLIBCXX_3.4.32 and names no sqrtf or atan2f relocation, the single-precision names the binary
 keeps being JUCE's own cosf, expf, floorf, hypotf, logf, powf, roundf, sincosf, sinf and tanf,
-and the release record is three ints of engine state so it asks nothing of either library.
+and the release record is three ints of engine state so it asks nothing of either library. The user's
+own check of that boundary, one pattern placed twice back to back, has since found no abrupt note cut
+there in the host the report was seen in, which is the one thing the suites could not show at all, so
+that shape is gone where it was reported rather than only in the fixture, and what remains unheard is
+the rest of that boundary's own shapes rather than that one - a different pitch there, a note entered
+at the row above it, a stop sitting exactly at it, a loop wrap of one pattern placed twice back to
+back, which takes the releases away through allNotesOff rather than through that clip's own end, and
+the moved-clip-from-time-0 stuck-note scenario - beside Bitwig's and Carla's hearing of one fewer
+note-off of one pitch at one sample.
 
 Active
 Nothing is open in the code: this round's change is landed, built, installed and tested - a
@@ -2800,12 +2811,17 @@ playing block since a release only lives inside the block being queued, so a not
 same-numbered sample of the block below it still asks the guard for its own opening - which is
 what one pattern placed twice back to back, its foot's note and the next clip's row 0 holding one
 pitch, now hands a host: one note-off of that pitch ahead of the note-on that lower clip enters at
-its row 0 rather than two, and nothing of that pitch closing that note after it. What that duplicate
-did to the note is known only from the hosts and only from the report: it is Reaper where the row-0
-note was heard released right away, while the engine's own ordering was already right in both shapes,
-the boundary's release and its note-on queued in the order a host that reads the order inside a
-sample needs and the row-0 note sustaining to that lower clip's own end either way. What the ordinary
-shapes keep is the one release plus one note-on at one sample a note change inside a clip and a
+its row 0 rather than two, and nothing of that pitch closing that note after it. That boundary has
+since been asked again, one pattern placed twice back to back, in the host the report was seen in,
+and no abrupt cut was heard there, so the report's own shape is gone in that host rather than only
+in the fixture, and what that duplicate was - the guard's second release of a pitch that clip's own
+end had already released beside the note-on one sample later - is settled rather than reported. What
+is still known only from the hosts is the rest of that shape the boundary sends rather than that one:
+a boundary entering a different pitch, a note change inside one clip, a same-pitch re-trigger at a
+row, a note entered at the very row a clip ends on, and a transport re-arm or a loop wrap putting its
+channel-wide releases ahead of the note-on that lands at its own first sample, none of them asked of
+in a host since this one was, the moved-clip-from-time-0 stuck-note scenario among them. What the
+ordinary shapes keep is the one release plus one note-on at one sample a note change inside a clip and a
 same-pitch re-trigger at a row already had, since a change releases a pitch other than the one
 entered below it and a re-trigger sits at a sample no release of that pitch was queued at, so neither
 of them reaches the record, and the re-arm and loop-wrap allNotesOff ordering is pinned as it was by
@@ -2933,14 +2949,18 @@ the boundary of two clips of one pattern as one note-off of that pitch ahead of 
 lower clip enters at its row 0 rather than two, that note-on still being reached at all, and
 nothing of that pitch closing it right after or anywhere over that lower clip's rows, with the
 counts saying 4 entries and 4 releases rather than the 5 the guard's extra made, and the raw
-event order rather than any block-relative offset being what names that shape; but where Reaper's
-own MIDI receiver puts two note-offs and a note-on handed at one sample, what it does with the
-one release and one note-on at one sample the plug-in now hands it, how long it holds the note
-that boundary's own release cut before that note-on, and whether a receiver that coalesces what
-it is handed at one sample now hears one release there rather than two, are known from the report
-and from the hosts rather
-than from a host the tests can drive, and the moved-clip-from-time-0 stuck-note scenario the
-section above pins is still unconfirmed there too.
+event order rather than any block-relative offset being what names that shape. The user's own check
+has since found no abrupt cut at that boundary, in the host the report was seen in, so what the
+suites could not show on their own - that a host answering the sample rather than the order inside
+one no longer opens the note entered at the row below a clip's end at once - is heard rather than
+inferred, and that one shape is landed rather than reported; what that check has not asked beside it
+is a boundary entering a different pitch, a note entered at the row above that boundary rather than
+at the clip's own foot row, a transport stop sitting exactly at that boundary, a loop wrap of one
+pattern placed twice back to back, which takes the releases through allNotesOff rather than through
+that clip's own end and is the one path the record was left out of on purpose, and the moved-clip-
+from-time-0 stuck-note scenario the section above pins, while what Bitwig, which honours an
+all-notes-off where that host's receivers ignore one, and Carla make of that one fewer note-off at
+one sample is still not asked of either.
 The modal routing that made the Alt pair inert cannot be
 reproduced by the menu tests, which call the menu callback directly rather than
 going through showMenuAsync or startDragging, so both the per-panel answer and the
@@ -3121,25 +3141,21 @@ hosts can name, whether the sub-row steps of a ramp whose clip ran out are heard
 dropped with it, and whether a host shows the dim span carried beside a carried letter moving to the
 newest one an argument-only row entered rather than the one the letter itself named.
 Next Move
-Confirm in Reaper that a clip boundary entering the pitch the clip above left playing is heard as one
-note rather than as a cut: one pattern placed twice back to back, its foot's note and its own row 0
-holding one pitch at the default 4 rows per beat so the first clip's end lands exactly on the lower
-clip's row 0, that note sounding from the boundary down over the rows below it rather than opening at
-once, and its only release below there being the next row that names that pitch re-articulating it the
-way a note change inside one clip already does rather than a second note-off of that pitch sitting
-beside that note-on at one sample. That is the one thing this round changed, the guard's extra release
-of a pitch that boundary's own end had already released there, and what has to have stayed is the rest
-of that shape: a boundary entering a different pitch still cutting the pitch above it and starting the
-new one, a note change inside one clip still cutting at the row that named it, one pitch struck again
-at a row still re-articulating once rather than twice, a note entered at the row a clip ends on still
-being released by that clip's own end at that same sample, and a transport re-arm or a loop wrap still
-putting its channel-wide releases ahead of the note-on that lands at its own first sample rather than
-after it, the stuck-key guard still opening a pitch the state no longer holds on its own there since
-allNotesOff records nothing. Ask the same boundary of Bitwig, which honours an all-notes-off where
-Reaper's receivers ignore one, and of Carla, since one fewer note-off of one pitch at one sample is
-what those receivers were being handed before as well. And ask whether the guard's own extra note-off
-is still heard where a stop the host never delivered took the releases away, the moved-clip-from-time-0
-scenario being one CoreTest names and neither host has been asked of yet.
+Confirm in Reaper, the boundary's own cut having been asked and found free of any abrupt cut at the note
+the lower clip enters at its row 0, the rest of the shape that boundary sits inside: one pattern placed
+twice back to back but reached by a looped region rather than by an edit, so the wrap takes the releases
+away through allNotesOff rather than through that clip's own end and the release record was left out of
+that path on purpose, that wrap's own note-on still having the guard's opening ahead of it rather than
+none at all; a boundary entering a different pitch still cutting the pitch above it and starting the new
+one, a note change inside one clip still cutting at the row that named it, one pitch struck again at a
+row still re-articulating once rather than twice, a note entered at the very row a clip ends on still
+being released by that clip's own end at that same sample rather than left held under it, and a transport
+re-arm or a loop wrap still putting its channel-wide releases ahead of the note-on that lands at its own
+first sample rather than after it, the stuck-key guard still opening a pitch the state no longer holds
+on its own there; where a stop that host never delivered took the releases away, the moved-clip-from-
+time-0 scenario being one CoreTest names and no host has been asked of yet; and the same boundary of
+Bitwig, which honours an all-notes-off where that host's receivers ignore one, and of Carla, one fewer
+note-off of one pitch at one sample being what those receivers were handed before as well.
 Confirm in Reaper and Bitwig that the argument field answers the two letters this round gave it rather
 than passing the press to the host first, so an o typed beside a U, a D or a B is heard as the plug-in's
 OFF rather than nothing at all or a host action, an s typed beside one of the three is heard as the STP
