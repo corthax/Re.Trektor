@@ -109,7 +109,9 @@ cmake --build tests/build -j"$(nproc)"
   a note-off — sounding nothing rather than stepping off a note from above it while
   the call carried onto the note entering below it steps from that one, an `A 0`
   call releasing the note the run holds as a plain note-off rather than an
-  All Sound Off, the release leaving the column calling nothing rather than
+  All Sound Off and striking the note that run measured from again at its own row,
+  that base being the last note the fixture hears rather than the run's last step,
+  the release leaving the column calling nothing rather than
   calling its id so a further row there that names only an argument answers
   nothing and the run above is stopped rather than restarted, and a call whose
   row also holds the column's note-off being answered rather than ignored, its
@@ -162,14 +164,39 @@ cmake --build tests/build -j"$(nproc)"
   wheel where it already was and sending nothing of its own so that row's own note
   plays straight, the sub-rows under it moving the wheel along the grid the Settings row
   names rather than one whole position per row, landing on the extreme exactly over the
-  span's own last row, an argument of 0 reaching it on the naming row itself, an
+  span's own last row, the `0` the entry leaves beside a slide letter spelling that
+  letter's release rather than a slide over no rows at all and the narrowest span
+  taking one row, an
   argument-only row under a carried letter re-arming a ramp of its own from where the
   wheel had got to on those sub-rows while a further one over a wheel already at the
   extreme moves nothing, a row naming a command that is not a slide ending the ramp
   that was still climbing, a note-off ending a ramp partway down its steps with the
   wheel having already moved on the sub-rows of the row above it, and a slide wider
   than the clip that named it having its ramp put away at that clip's end even though
-  its own wheel never left the centre.
+  its own wheel never left the centre, and the argument field's two letter spellings
+  with them: the `STP` and `OFF` sitting above the highest number that field can spell
+  so a run of typed digits cannot invent either of them and both survive the saved form
+  unchanged as the argument's own numbers, an `STP` read beside a carried or named wheel
+  letter stopping a ramp partway up its steps and leaving the wheel holding the point
+  those sub-rows had reached until a note-off below takes it back, that letter still
+  being carried on below the row that asked to hold, an `OFF` spelled by a bare `0` read
+  under a carried slide letter putting that wheel back at its centre there and leaving
+  the column carrying nothing under it so a further argument-only row answers nothing,
+  the `0` beside the bend letter's own row still naming the wheel's bottom while an `A`
+  call on a column whose wheel a bend row had left bent puts that wheel back at its centre
+  at its own row rather than leaving it bent under the run, the run's own steps below that
+  row saying nothing about the wheel and being measured from the note the column named, a
+  bare slide row closing the arpeggiator run that column was in by releasing the note its
+  last step entered there - that note being released three times over, once by the step
+  above and once by the stuck-key guard, and the release ahead of the note the column
+  strikes below the ramp being what leaves nothing of that run sounding under it - and a
+  slide in another tracker channel of the same MIDI channel leaving that run stepping on
+  below it, the two commands cooperating rather than one switching the other off with
+  every note of both of them reaching the one MIDI channel, and the arpeggiator's release
+  re-triggering the note it measured from: an `A 0` kill sounding the base the run stepped
+  from again at its own row, that note being the last one the column sounds, and a release
+  spelled by an `o` under a carried call leaving that column sounding its own base note
+  rather than silent below it.
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column chips
   clicked per channel, selection gestures — a click selecting one cell, a drag
@@ -316,7 +343,19 @@ cmake --build tests/build -j"$(nproc)"
   and a pattern of the section's own rather than as one jump per row or as a jump the ramp
   could not be played across, since a transport jump releases
   whatever the synth was holding and that release is what ends a slide the host jumped out
-  of, with the undo checks reading the cell back through the song rather than through
+  of, and the argument field's two letter spellings typed there beside them: a `0` typed
+  beside a slide letter landing the `OFF` argument the entry has to leave rather than a
+  slide over no rows, the read under that row coming back as no carried slide at all, the
+  `o` the entry answers writing that same spelling under a carried letter with that row
+  staying implicit and the read under it still coming back empty, an `s` landing the `STP`
+  beside a wheel letter with that letter and that argument still carried on over the rows
+  below it, a letter neither claim owns left alone so the cell keeps the value it had and
+  no note is typed in the note column beside it, the `s` beside an arpeggiator call asked
+  for by nothing and refused rather than written while the argument the entry left stays
+  in the cell, and the `o` beside a call landing the release's `OFF` spelling with the
+  column under it carrying no call, these reads going through the tracker's own new
+  `commandKindAt` beside its `carriedCommandNumber` / `carriedCommandValue` pair, with the
+  undo checks reading the cell back through the song rather than through
   a held reference since restoring a state replaces the pattern objects) and confirms
   which
   MIDI channel and which controller value the notes and columns end up on
@@ -379,8 +418,13 @@ cmake --build tests/build -j"$(nproc)"
   instead, the letter `D`, whose command value is one the number field cannot be typed as
   and only the letter itself can name, and `--slide-arg=VAL` saying how many rows that
   slide takes to reach its extreme so the argument is drawn in decimal beside the letter,
-  12 by default rather than the 8 the letter's own entry leaves, so one shot can show all
-  three command letters and all of their decimal arguments)
+  12 by default rather than the 8 the letter's own entry leaves, the two arguments the
+  entry writes as letters rather than as numbers being nameable here by their own values
+  since the field cannot spell either: `--slide-arg=128` is the `OFF` an `o` writes, so
+  a shot shows the lilac `U OFF` with the rows under that row carrying nothing, and
+  `--slide-arg=129` is the `STP` its `s` writes, so a shot shows the lilac `D STP` with
+  that letter and that spelling carried dim over the rows under it, and the narrowest
+  slide a row can ask for taking one row rather than the `0` spelling a slide over none)
 
 Example:
 
@@ -439,7 +483,8 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   their own widest spelling rather than splitting the cell in half: the number's
   half takes its three CC digits with a two-pixel inner trim and the argument's
   half its three glyphs with a wider pad, so a macro id, a point on the wheel, a slide's
-  span and a release's `OFF` all keep their last glyph rather than one half being cut
+  span, a release's `OFF` and a hold's `STP` all keep their last glyph rather than one
+  half being cut
   tight
   by halving a wider total. The rows field above the line
   numbers sets
@@ -804,7 +849,18 @@ argument is the span the rows below are still taking toward the extreme rather
 than a new point on that wheel. An argument of `0` typed under a carried call
 is the arpeggiator release on its own, that row reading a bright `OFF` beside
 the letter carried into it and the rows under it carrying neither the letter
-nor an argument.
+nor an argument, and the same `0` read beside a named or a carried slide letter
+lands that release there rather than a slide over no rows at all, since the
+narrowest span the field can ask for takes one row. The argument field answers
+two letters rather than digits, since neither is a number the field could spell:
+an `o` or an `O` lands the `OFF` the drawing reads, switching the pitchbending
+off and putting the wheel back at its centre beside a wheel letter and going
+the arpeggiator run off beside a call, and an `s` or an `S` lands the `STP`,
+which stops whatever move the wheel was making and leaves it sitting on the
+point it had got to, beside a wheel letter only. A letter neither of those two
+claims is ignored rather than written, the cell keeping the value it had, and
+it types no note in the note column beside it either, so an `s` aimed at a call
+or at a plain CC asks nothing of a run that has no wheel to stop.
 
 The Macros tab's steps are typed the same way rather than one press at a time: the
 arrows and Page Up/Down move the step cursor over the cards it draws, with `Tab` joining
@@ -857,15 +913,22 @@ sustains the step before it rather than the base note.
   entry has to write,
   and a column that carries nothing plays nothing. Command
   `128`, entered as the letter `A`, calls an arpeggiator macro and its
-  argument names the macro id, `1`–`127`, with `0` releasing the note the run
-  holds and leaving the column calling nothing rather than calling its id, so
-  the rows under one carry neither the letter nor an argument and that release's
-  `0` is drawn `OFF` instead - a row under a carried call naming only that `0`
+  argument names the macro id, `1`–`127`, with the release spelled two ways,
+  the id `0` a row names beside the letter and the `OFF` the entry writes for
+  an `o`, either going the run off, re-triggering the note the run measured
+  from at its own row rather than only cutting the sound and leaving the
+  column calling nothing rather than calling its id, so the rows under either
+  carry neither the letter nor an argument and both read `OFF` rather than the
+  number - a row under a carried call naming only an `o` or only a `0`
   answering as the same release, its own row still drawing the letter carried
   into it beside the bright `OFF` and its rows under it carrying neither; the
   pair is drawn orange, and since decimal is the
   one spelling the whole view has, that argument's cell keeps the three glyphs a
-  macro id, a point on the wheel and the release's `OFF` all need. An arpeggiator:
+  macro id, a point on the wheel and the release's `OFF` all need. An
+  `OFF` and an `STP` sit above the field's own top as the argument's own
+  numbers rather than as numbers it can spell, so a run of typed digits cannot
+  invent either of them and both survive the saved form unchanged. An
+  arpeggiator:
 
   * sounds one step per subtick, a subtick being a row over the Settings row
     "Subticks per row" (default 6, so a step is a sixth of a row);
@@ -919,6 +982,23 @@ sustains the step before it rather than the base note.
     its own needs no close for is already covered by that strike. A run that
     simply walked out its steps still leaves its last one held until something
     below closes it;
+  * goes off when its argument names nothing to call, spelled by the id `0`
+    beside the letter or by the `OFF` the entry writes for an `o`: the note the
+    run was left sounding is released at that row and the note the run measured
+    from is struck there again, so a row turning a run off goes back to the
+    column's own note rather than cutting the sound and leaving nothing under
+    it, that re-struck note being owned on by a note-off below or by the clip's
+    end the way a call row's own note was. A row that struck a note of its own
+    had already struck that base, and a row naming the column's note-off is
+    what took it away, so neither re-strikes, and an `STP` beside a call means
+    nothing, a run having no wheel to stop;
+  * closes and is closed by what shares its column rather than by what shares
+    its MIDI channel: the row under a carried call that names a slide letter
+    ends the run there, the note that run's last step entered being released at
+    that row and the slide letter arming a ramp of its own below it, while a
+    slide written in another tracker channel of the same MIDI channel leaves
+    that run alone, its steps still walking below that row and being played
+    against the wheel that other channel's ramp is moving;
   * answers a row that names only the argument below a carried `A` as a call of
     that id, restarting the run at the new macro's first step, which is also why
     such a row invents no controller — and an id nothing defined sounds nothing
@@ -940,8 +1020,15 @@ sustains the step before it rather than the base note.
   the way a volume or a pan is, so the notes below the row that asked for a point
   stay bent until something releases them, and a row that names only an argument
   under a carried `B` moves that same wheel to a new point — which is also how a
-  row further down puts a bend back after a note-off had taken it. The wheel
-  returns to the centre at a note-off, at the end of the clip whose rows last
+  row further down puts a bend back after a note-off had taken it, the `OFF` the
+  entry writes for an `o` naming the centre there rather than a number above the
+  field's own top and an `s` landing the `STP`, which asks for nothing at all and
+  so leaves the wheel sitting on the point the rows above had left it at. A `0`
+  beside the bend letter's own row keeps naming the wheel's bottom rather than
+  that release. The wheel
+  returns to the centre at a note-off, at a row naming the arpeggiator call
+  rather than a wheel command, a run having no wheel of its own to put right and
+  that call's row being the only one able to put it back, at the end of the clip whose rows last
   moved it, which is what a row that bent without striking a note needs since no
   note-off of that channel was ever going to close it, at a transport re-arm and
   at the editor's own all-notes-off.
@@ -949,8 +1036,11 @@ sustains the step before it rather than the base note.
   its top 16383 or to its bottom 0 instead of holding a point of it, and their argument
   says how many rows below the one that named the letter its extreme sits over rather
   than where on that wheel it goes: the empty argument taking the default span of `8`
-  rows, the widest span the field can naming being 127 rows and a span of `0` reaching
-  that extreme on the naming row itself. The row that named the slide is the ramp's own
+  rows, the widest span the field can naming being 127 rows and the narrowest taking one
+  row, since the `0` a row's entry leaves beside a slide letter and an `o` typed there are
+  that letter's release rather than a slide over no rows at all, the wheel being put back at
+  its centre on that row, no ramp armed there and the letter leaving the column carrying
+  nothing below it. The row that named the slide is the ramp's own
   start, so the wheel sits where it already was there and that row's own note plays
   straight with nothing sent of its own, while every sub-row under it keeps the wheel
   climbing along the grid the Settings row "Subticks per row" names rather than jumping
@@ -965,9 +1055,24 @@ sustains the step before it rather than the base note.
   a bend row left it. A row under a carried `U` or `D` that names only an argument re-arms
   a ramp of its own from wherever the wheel's sub-rows had got to, which is how a slide is
   retargeted while it runs, and a ramp re-armed over a wheel already at the extreme moves
-  nothing. A row naming a command that is not a
-  slide ends the ramp that was still climbing while leaving the wheel where that row
-  left it, so the wheel such a row asks for is a point rather than a climb. A slide is
+  nothing. An `OFF` read under a carried letter, spelled by the `o` the entry writes or by
+  a `0` that row typed, answers the same way the naming row does, and an `STP` one stops
+  whatever move the wheel was making and leaves it holding the point its sub-rows had
+  reached, the letter being carried on below it rather than put away, since that spelling
+  asks nothing of the wheel's own state. A row naming a command that is not a slide ends
+  the ramp that was still climbing, and where that command is the arpeggiator call the
+  wheel is put back at its centre there rather than left where that ramp had got to, a run
+  having no wheel of its own to right and that call's row being what can; any other such
+  row leaves the wheel where it is and asks for a point of its own rather than a climb.
+  The two halves of a column end one another rather than overlap, a slide row under a
+  carried call closing the run that column was in by releasing the note its last step
+  entered at that row and arming a ramp of its own below it the way the call's own row
+  ends the ramp above it, so a column holds either a run or a wheel move and never both,
+  while a slide written in another tracker channel of the same MIDI channel leaves that
+  run alone, its steps still walking below the slide's row and being played against the
+  wheel that channel's ramp is moving, since a ramp and a run belong to the tracker
+  channel that named them while the host hears the one MIDI channel both were sent to.
+  A slide is
   a state the column carries down like a bend rather than one its own row only, so a
   note-off below the row that named one ends it partway down its steps, the wheel
   having already moved on the sub-rows inside the row that named the note-off, which
@@ -1018,7 +1123,13 @@ sustains the step before it rather than the base note.
   their number that a call of a fresh macro can hear, and a slide of 8 rows over
   that same 6 walks the wheel in 48 whole positions across those eight rows rather
   than in 8 jumps of one whole position each, so the grid names how far apart the
-  wheel's own moves are rather than how many rows its extreme sits over
+  wheel's own moves are rather than how many rows its extreme sits over, and says as
+  much about the two spellings that ask nothing of a span: the `0` or the `o` a row
+  writes beside a slide letter puts the wheel back at its centre from the point that
+  letter's ramp had reached up to the end of the row above, and the `s` that asks to
+  hold leaves the wheel sitting on that same point, since a row's own sub-row steps
+  are flushed only after that row's command has answered and are left waiting there
+  for an ended ramp rather than moving the wheel before the answer
 * Rows per beat (default 4, i.e. one row per 16th note)
 * New pattern length in rows (default 64, maximum 1024) — resizing an existing
   pattern never discards rows: shortening hides the tail and enlarging brings it
@@ -1065,12 +1176,26 @@ sustains the step before it rather than the base note.
   there rather than ignored, its steps measured from the note that row releases
   while the note-off still takes the note away for the rows under it, so one such
   row reads as one release followed by a new run rather than as a row that
-  sounds nothing; an `A 0` release ends the column's call as well as the run, so
-  the letter and its argument stop being drawn over the rows below it, the
-  release's own `0` reads as `OFF` and a further row naming only an argument
-  there answers nothing. Both are the plug-in's own reading rather than a host's,
-  and where a host puts that release and the run's first note-on at one sample
-  is still known only from the hosts.
+  sounds nothing; an `A 0` release or an `A OFF` one ends the column's call as well
+  as the run, so the letter and its argument stop being drawn over the rows below
+  it, either spelling reading `OFF` and a further row naming only an argument
+  there answering nothing. Going off strikes the note the run measured from again
+  at its own row rather than only cutting the sound, so the column goes back to
+  sounding its own base note until a note-off below or the clip's end owns it, and
+  that re-strike carries the guard's own extra note-off of the pitch it re-articles,
+  which is one note-off more than a bare release of the run's last step. Both are
+  the plug-in's own reading rather than a host's, and where a host puts that
+  release, that re-struck note-on and the run's first note-on at one sample is
+  still known only from the hosts.
+* The argument field's two letter spellings sit above the numbers that field can
+  spell, so an older state's argument of `128` or `129` beside a call reads as the
+  release and as nothing at all rather than as one of the ids the older encoding
+  ignored: the release one going the run off and re-striking its base, the `STP`
+  one being refused since a run has no wheel to stop, and an older argument of
+  `130`–`143` still landing on the highest macro id as before. Nothing about the
+  saved form says which build wrote the number, and the older state's own macro
+  definitions are dropped outright, so those calls still have to be re-entered
+  whichever way they now read.
 * A pitch wheel left bent by a channel whose clip was deleted outright is taken
   back only at the next release point or transport re-arm rather than by the loop
   that closes the notes and the arpeggiator runs of a clip the playhead is no
@@ -1084,6 +1209,23 @@ sustains the step before it rather than the base note.
   it back - the ramp's own steps being a sub-row wide rather than a row wide, which is
   what makes a wheel a release point is taken back from a point of that line rather
   than from one of the row's own.
+* Where the asks named only the wheel, its readings at the other kinds are the
+  plug-in's own: an `s` beside an arpeggiator call is refused rather than written,
+  a run having no wheel to stop and the row sounding nothing and leaving the run
+  above it as it was, an `s` beside a plain CC is refused the same way, and a `0`
+  beside the bend letter's own row keeps naming the wheel's bottom while the `o`
+  there spells the release. The `STP` hold asks nothing of the note column, so the
+  note that row or a row above it struck is still held under it bent at the point
+  being held, and the letter stays carried below that row so a further row under it
+  can re-arm a ramp, hold the wheel again or put it away. What only the hosts can
+  say is whether they hear a wheel held at a point by an `STP` as one pitch over the
+  rows below, how many of a ramp's sub-row positions a host lets through before it
+  hears an `OFF` that had been climbing as one move back to the centre, whether a
+  host reads an `o` or an `s` in the argument column as its own before the plug-in
+  is offered the press, whether an `s` typed in the note column still enters a C sharp
+  there, the claim being only the argument field's, and where a host puts a release, the
+  note it re-triggers at that row and the following note-ons when they all land at one
+  sample.
 * No audio processing of any kind.
 * The Linux VST3 build exposes the plug-in as an effect (`Fx` category). Hosts
   that hide MIDI effects (Reaper in some routing setups) can use the
@@ -2440,31 +2582,164 @@ gone, as expected since the engine changed rather than the saved form, the porta
 topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and naming no sqrtf or atan2f relocation, the only
 single-precision names the binary keeps being JUCE's own atan2, cosf, expf, logf, powf, sincosf and
 sinf.
+The argument field's OFF and STP round answers the asks about that field's own letters: an
+s entered as a value stops the pitchbending and holds the wheel on the pitch it is at,
+spelled STP rather than as a number, an 0 or an o entered as a value disabling the pitchbending
+and resetting it, spelled OFF, and anything else that is not a number ignored rather than
+written, leaving the cell's value as it was. An A call on the same tracker channel as a
+pitchbend stops and resets that wheel rather than leaving it bent under the run, a U or a D
+on that same channel after a call closes the run that channel was in while the same two
+commands written on separate tracker channels of one MIDI channel work together rather than
+one switching the other off, and an arpeggiator release entered as 0 or o goes off and
+re-triggers the last base note at its own row rather than only cutting the sound. The
+argument field took two sentinels above its own top rather than two more numbers inside it,
+kArgOff = 128 and kArgStp = 129 in Model.h sitting above kCcTop = 127 and below kOlderCmdTop
+= 143 beside the wheel's three command values, and cmdVal is already saved as a juce::int16
+and read back with no clamp, so both spellings survive the saved form unchanged while the
+read sends an older state's 128 and 129 to whatever they now mean to the call letter they
+land on; clampValue (Field::cmdVal) stayed jlimit (0, 127, ...), maxDigitsFor and fieldGlyphs
+stayed 3 for that field and the interpolation's own top for the argument stayed 127, so a
+run of typed digits and a climbing command number can neither of them invent a spelling only
+a letter can write. The engine took one new release point rather than a rule per kind:
+PlaybackEngine::endWheel (events, ch, midiCh, offset) puts the wheel back at its centre when
+it is bent and only puts a still-climbing ramp away when it is not, the note-offs of allNotesOff
+and stopNote calling it instead of their own pair of guards, a row naming the arpeggiator
+call in processRow calling it ahead of that call - which is what puts the wheel the same
+column had left bent back at its centre there, a run having no wheel of its own to put right
+- and a file-local answerBend lambda shared by the row's own B and by an argument-only row
+under a carried B mapping an OFF argument to kBendCentreVal and returning for an STP one,
+which is what leaves the wheel sitting on the point it is at for the rows under that row. The
+const int midiCh hoisted above the command block is the channel every command answer takes.
+slideCommand grew from an arm-only (ch, rowPpq, argument, up, clipUid, song) into
+(events, ch, offset, rowPpq, argument, up, noteOnRow, clipUid, song) and works out that channel
+from the instrument its own column carries, since an OFF row has to send a message of its own:
+it closes the arpeggiator run that column was in first, closeArp plus endArp ahead of
+everything else so only a bare slide row releases the note the run's last step entered while a
+row that struck a note of its own had released it as that strike, answers an OFF with endWheel
+plus clearing lastCmd and lastCmdVal and returning so nothing at all is carried below it the
+way an arpeggiator's release leaves nothing, answers an STP with endSlide plus returning so the
+letter keeps being carried and the point it holds needs no message of its own, and otherwise
+arms the ramp with jlimit (1, 127, argument) rather than jlimit (0, ...) since the span 0 now
+means the OFF above it. arpCommand gained a bool noteOffRow and a const bool releaseCall = id
+== 0 || id == kArgOff read before id is clamped to kMaxArpMacros, since clamping first would
+have landed that sentinel on the highest macro instead of on the release, and its release
+branch reads the base it re-strikes from c.columnNote or c.arpCallNote before endArp takes them
+away and strikes it again with startNote when the row is neither one that struck a note nor one
+naming the column's note-off, that re-struck note's clip being the rows this clip owns. What
+the tracker does with the same two spellings: a file-local commandArgumentReleases (cmd, cmdVal)
+now names an OFF of any kind and a 0 read under a call or under a slide letter but never a 0
+beside the bend letter, and both commandLeavesCarry and the implicit half of stepCommandCarry
+ask it, so the column stops drawing a carried letter under a release however that release was
+reached and keeps drawing one under an STP; a new commandKindAt (row, ch) names the kind a
+row's argument belongs to, the row's own command where the row named one and carriedCommandNumber
+(row, ch) where it did not, and applyValue (Field::cmdVal) rewrites a typed 0 to kArgOff when
+that kind is a slide letter. The letter claim sits in the value-field entry ahead of the digit
+path, an o or an O landing kArgOff beside a wheel or an arp kind and an s or an S landing kArgStp
+beside a wheel kind only, a claimed write doing markChanged, advanceRow (jmax (1, stepSkip)) and
+repaint the way a committed number does, and a letter neither claim owns falling through to
+return false so the cell keeps its value and no note is typed in the note column beside it. The
+drawing reads OFF for an arp release, for a kArgOff and for a 0 read under a slide letter, reads
+STP for kArgStp, and keeps the colours it had, the three wheel kinds still sharing the lilac
+theme::cmdOther. The new fixtures name the point rather than the shape: CoreTest went from 296
+checks to 314 with sections of their own for an STP read under a carried U 4 stopping the ramp
+after eleven sub-row steps at 11946 and holding the wheel there until the note-off below sends
+the centre, an OFF spelled by a bare 0 read under that same carried letter sending the same
+eleven values and leaving an argument-only row further down answering nothing, both spellings
+read back out of the saved form and both sitting above kCcTop, an A 1 call on a column whose B
+100 row had left the wheel at 12800 sending the centre as its own next message while the run's
+steps below that row keep being measured from the note the column named, a bare U 2 row closing
+the A 1 run its column was in with 12 note-ons of that run above the closing row, the note 72
+its last step entered released three times over - the step above's transition, the stuck-key
+guard's and the close at that row - and the release ahead of the note the column strikes below
+the ramp being what leaves nothing of that run under it, and a U 2 in the second tracker channel
+of the same MIDI channel leaving that run stepping on with every note of both commands reaching
+the one channel the harness reads back as 1; the two arpeggiator-release fixtures moved to the
+re-trigger's own counts rather than losing their shape, the A 0 kill sounding 19 note-ons
+rather than 18 with h.notes.back() being the base 60 it re-struck rather than the run's last
+step 64, and the release row hearing 13 note-ons rather than 12 with ons.back() being that same
+60. UiTest went from 652 to 676 with the slide section's new sub-block typing the spellings
+rather than reading pixels: a 0 beside a named D landing kArgOff with carriedCommandNumber (25,
+0) coming back empty, commandKindAt (24, 0) naming that row's own letter, an s landing kArgStp
+with the letter and that argument still carried over the rows below, an o under a carried U
+landing kArgOff at a row that stays implicit with the read under it still empty, an unclaimed q
+leaving both the cell and the note column alone, an s beside a call refused rather than written
+while the argument the entry left stays in the cell, an o beside a call landing the release's
+OFF spelling with no call carried below it, and every one of those writes spending exactly one
+point of the undo line. EditorShot gained no flag since --slide-arg writes the cell's value
+directly, so --slide-arg=128 and --slide-arg=129 name the two sentinels and its doc now says so
+and that the narrowest slide a row can ask for takes one row; the two shots the round before
+pinned came back byte-identical at c19a018bf14bb9e1ae5b306c2ba8a88aadda0ff4ef3c301e674d242c2c6382fc
+at --slide=6 --slide-arg=12 and e1a76f3baf61481d2ee462be4c183d1d9551dbc00dd0588b8935fa217b9fe149
+at --slide-down=10 --slide-arg=3, and this round made two new 1240x760 ones of its own, 5386fb80f9ccd0434cf122048522bb9e36e19eec98b8be9e50003b222afe5d26
+at --slide=6 --slide-arg=128 showing the lilac U OFF painted at that row with the command
+column under it carrying nothing and c1fc0fa130b2d570389be930639820e04f1655f1c1126be872751fda952a19bd
+at --slide-down=10 --slide-arg=129 showing D STP named there with the letter and that spelling
+carried dim over the four rows under it, both read back off crops of the tracker band rather
+than off the whole-window pictures. Smoke stayed at PASS with 0 failures and 13 checks and its
+serialised state at 2392 bytes, since the two spellings cost the saved form nothing of their own
+and the argument was already a two-byte number, against the bundle refreshed by rsync -a --checksum
+over the bundle's DIRECTORY rather than its single .so, the built and installed binary both
+18450614c5e9862582472bd0a56e2f7261954d4ba86fe87877151ab4083c30a6 with the 6d9b4362fcf76ca3c859c7617a977fbaa7984bbaa774b195acc2c31c7d6d61f0
+the previous round carried gone, as expected since the engine and the entry changed rather than
+the saved form, and the portability read still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 and
+naming no sqrtf or atan2f relocation, the only single-precision names the binary keeps being
+JUCE's own cosf, expf, floorf, logf, powf, roundf, sincosf and sinf; the build still warns only
+of the PluginEditor.cpp -Wshadow pair and the hidden processBlock (double&) overload.
+
 Active
-Nothing is open in the code: this round's one change, the U and D slide's ramp being interpolated over the
-Settings' sub-row grid rather than moved to one new point once on every row of its span, is landed, built,
-installed and tested, and the two letters themselves, the arpeggiator's openings, the carried command argument,
-the decimal spelling and the five asks before them are landed as they were with only the hosts hearing them
-still open. The
-Command half of the column now names four kinds rather than three: the letter A claims the number as 128
-with the macro id as its argument, the letter B claims 144 with a point on the wheel, and the new U and D
-claim 145 and 146 with a row count as theirs, since a slide's argument says how many rows below the naming
-one its extreme sits over rather than where on the wheel that extreme is. All three wheel values sit above
-kOlderCmdTop = 143, the highest value an older build could write for its M0-M15 macro kinds, so the read
-clamps only 128-143 to the call letter while this build's own three values read back as themselves and no
-older row can already be a slide; all three also sit above kCcTop = 127, the number field's own top, so a
-run of typed digits cannot invent one of the letters while an interpolation ramp still climbs toward the
-highest CC. A slide is a state the column carries down like a bend rather than one its own row only, so the
+Nothing is open in the code: this round's changes, the argument field's two letter spellings OFF
+and STP, the wheel being ended rather than left bent under an arpeggiator call on its own column,
+a slide row closing the arpeggiator run that column was in while the same two commands on separate
+tracker channels of one MIDI channel work together, and an arpeggiator's release re-triggering the
+note it measured from at its own row, are landed, built, installed and tested, and the U and D
+slide's ramp interpolated over the Settings' sub-row grid rather than moved to one new point once
+on every row of its span, the two letters themselves, the arpeggiator's openings, the carried
+command argument and the one decimal spelling the view has are landed as they were with only the
+hosts hearing them still open. The Command half of the column names four kinds rather than three:
+the letter A claims the number as 128 with the macro id as its argument, the letter B claims 144
+with a point on the wheel, and the U and D claim 145 and 146 with a row count as theirs, since a
+slide's argument says how many rows below the naming one its extreme sits over rather than where on
+the wheel that extreme is. All three wheel values sit above kOlderCmdTop = 143, the highest value an
+older build could write for its M0-M15 macro kinds, so the read clamps only 128-143 to the call
+letter while this build's own three values read back as themselves and no older row can already be
+a slide; all three also sit above kCcTop = 127, the number field's own top, so a run of typed digits
+cannot invent one of the letters while an interpolation ramp still climbs toward the highest CC. The
+argument field of its own answers two letters rather than only digits, since neither spelling is a
+number that field can spell: an o or an O lands kArgOff = 128, the OFF that switches the pitchbending
+off and puts the wheel back at its centre beside a wheel letter and goes the arpeggiator run off
+beside a call, and an s or an S lands kArgStp = 129, the STP that stops whatever move the wheel was
+making and leaves it sitting on the point it had got to, beside a wheel letter only. A 0 typed beside
+a slide letter lands the same OFF rather than a slide over no rows at all, so the span 0 means nothing
+anymore and the narrowest slide the field can ask for takes one row, an s beside a call or beside a
+plain CC is refused rather than written since neither has a wheel to stop, and a letter neither claim
+owns is left alone rather than written so the cell keeps the value it had and no note is typed in the
+note column beside it; both spellings sit above that field's own top rather than inside it, survive
+the saved form unchanged as the argument's own numbers and are drawn OFF and STP in the three glyphs
+its widest spelling already needed, the call pair still orange and the three wheel pairs still sharing
+the one lilac. An arpeggiator's release, spelled either by the id 0 beside the call letter or by the
+OFF an o writes, releases the note the run was left sounding, strikes the note the run measured from
+again at its own row so the column goes back to sounding its own base note rather than going silent
+under the release, and leaves the column calling nothing below it whichever way it was spelled - a row
+that struck a note of its own or one naming the column's note-off having already spoken that base, so
+neither re-strikes. A slide and a run cannot both be in force in one column, so a row under a carried
+call that names a slide letter closes that run there, releasing the note its last step entered at that
+row and arming a ramp of its own below it, while the A call's own row ends the wheel that column had
+rather than leaving it bent under the run, that call's row being the only one able to put it back at
+the centre; any other command that is not a slide ends a ramp that was still climbing while leaving
+the wheel where that row left it, so the point such a row asks for stays a point rather than becoming
+a climb. What belongs to a tracker channel rather than to a MIDI channel keeps working beside what
+shares the MIDI channel, so a slide in one tracker channel and a run in another of the same MIDI
+channel leave each other alone and that run's steps go on sounding against the wheel that channel's
+ramp is moving. A slide is a state the column carries down like a bend rather than one its own row
+only, so the
 row that named one is the ramp's own start, the wheel staying where it already was there with nothing sent
 of that row and the note it strikes playing straight, while the sub-rows under it move it along the grid the
 Settings row "Subticks per row" names rather than jumping to a new point once on every row under it, and land
-on the extreme exactly over the span's own last row; an argument of 0 reaches that extreme on the naming row
-itself, an empty one takes the default span of 8 rows the letter's entry writes and 127 is the widest the
-field can name. A row under the carried letter naming only an argument stays implicit and re-arms a ramp of
+on the extreme exactly over the span's own last row, an empty one taking the default span of 8 rows the
+letter's entry writes and 127 being the widest the field can name; a row under a carried
+letter naming only an argument stays implicit and re-arms a ramp of
 its own from wherever the wheel's sub-rows had got to, which is how a slide is retargeted while it runs, and
-a ramp re-armed over a wheel already at the extreme moves nothing. A row naming a command that is not a slide
-ends the ramp that was still climbing while leaving the wheel where that row left it, so the point such a row
-asks for stays a point rather than becoming a climb. The ramp is counted from its own start in transport
+a ramp re-armed over a wheel already at the extreme moves nothing. The ramp is counted from its own start in transport
 position rather than read off the row, so a row a transport jump makes this block play again lands on the
 same step of the ramp rather than being advanced twice, and its steps are flushed by flushSlide beside
 flushArp after the rows this block processed, up to the end of the row the engine last owned, rather than
@@ -2504,8 +2779,9 @@ rather than positions so a looped run's cycle boundaries stay exact. What the tw
 engine with is one rule rather than two: a bend is carried state like a volume, a pan or an instrument,
 so the re-centre that used to sit inside startNote is gone and the notes below the row that asked
 for a point stay bent, the wheel returning to its centre only where a release happens - the note-offs
-of allNotesOff and stopNote, a transport re-arm, the editor's own all-notes-off, and the end of the
-clip whose rows last moved it. The gap left deliberately is the one release point that cannot be had:
+of allNotesOff and stopNote, a row naming the arpeggiator call on the column that wheel was bent in,
+a row naming an OFF argument under a wheel letter, a transport re-arm, the editor's own all-notes-off,
+and the end of the clip whose rows last moved it. The gap left deliberately is the one release point that cannot be had:
 a wheel left bent by a channel whose clip was deleted outright has no note of that channel to release
 and no clip end of its own to close, so it is taken back only at the next release point or re-arm
 rather than by the loop that closes such a clip's notes and arpeggiator runs. The old macro kinds are
@@ -2704,6 +2980,44 @@ hosts can name, whether the sub-row steps of a ramp whose clip ran out are heard
 dropped with it, and whether a host shows the dim span carried beside a carried letter moving to the
 newest one an argument-only row entered rather than the one the letter itself named.
 Next Move
+Confirm in Reaper and Bitwig that the argument field answers the two letters this round gave it rather
+than passing the press to the host first, so an o typed beside a U, a D or a B is heard as the plug-in's
+OFF rather than nothing at all or a host action, an s typed beside one of the three is heard as the STP
+hold, and a letter neither of them claims - a q, a z - leaves the cell's value exactly as it was rather
+than landing a zero or a cleared cell; that an o typed in the note column still enters an E natural and
+an s still enters a C sharp there, the claim being only the argument half's; that an OFF spelled that way
+puts the wheel back at the centre as one message of 8192 rather than as a run of them, how many of the
+ramp's sub-row moves a host let through before it hears that message being what decides whether the
+release is heard as one jump from the point the ramp had reached or as the last position before it, and,
+over a column whose wheel sat at a point rather than climbing, whether a host hearing an OFF at a row
+whose centre message lands at the same sample as its note-off reads the two as one bend and one note-off
+or only one of them, the ordering being the host's; that an STP holds the wheel at the point its sub-rows
+had reached - 11946 in the tests, over a U 4 at the default grid - and sends nothing of its own there,
+so a host hearing that hold has to keep the pitch the rows above left it at rather than re-centre, and
+whether that host keeps the letter carried dim over the rows under the row that asked, since the rows
+under an STP answer nothing on their own only because the plug-in carried the letter there; that a 0
+typed beside a slide letter really lands that release rather than a slide over no rows at all, so the
+narrowest slide a host can enter takes one row and an empty argument still takes the default 8, and that
+the same 0 beside the bend letter's own row keeps naming the wheel's bottom 0 rather than that release,
+with only an o spelling the release there; that an A call on a column whose wheel a B row had left bent
+sends 8192 at its own row before the run's steps, the wheel having to be straight under a run rather than
+bent at whatever point the rows above left it at, and that the run's own notes below that row are measured
+from the pitch the wheel is at there rather than from the column's pitch in semitones, a host's own wheel
+hearing of the base being what says how far the re-triggered note of a release sits from the run's steps;
+that an A row under a carried call closing the run there is heard as the release of whatever the run's
+last step was holding at that row plus nothing else, that note not being sounded again under the ramp the
+slide arms below it, while a slide written in another tracker channel of the same MIDI channel leaves that
+run stepping on, the two commands cooperating through one MIDI channel rather than one switching the other
+off, so a host has to keep hearing a run's steps bent by the wheel the other channel's ramp is moving;
+that a release re-triggers the note the run measured from at its own row, an A 0 and an A OFF both sounding
+that base again rather than only cutting the sound, that base's note-on landing at the same sample as the
+release of the note the run was left holding and, where the row also named a note of its own, as that note's
+own, so a host has to hear the three at one sample in some order it picks and the column going back to
+sounding its own note under the release until a note-off below or the clip's end owns it - that re-struck
+note also carrying the guard's extra note-off of the pitch it re-articles, one more than a bare release has;
+and whether a host reads the saved form's argument of 128 or 129 the way this build does, so a project saved
+by an older build whose an argument beside a call sat at either of those numbers now reads OFF and re-triggers
+or answers nothing rather than calling one of the ids that encoding ignored.
 Confirm in Reaper and Bitwig that the letter U and the letter D claim the Command column's number field
 as 145 and 146 and leave the default span of 8 rows beside them, so a row naming only one of the two letters
 takes its extreme over 8 rows rather than over none at all; that the row which named a slide leaves the wheel
@@ -2963,6 +3277,16 @@ as the row count a letter leaves as the argument its entry has to write, since a
 rows toward an extreme rather than naming a point on that 14-bit wheel, the Cell::cmd comment now naming
 the four kinds a column can hold - a plain CC, the call, the bend and a slide - beside a value-space comment
 saying a slide's argument is a span of rows rather than a position on it).
+Beside them the argument field's two letter spellings (kArgOff = 128 as the OFF the entry writes for an o and
+kArgStp = 129 as the STP it writes for an s, both sitting above kCcTop = 127 rather than among the numbers that
+field can spell so no run of typed digits can invent either, clampValue (Field::cmdVal) staying jlimit (0, 127,
+...), maxDigitsFor and fieldGlyphs staying 3 for that field and the interpolation's own top for the argument
+staying 127, so a typed number and a climbing command number can neither of them reach a spelling only a letter
+can write; cmdVal was already saved as a juce::int16 and is read back with no clamp, so both spellings survive
+the saved form unchanged while the read sends an older state's 128 or 129 beside a call to whatever they now
+mean to the call letter that number lands on; the Cell::cmdVal comment naming them beside the macro id, the
+point on the wheel and a slide's span of rows, and the value field's own doc paragraph now saying that two of
+its spellings name the wheel's state rather than a number).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h / PlaybackEngine.cpp: host-synced MIDI generation, carry/duplicate logic, explicit note-off panic, volume/pan driven by the Settings CC numbers, a value-only row using the command number carried in the column, and the transport re-arm: its
 channel-wide releases are ordered ahead of everything queued at that same sample (all-notes-off
 at order -2 and all-sound-off at -1, against the note-offs' 0, the note-ons' 1 and the volume and
@@ -3051,17 +3375,55 @@ what the naming row's own step at count 0 holds to even for a span of 0 - slideC
 each step at the pitch wheel's own order 0 so it precedes the note-on of the row it sits inside, re-counts the
 whole ramp as slideSpan * subticks so an argument-only row that re-arms mid-climb still lands its own extreme that
 many rows below where it armed, and clears slideOn only once the ramp's last step is reached, which is what left
-the release points unchanged: allNotesOff and stopNote each still holding their else if (c.slideRunning ()) c.endBend
-(), which is what ends a slide at a note-off partway down its steps with the wheel already having moved on the sub-
-rows of that row, and the clip-end take-back still keyed on (bendClip == clip.uid && wheelBent) || (slideClip == clip.uid
-&& slideRunning ()) with the centring message sent only where wheelBent says the wheel really is out of place, since a
-ramp still climbing at that clip's end has no rows below that clip left to finish it; the ramp's own sub-row steps
-being what a wheel a note-off a row below is taken back from is the one place the new grid changes what the fixtures
-see rather than what the release points do.
+the release points grown rather than left alone: allNotesOff and stopNote each now calling one new
+PlaybackEngine::endWheel (events, ch, midiCh, offset) in place of their own pair of guards, which centres the wheel
+where wheelBent says it really is out of place and only puts a still-climbing ramp away where it does not, so a slide
+ending at a note-off partway down its steps still sends nothing of its own while a wheel left bent there still goes
+back to the centre, and the clip-end take-back still keyed on (bendClip == clip.uid && wheelBent) || (slideClip ==
+clip.uid && slideRunning ()) beside that same helper; a row naming the arpeggiator call in processRow calling endWheel
+ahead of that call, which is what puts a wheel the same column had left bent back at the centre there, a run having
+no wheel of its own to put right and that row being the only one able, the const int midiCh hoisted above the command
+carry block being the channel every command answer takes, and a file-local answerBend lambda shared by the row's own
+B and by an argument-only row under a carried B mapping an OFF argument to kBendCentreVal and returning for an STP
+one, which is what leaves the wheel sitting on the point its sub-rows had got to for the rows under that row. slideCommand
+grew from an arm-only (ch, rowPpq, argument, up, clipUid, song) into (events, ch, offset, rowPpq, argument, up, noteOnRow,
+clipUid, song), since an OFF row has to send a message of its own: it computes the MIDI channel from the instrument its
+own column carries, closes the arpeggiator run that column was in ahead of everything else - closeArp plus endArp - so
+only a bare slide row releases the note the run's last step entered while a row that struck a note of its own had released
+it as that strike, answers an OFF with endWheel plus clearing lastCmd and lastCmdVal and returning so nothing at all is
+carried below the row the way an arpeggiator's release leaves nothing, answers an STP with endSlide plus returning so the
+letter keeps being carried and the point it holds needs no message of its own, and otherwise arms the ramp with jlimit
+(1, 127, argument) rather than jlimit (0, ...) since the span 0 now means the OFF above it; arpCommand gained a bool
+noteOffRow and a const bool releaseCall computed from id == 0 || id == kArgOff before id is clamped down to kMaxArpMacros,
+since clamping first would have landed that sentinel on the highest macro instead of on the release, and its release
+branch reads the base it re-strikes from c.columnNote >= 0 ? c.columnNote : c.arpCallNote before endArp takes them away
+and strikes it again with startNote when the row is neither one that struck a note of its own nor one naming the column's
+note-off, so a release goes back to the note the run measured from rather than going silent, that re-struck note being
+owned on by a note-off below or by the clip's end the way a call row's own note was and carrying the stuck-key guard's
+own extra note-off of the pitch it re-articles. flushSlide beside flushArp at all three flush sites of process() and the
+stepPpq of (1 / rowsPerBeat) / subticks are as they were, and so is the ramp's own arithmetic of slideFrom + (slideTo
+- slideFrom) * slideCount / jmax (1, slideTotal), a row's own sub-row steps still being flushed only after that row's
+command answered, which is why an OFF or an STP read at a row is answered from the point the ramp reached at the last
+sub-row step before that row rather than from one of that row's own.
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock, the size of the last GUI shown, and the undo line (undoStates holding the saved song XML with undoCursor and undoBytes counted in UTF-8 bytes, pushUndoPoint appending what a model change reached and skipping one that changed nothing, undo() / redo() stepping and refreshing the snapshot, resetUndoHistory anchoring a fresh line for a state the host hands back, getUndoDepth / getUndoRedoCount naming what is left to walk, trimUndoLine dropping the oldest states against the Settings depth and a 32 MB budget while never dropping the state the model is in or one ahead of the cursor, and stepUndoHistory keeping the pattern clipboard, the edit playhead and the mirrored transport position a saved state does not carry).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size, wiring the tools panel's isCellSelected hook to the tracker's selection, and the shortcuts where Ctrl+C/V name the cell clipboard (copySelectionToClipboard / pasteClipboardAtCursor) while the pattern clipboard's Ctrl+Shift+C / Ctrl+Shift+V pair is refused rather than answered, its two doCopy() / doPaste (bool forceUnique) members and its Ctrl+X slice branch gone altogether with that pair, the undo funnel commitEdit() (record the point the model reached, then refresh, so every component's onModelChanged ends in it while the bottom bar's OCT / STEP / CHANNELS handlers and selectPattern() record their own), performUndo / performRedo stepping the plug-in's line and refreshing the Settings panel as well because its rows hold their own values, and the Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z shortcuts with the Alt+Z / Alt+Y spellings the hosts leave free answering the same two steps, one each since the whole Alt+Shift family is refused rather than spent on a redo alias the hosts swallow, the Alt branches matching the letter over the key code and the printed character, all of them reaching the editor while every panel answers the Alt pair as well through one wireUndoRedo lambda that injects performUndo / performRedo into the tracker, timeline, pool, settings, tools and macros panels, so whichever panel the host routed the press to walks one point of the same line rather than one the panel owns, and one wireFocusRescue lambda injecting the same shape's focusRescue member into the tracker, timeline and pool so the panel that closed a menu, an alert or a drag hands keyboard focus back to the tracker (and to itself where the tracker is hidden), which is what makes the whole keyboard heard again rather than only the editor's own shortcuts, and one wireClipboard lambda injecting the cell clipboard's Alt steps as copyStep / pasteStep / cutStep members into all six panels with the tracker's own copySelectionToClipboard, pasteClipboardAtCursor (kPasteAll) and cutSelectionToClipboard, and one wireSlice lambda injecting the editor's own doSlice as a sliceStep member into all six of them beside those clipboard steps, so an Alt+C / Alt+V / Alt+X reaches one cell clipboard and an Alt+S reaches one clip slice at one snapped beat whichever panel the host routed the press to, and one press of either leaves one point of the undo line rather than two, the editor's own keyPressed answering those steps through the shared matchClipboardKey and answerSliceKey next to a Ctrl+C / Ctrl+V pair that refuses Shift so the hosts keep their own Ctrl+Shift+C / Ctrl+Shift+V meaning and no Ctrl+X branch left to it at all, and its first lines including the renamed header so no panel and the editor can disagree about what the Alt letters name.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom, ruler (bar numbers only, no transport readout), and the Alt pair of undo and redo answered in its keyPressed, which is where a press aimed at undo has to be heard while the timeline's own clip menu is open or while a pattern is being dropped onto it, and a focusRescue member it calls at the end of both context menus and ahead of the playback guard in its drop, since both the popup and the dragged item are parentless desktop windows that take the keyboard focus with them when they close, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, chained through the 4-argument answerClipboardKey so an Alt+C / Alt+V / Alt+X pressed while this panel routes the press reaches the tracker's cell clipboard rather than the host's, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape, so an Alt+S heard while this panel holds the press splits the clip under the playhead that the timeline's own "Slice at playhead" menu item reaches rather than leaving the Ctrl+X spelling the host already spent on its own cut.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber), cell selection (selBits one bit per (row, channel) in kSelWords = 2 uint64 words per row, applyCellRect unioning/subtracting/replacing word masks, gestureOp reading the held modifiers, channelAtX and channelBoundsFor naming a cell, per-cell painting and a hidden chip inverting its plate (theme::text plate, letter cut out in theme::panelLight) instead of dimming) and the cell clipboard (cellClipboard of CellClipboard type, copySelectionToClipboard putting the selected cells on it with their offsets inside the copied rectangle counted from the top-left selected cell and doing nothing while nothing is selected, pasteClipboardAtCursor writing at the cursor and only marking the model changed when it wrote something, cutSelectionToClipboard taking that copy and then emptying exactly the cells it took through the clearSelectedCells loop the cell menu's Clear / Selection calls as well so the two do not drift apart, marking the model changed for the wipe alone since the copy changes nothing in the saved song, hasCellClipboard greying out both of the menu's pastes, and the cell menu's four top-level items - a "Clear" submenu whose leaves keep the old ids so the callback still answers them by id (4 Selection / 1 Cell / 2 Channel / 3 Pattern), "Copy selection" (id 5), "Cut selection" (id 6 right after the copy, greyed while nothing is selected and answered by the same cutSelectionToClipboard the Alt+X key reaches), and two sibling paste submenus carrying the same seven leaves, Everything / Note / Instrument / Volume / Pan / Command / Command Value, the plain "Paste" one at ids 7..13 and the "Paste (Additive)" one at ids 17..23, both greyed by hasCellClipboard and both answered through one static pasteMasks the callback hoists above its if-chain so the field and the mode compose rather than a leaf owning the mode, pasteClipboardAtCursor (pasteMasks[result - 7]) and pasteClipboardAtCursor (pasteMasks[result - 17] | kPasteAdditive), 16 left unused between the two runs and the undo pair's 14/15 still last), and the undo pair (undoStep / redoStep std::function members the editor injects so the menu's Undo and Redo, ids 14 and 15 after the paste submenu's leaves and greyed out by the plug-in's own counts, walk the same line Ctrl+Z and Ctrl+Y walk and refresh every panel rather than only the grid, and cancelPendingEdit reporting whether a numeric buffer was half typed and closing it the way Esc does, which the Ctrl+Z and Alt+Z branches and the menu's Undo consult before stepping so one press is one effect, and its keyPressed now answering the Alt pair itself through answerUndoRedoKey, with cancelPendingEdit as the closing hook so a half-typed number still closes on that press rather than being walked over, while any other letter held with Alt is still handed up rather than typed as a note at the cursor), and a focusRescue member it calls at the end of the cell menu's callback, whether the press picked an item, a greyed one or dismissed the popup with Escape, and the Alt clipboard steps answered through the 4-argument answerClipboardKey with copyStep / pasteStep / cutStep members of the same shape the editor injects, placed ahead of the hand-up that keeps other Alt letters out of the tracker's own key entry, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor next to copying, pasting or cutting, and the Alt+S slice answered the same way through answerSliceKey with a sliceStep member of the same shape the editor injects, this very letter being the note entry's C sharp, so the slice is claimed before the key entry can leave a C sharp at the cursor whether or not there was a clip to split, and the command letters: the A and the B branch sitting in the path that owns a value field's first character, so either letter claims the command number as its own command value while a number that merely has an a or a b in it keeps its own spelling and the CC 10 and CC 11 a column asks for are typed as their own 10 and 11, a letter typed after a run of digits claiming the field and dropping that number rather than reading it, the pair painted in theme::cmdMacro with every value drawn in the view's one decimal spelling, the A a row carries from above drawn dim through carriedCommandNumber beside the bright argument a row below writes, and clampValue's command number capped at kCcTop rather than at the call, both letters' claim writing the command value it names straight into the cell rather than as a number that gets clamped there, so a typed digit run and an interpolation ramp can only reach a plain CC and typing 144 into the field gives the highest CC rather than inventing a letter - the letters being the only route to a command kind - beside each letter leaving its own argument behind, a call at the release id 0 and a bend at the wheel's centre kBendCentreVal so a row naming only the letter bends nowhere rather than locking the wheel to its bottom, and the bend pair painted in the lilac theme::cmdOther that was going unused with that argument drawn in the view's one decimal spelling like every other value and that letter carried down a column drawn dim like the call's is beside the bright argument a row below writes, the command cell now splitting its two halves by their own glyph counts rather than halving the whole cell and each half taking its own pad, with fieldGlyphs giving the number's half three glyphs and the argument's half three more in the view's one decimal spelling so a macro id of 100, a bend's point above 99 and an arpeggiator release's OFF all keep their last glyph while the instrument's half keeps room for its dash and two digits, and maxDigitsFor taking the three decimal digits at the keyboard everywhere so no letter can be invented by a number's spelling, valueString and instString drawing every value decimal with no setting and no row offering another spelling, the display's carry table and the two reads walking the command column together through one file-local stepCommandCarry so they cannot disagree - a row that named a command of its own leaves that one and its own argument, the value cell answering such a row with that row's own argument so a letter that had none draws nothing beside it rather than picking an argument up from above, and a row that named only an argument keeps the letter carried above it and leaves the argument it named itself carried for the rows below rather than the one that letter called with, an argument of 0 under a carried call clearing both since that argument is the release the engine's arpCommand already answers there; drawRows fills a row's entry from what the column carries into that row before that row steps it, which is what an argument-only release still reads its letter on its own row and draws neither letter nor argument over the ones under it, and carriedCommandNumber walks the column down from its top over the rows above rather than up from the row, since what a row leaves in force also depends on the arguments the rows above it entered, beside a new public carriedCommandValue reading the argument the same walk leaves so a test reads the carry rather than a pixel, while the letter A with the argument 0 still releases and leaves the column under it carrying neither a letter nor an argument and the value cell spells that release OFF rather than a bare 0.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber), cell selection (selBits one bit per (row, channel) in kSelWords = 2 uint64 words per row, applyCellRect unioning/subtracting/replacing word masks, gestureOp reading the held modifiers, channelAtX and channelBoundsFor naming a cell, per-cell painting and a hidden chip inverting its plate (theme::text plate, letter cut out in theme::panelLight) instead of dimming) and the cell clipboard (cellClipboard of CellClipboard type, copySelectionToClipboard putting the selected cells on it with their offsets inside the copied rectangle counted from the top-left selected cell and doing nothing while nothing is selected, pasteClipboardAtCursor writing at the cursor and only marking the model changed when it wrote something, cutSelectionToClipboard taking that copy and then emptying exactly the cells it took through the clearSelectedCells loop the cell menu's Clear / Selection calls as well so the two do not drift apart, marking the model changed for the wipe alone since the copy changes nothing in the saved song, hasCellClipboard greying out both of the menu's pastes, and the cell menu's four top-level items - a "Clear" submenu whose leaves keep the old ids so the callback still answers them by id (4 Selection / 1 Cell / 2 Channel / 3 Pattern), "Copy selection" (id 5), "Cut selection" (id 6 right after the copy, greyed while nothing is selected and answered by the same cutSelectionToClipboard the Alt+X key reaches), and two sibling paste submenus carrying the same seven leaves, Everything / Note / Instrument / Volume / Pan / Command / Command Value, the plain "Paste" one at ids 7..13 and the "Paste (Additive)" one at ids 17..23, both greyed by hasCellClipboard and both answered through one static pasteMasks the callback hoists above its if-chain so the field and the mode compose rather than a leaf owning the mode, pasteClipboardAtCursor (pasteMasks[result - 7]) and pasteClipboardAtCursor (pasteMasks[result - 17] | kPasteAdditive), 16 left unused between the two runs and the undo pair's 14/15 still last), and the undo pair (undoStep / redoStep std::function members the editor injects so the menu's Undo and Redo, ids 14 and 15 after the paste submenu's leaves and greyed out by the plug-in's own counts, walk the same line Ctrl+Z and Ctrl+Y walk and refresh every panel rather than only the grid, and cancelPendingEdit reporting whether a numeric buffer was half typed and closing it the way Esc does, which the Ctrl+Z and Alt+Z branches and the menu's Undo consult before stepping so one press is one effect, and its keyPressed now answering the Alt pair itself through answerUndoRedoKey, with cancelPendingEdit as the closing hook so a half-typed number still closes on that press rather than being walked over, while any other letter held with Alt is still handed up rather than typed as a note at the cursor), and a focusRescue member it calls at the end of the cell menu's callback, whether the press picked an item, a greyed one or dismissed the popup with Escape, and the Alt clipboard steps answered through the 4-argument answerClipboardKey with copyStep / pasteStep / cutStep members of the same shape the editor injects, placed ahead of the hand-up that keeps other Alt letters out of the tracker's own key entry, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor next to copying, pasting or cutting, and the Alt+S slice answered the same way through answerSliceKey with a sliceStep member of the same shape the editor injects, this very letter being the note entry's C sharp, so the slice is claimed before the key entry can leave a C sharp at the cursor whether or not there was a clip to split, and the command letters: the A and the B branch sitting in the path that owns a value field's first character, so either letter claims the command number as its own command value while a number that merely has an a or a b in it keeps its own spelling and the CC 10 and CC 11 a column asks for are typed as their own 10 and 11, a letter typed after a run of digits claiming the field and dropping that number rather than reading it, the pair painted in theme::cmdMacro with every value drawn in the view's one decimal spelling, the A a row carries from above drawn dim through carriedCommandNumber beside the bright argument a row below writes, and clampValue's command number capped at kCcTop rather than at the call, both letters' claim writing the command value it names straight into the cell rather than as a number that gets clamped there, so a typed digit run and an interpolation ramp can only reach a plain CC and typing 144 into the field gives the highest CC rather than inventing a letter - the letters being the only route to a command kind - beside each letter leaving its own argument behind, a call at the release id 0 and a bend at the wheel's centre kBendCentreVal so a row naming only the letter bends nowhere rather than locking the wheel to its bottom, and the bend pair painted in the lilac theme::cmdOther that was going unused with that argument drawn in the view's one decimal spelling like every other value and that letter carried down a column drawn dim like the call's is beside the bright argument a row below writes, the command cell now splitting its two halves by their own glyph counts rather than halving the whole cell and each half taking its own pad, with fieldGlyphs giving the number's half three glyphs and the argument's half three more in the view's one decimal spelling so a macro id of 100, a bend's point above 99 and an arpeggiator release's OFF all keep their last glyph while the instrument's half keeps room for its dash and two digits, and maxDigitsFor taking the three decimal digits at the keyboard everywhere so no letter can be invented by a number's spelling, valueString and instString drawing every value decimal with no setting and no row offering another spelling, the display's carry table and the two reads walking the command column together through one file-local stepCommandCarry so they cannot disagree - a row that named a command of its own leaves that one and its own argument, the value cell answering such a row with that row's own argument so a letter that had none draws nothing beside it rather than picking an argument up from above, and a row that named only an argument keeps the letter carried above it and leaves the argument it named itself carried for the rows below rather than the one that letter called with, an argument of 0 under a carried call clearing both since that argument is the release the engine's arpCommand already answers there; drawRows fills a row's entry from what the column carries into that row before that row steps it, which is what an argument-only release still reads its letter on its own row and draws neither letter nor argument over the ones under it, and carriedCommandNumber walks the column down from its top over the rows above rather than up from the row, since what a row leaves in force also depends on the arguments the rows above it entered, beside a new public carriedCommandValue reading the argument the same walk leaves so a test reads the carry rather than a pixel, while the letter A with the argument 0 still releases and leaves the column under it carrying neither a letter nor an argument and the value cell spells that release OFF rather than a bare 0, and this round's argument field beside it:
+a file-local commandArgumentReleases (cmd, cmdVal) naming an OFF of any kind and a 0 read under a call or under a
+slide letter but never a 0 beside the bend letter, asked by both commandLeavesCarry and the implicit half of stepCommandCarry
+so the column stops drawing a carried letter under a release however that release was reached and keeps drawing one
+under an STP; a new public commandKindAt (row, ch) declared in the header beside carriedCommandValue naming the kind
+a row's argument belongs to, the row's own command where the row named one and carriedCommandNumber (row, ch) where
+it did not, applyValue (Field::cmdVal) rewriting a typed 0 to kArgOff when that kind is a slide letter so the narrowest
+span a row can ask for is one row rather than a slide over none, and the value field's entry answering a value field's
+first character with two letters ahead of its digit path - an o or an O landing kArgOff beside a wheel or an arpeggiator
+kind, an s or an S landing kArgStp beside a wheel kind only, a claimed write doing markChanged (), advanceRow (jmax
+(1, stepSkip)) and repaint () the way a committed number does, and a letter neither of those two claims owns falling
+through to return false so the cell keeps the value it had and no note is typed in the note column beside it; drawRows
+reading OFF for an arpeggiator release, for a kArgOff and for a 0 read under a slide letter, reading STP for a kArgStp,
+and keeping the colours it had, the three wheel kinds still sharing the one lilac theme::cmdOther beside the orange
+of the call pair, with maxDigitsFor and fieldGlyphs still naming three glyphs for that field so the release's OFF and
+a hold's STP keep their last glyph and the comment naming them rather than only the release.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source (the drag image is the item's cell), grid preview, rename, and the Alt pair answered in its keyPressed, which is what a press aimed at undo needs while the pool's own drag is still held by the DragAndDropContainer and has made that drag modal, and a focusRescue member it calls at the end of its own menu and of the rename alert, plus on the release of a drag, which ends whether or not the item ever landed on a target, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, since the same reason that made the undo pair unreachable gives the clipboard's steps to the host's own clipboard and cut as well, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects, so an Alt+S is heard even while the pool's drag is still modal and the editor is never offered the press at all, and its grid preview's command tick now painted lilac for all three wheel kinds - the pitch bend's letter beside the two slide letters - beside the teal a plain CC and the orange an arpeggiator call keeps.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose as one semitone amount field (IncDecButtons slider with an editable text box, whole semitones 1-48 opening at 12) plus arrow direction buttons whose labels arrowUpGlyph/arrowDownGlyph build as explicit UTF-8, remap (source dropdown All/-0..-15 -> target dropdown -0..-15, the labels being the decimal ones the tracker's instrument column writes them in), cell scope (cellInScope answers whether a cell is in reach and applyToCells walks the cells, so the wider scopes name whole patterns and only the "Selection only" scope consults the tracker through the isCellSelected hook), interpolation with its single field dropdown (Note/Instrument/Volume/Pan/CC number/CC value, ids following the InterpField enumerators, the mask being the selection so there is no channel dropdown any more), the getCursorChannel hook still wired but unread, the scope box defaulting to "Selection only", and the Alt pair of undo and redo answered in its keyPressed, as is the Alt clipboard steps through copyStep / pasteStep / cutStep members the editor injects, so an Alt+C / Alt+V / Alt+X aimed at the cells is heard while a menu belongs to this panel, and so is the Alt+S slice, answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls, the row that used to switch the values between hex and decimal having been dropped outright along with its toggle member, its setting and its saved property, so every value the tab moves is decimal and its refresh guard now starts at the mid-row toggle, including the Volume column CC and Pan column CC sliders and the Undo steps row (undoStepsSlider, 0-200 defaulting to 50, sitting with the input prefs ahead of the CC pair and pushed back by refresh() so an undo that moved the depth shows in the row), and the Alt pair answered in its keyPressed so a press aimed at undo is heard while a menu belongs to this panel, as is the Alt clipboard steps through the same copyStep / pasteStep / cutStep members the editor injects, and the Alt+S slice through a sliceStep member of the same shape answered by answerSliceKey, since a popup opened over this panel is what routes the press here rather than the editor, and the "Paste as unique pattern by default" row dropped along with the Settings member it read and the property it saved, which leaves the panel counting one row fewer and its refresh re-reading the rest in their order.
@@ -3162,7 +3524,36 @@ the same two lilac letters with their decimal spans, both slide shots coming bac
 the round before - c19a018bf14bb9e1ae5b306c2ba8a88aadda0ff4ef3c301e674d242c2c6382fc at --slide=6 --slide-arg=12
 and e1a76f3baf61481d2ee462be4c183d1d9551dbc00dd0588b8935fa217b9fe149 at --slide-down=10 --slide-arg=3 - the
 two pictures being unchanged rather than a cheap proof of a new one, since what this round changed lives in
-the engine rather than in anything the tracker paints.
+the engine rather than in anything the tracker paints, and this round's argument field's two letter spellings with them:
+CoreTest went from 296 checks to 314 with sections of their own for the two spellings read back out of the saved form
+and sitting above kCcTop so the read cannot be the one that clamps them back, an STP read under a carried U 4 stopping
+the ramp after eleven sub-row steps and holding the wheel at 11946 until the note-off below sends the centre, an OFF
+spelled by a bare 0 read under that same carried letter answering the same eleven values and leaving the column carrying
+nothing under it so a further argument-only row answers nothing, an A 1 call on a column whose B 100 row had left the
+wheel at 12800 sending the centre as its own next message while the run's steps below that row keep being measured from
+the note the column named, a bare U 2 row closing the A 1 run its column was in with 12 note-ons of that run above the
+closing row and the note 72 its last step entered released three times over - the step above's transition, the stuck-key
+guard's and the close at that row - and the release ahead of the note the column strikes below the ramp being what leaves
+nothing of that run sounding under it, and a U 2 written in the second tracker channel of the same MIDI channel leaving
+that run stepping on with more than 20 of its note-ons below that row and every note of both commands reaching the one
+channel the harness reads back as 1; the two arpeggiator-release fixtures moved to the re-trigger's counts rather than
+losing their shape, the A 0 kill sounding 19 note-ons rather than 18 with the last note heard being the base 60 it re-struck
+rather than the run's last step 64, and the release row hearing 13 note-ons rather than 12 with that same 60 last; UiTest
+went from 652 to 676 with the slide section's new sub-block typing the spellings rather than reading pixels - a 0 typed
+beside a named D landing kArgOff with carriedCommandNumber (25, 0) coming back empty, commandKindAt (24, 0) naming that
+row's own letter, an s landing kArgStp with that letter and that argument still carried over the rows below it, an o typed
+under a carried U landing kArgOff at a row that stays implicit with the read under it still coming back empty, an unclaimed
+q leaving both the cell and the note column alone, an s beside a call asked for by nothing and refused rather than written
+while the argument the entry had left stays in the cell, and the o beside a call landing the release's OFF spelling with
+no call carried below it, each of those writes spending exactly one point of the undo line; and EditorShot gained no flag
+since --slide-arg writes the cell's command value directly, so --slide-arg=128 names the OFF an o writes and --slide-arg=129
+the STP its s writes and the shot's doc now says so, the two shots the round before pinned coming back byte-identical at
+c19a018bf14bb9e1ae5b306c2ba8a88aadda0ff4ef3c301e674d242c2c6382fc at --slide=6 --slide-arg=12 and e1a76f3baf61481d2ee462be4c183d1d9551dbc00dd0588b8935fa217b9fe149
+at --slide-down=10 --slide-arg=3 while this round made two new 1240x760 ones of its own, 5386fb80f9ccd0434cf122048522bb9e36e19eec98b8be9e50003b222afe5d26
+at --slide=6 --slide-arg=128 showing the lilac U OFF painted at that row with the command column under it carrying nothing
+and c1fc0fa130b2d570389be930639820e04f1655f1c1126be872751fda952a19bd at --slide-down=10 --slide-arg=129 showing the bright
+D STP named there with the letter and that spelling carried dim over the four rows under it, both read back off crops of
+the tracker band rather than off the whole-window pictures.
 /media/data2/GameDev/Plugins/ReTrektor/JUCE: vendored framework.
 Important Context
 Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) (build dir currently configured and passing).
