@@ -95,8 +95,13 @@ void PlaybackEngine::startNote (std::vector<PendingEvent>& events, int offset, i
 
     // The state may have been cleared while the synth still holds this pitch
     // (Reaper does not call a MIDI effect when the transport is stopped, so
-    // stop-time note-offs may never be delivered). Guarantee re-articulation.
-    if (everPlayed[(size_t) midiCh].test (note) && c.activeNote != note)
+    // stop-time note-offs may never be delivered). Guarantee re-articulation -
+    // unless that pitch was already opened at this very sample by a release this
+    // channel queued there, which is the clip's own end ahead of a note entered
+    // at the row below it: a second note-off of the same pitch beside the note-on
+    // one sample later is what a host reads as the new note cut at once
+    if (everPlayed[(size_t) midiCh].test (note) && c.activeNote != note
+        && ! (c.relNote == note && c.relMidiCh == midiCh && c.relOffset == offset))
         events.push_back ({ offset, 0, juce::MidiMessage::noteOff (midiCh + 1, note) });
 
     // A wheel that is still bent from a row above is left where it is: a bend is
@@ -123,6 +128,13 @@ void PlaybackEngine::stopNote (std::vector<PendingEvent>& events, int offset, in
 
     if (c.activeNote == note)
         c.activeNote = -1;
+
+    // the release is in force at this sample for as long as the block being
+    // queued lasts, which is what lets a note entered at that same sample call
+    // its own pitch already opened
+    c.relNote = note;
+    c.relMidiCh = midiCh;
+    c.relOffset = offset;
 }
 
 //==============================================================================
@@ -813,6 +825,14 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     for (int ch = 0; ch < kMaxTrackerChannels; ++ch)
     {
         auto& c = channels[(size_t) ch];
+
+        // a release only lives inside the block being queued: the sample it was
+        // queued at belongs to this block, so the record does not reach into the
+        // block below it and a note entered at a same-numbered sample there still
+        // asks the stuck-key guard for its own opening
+        c.relNote = -1;
+        c.relMidiCh = -1;
+        c.relOffset = -1;
 
         if (c.arpId > 0)
             flushArp (events, ch, ppqStart, juce::jmin (ppqEnd, c.arpRowEnd), ppqPerSample, numSamples, song);

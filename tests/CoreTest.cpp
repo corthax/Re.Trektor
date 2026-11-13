@@ -1817,6 +1817,59 @@ int main()
                "the moved clip plays with a note-off before the re-triggered note-on");
     }
 
+    //== A clip boundary re-entering the pitch its foot entered ===============
+    {
+        std::cout << "A clip boundary re-entering the pitch the clip's foot entered\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (4); // one beat of rows: the clip ends at 1.0 ppq
+
+        p.cell (0, 0).note = 60; // the pattern's head
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+        p.cell (3, 0).note = 60; // and its foot, the same pitch
+        p.cell (3, 0).inst = 0;
+        p.cell (3, 0).vol = 100;
+
+        h.song.addClip (p.id, h.song.patternLengthBeats (p.id)); // the same pattern right below it
+
+        h.runBlocks (100); // past the second clip's own end at 2.0 ppq
+
+        int ons = 0;
+        int offs = 0;
+        for (auto& n : h.notes)
+            if (n.note == 60)
+                n.on ? ++ons : ++offs;
+
+        check (ons == 4, "the pitch is entered at the head and the foot of both clips, got " + juce::String (ons));
+        check (offs == 4, "one release closes each entry: the clip's own end ahead of the note the row below it enters, with no second note-off of that pitch added beside the release already queued at that sample, got " + juce::String (offs));
+
+        bool boundaryHeard = false;
+        int pitchOns = 0;
+        for (int i = 0; i < (int) h.raw.size(); ++i)
+        {
+            if (h.raw[i].kind != 1 || h.raw[i].pitch != 60)
+                continue;
+            ++pitchOns;
+            if (pitchOns != 3)
+                continue;
+
+            const bool oneReleaseAhead = i > 0 && h.raw[i - 1].kind == 0
+                                            && h.raw[i - 1].pitch == 60;
+            const bool notTwoAheads = i < 2
+                                        || ! (h.raw[i - 2].kind == 0 && h.raw[i - 2].pitch == 60);
+            const bool notOpenedAfter = i + 1 >= (int) h.raw.size()
+                                          || ! (h.raw[i + 1].kind == 0 && h.raw[i + 1].pitch == 60);
+            check (oneReleaseAhead && notTwoAheads,
+                   "the note the second clip enters at its row 0 has one release ahead of it rather than two, the shape a note change inside one clip already sends, so a host that answers the sample rather than its order does not open the note at once");
+            check (notOpenedAfter, "nothing opens that note right after striking it, so it still sounds over the rows below its row 0");
+            boundaryHeard = true;
+            break;
+        }
+
+        check (boundaryHeard, "the note entered at the clip below was reached at all, so the boundary was heard");
+    }
+
     //== Transport re-arm ordering ============================================
     {
         std::cout << "Transport re-arm ordering\n";

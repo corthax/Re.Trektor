@@ -72,6 +72,18 @@ private:
         int activeNote = -1;
         int activeMidiCh = 0;
         juce::Uuid activeClip;
+
+        /** What the last note-off this channel queued released, and at which
+            sample of the block it was queued in: a note entered at the row a
+            clip ends on, which is the same sample, finds its own pitch already
+            opened there, so the stuck-key guard below does not add a second
+            note-off of it beside that one. Two releases of one pitch around one
+            note-on at one sample is what hosts like Reaper read as the new note
+            being opened at once rather than re-articulated, while the one
+            release a row's own note already puts ahead of it works everywhere. */
+        int relNote = -1;
+        int relMidiCh = -1;
+        int relOffset = -1;
         int lastRow = -1;
         int lastBendPos = kBendCentrePos; // the wheel position this channel last left in force
 
