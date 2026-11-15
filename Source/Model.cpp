@@ -271,6 +271,7 @@ void Song::reset()
     patterns.clear();
     clips.clear();
     arps.clear();
+    vibs.clear();
     clipboard.clear();
     nextPatternId = 1;
     activePatternId = 0;
@@ -284,6 +285,11 @@ void Song::reset()
     // the song starts with one arpeggiator defined: id 1, the default ramp of
     // eight steps a fourth of an octave apart, not looped
     defineArp (1);
+
+    // and with one vibrato defined beside it: id 1, the plain sinusoidal wobble at
+    // half full pitchbend over a cycle of eight subticks, so the VIB MACRO tab has
+    // a card to show and a V row has something to call as the song arrives
+    defineVib (1);
 }
 
 //==============================================================================
@@ -804,6 +810,131 @@ void Song::setArpLooped (int id, bool looped) noexcept
 }
 
 //==============================================================================
+/** Vibrato macros are one grow-only table of their own, indexed by id - 1 exactly
+    as the arpeggiator ones are: naming an id extends the table with absent entries
+    rather than moving the ones already in it, so a macro that is removed keeps the
+    room it had and the shape, amplitude and cycle it held, and defining it again
+    starts over from the defaults. A macro holds a value for each of its three
+    settings at all times, so being present is what makes it one: clearing it says
+    so rather than erasing a setting, which is what keeps a macro the amplitude
+    knob happens to have taken down to off a macro rather than no macro at all. */
+static bool vibInRange (int id) noexcept
+{
+    return id >= 1 && id <= kMaxVibMacros;
+}
+
+VibMacro* Song::findVib (int id)
+{
+    if (! vibInRange (id))
+        return nullptr;
+
+    if ((int) vibs.size() < id)
+        vibs.resize ((size_t) id);
+
+    return &vibs[(size_t) id - 1];
+}
+
+const VibMacro* Song::peekVib (int id) const noexcept
+{
+    if (! vibInRange (id) || (int) vibs.size() < id)
+        return nullptr;
+
+    return &vibs[(size_t) id - 1];
+}
+
+bool Song::vibDefined (int id) const noexcept
+{
+    const auto* m = peekVib (id);
+    return m != nullptr && m->defined();
+}
+
+int Song::vibType (int id) const noexcept
+{
+    const auto* m = peekVib (id);
+    return m != nullptr && m->defined() ? m->type : 0;
+}
+
+int Song::vibAmplitude (int id) const noexcept
+{
+    const auto* m = peekVib (id);
+    return m != nullptr && m->defined() ? m->amplitude : 0;
+}
+
+int Song::vibFrequency (int id) const noexcept
+{
+    const auto* m = peekVib (id);
+    return m != nullptr && m->defined() ? m->frequency : 0;
+}
+
+int Song::firstUndefVibId() const noexcept
+{
+    for (int id = 1; id <= kMaxVibMacros; ++id)
+        if (! vibDefined (id))
+            return id;
+
+    return 0;
+}
+
+int Song::lastDefVibId() const noexcept
+{
+    for (int id = kMaxVibMacros; id >= 1; --id)
+        if (vibDefined (id))
+            return id;
+
+    return 0;
+}
+
+void Song::defineVib (int id)
+{
+    auto* m = findVib (id);
+
+    if (m == nullptr)
+        return;
+
+    m->setDefault();
+}
+
+void Song::clearVib (int id)
+{
+    auto* m = findVib (id);
+
+    if (m != nullptr)
+        m->present = false;
+}
+
+void Song::setVibType (int id, int type) noexcept
+{
+    auto* m = findVib (id);
+
+    // a setting only reaches a macro that is one, so an id nothing entered never
+    // answers with a shape, an amplitude or a cycle of its own
+    if (m == nullptr || ! m->defined())
+        return;
+
+    m->type = juce::jlimit (0, kVibTypeTop, type);
+}
+
+void Song::setVibAmplitude (int id, int amplitude) noexcept
+{
+    auto* m = findVib (id);
+
+    if (m == nullptr || ! m->defined())
+        return;
+
+    m->amplitude = juce::jlimit (0, kVibAmpTop, amplitude);
+}
+
+void Song::setVibFrequency (int id, int frequency) noexcept
+{
+    auto* m = findVib (id);
+
+    if (m == nullptr || ! m->defined())
+        return;
+
+    m->frequency = juce::jlimit (1, kVibFreqTop, frequency);
+}
+
+//==============================================================================
 juce::ValueTree Song::toValueTree() const
 {
     juce::ValueTree root ("RETREKTOR");
@@ -929,6 +1060,29 @@ juce::ValueTree Song::toValueTree() const
     }
 
     root.appendChild (at, nullptr);
+
+    // the vibrato macros the letter V calls get a section of their own, one entry
+    // per macro that is present: the three settings are small enough to name as
+    // properties rather than pack, so a macro reads as its shape, its amplitude in
+    // hundredths of full pitchbend and its cycle length in subticks
+    juce::ValueTree vt ("VIBS");
+
+    for (int id = 1; id <= kMaxVibMacros; ++id)
+    {
+        const auto* m = peekVib (id);
+
+        if (m == nullptr || ! m->defined())
+            continue;
+
+        juce::ValueTree vv ("VIB");
+        vv.setProperty ("id", id, nullptr);
+        vv.setProperty ("type", m->type, nullptr);
+        vv.setProperty ("amp", m->amplitude, nullptr);
+        vv.setProperty ("freq", m->frequency, nullptr);
+        vt.appendChild (vv, nullptr);
+    }
+
+    root.appendChild (vt, nullptr);
 
     root.setProperty ("activePatternId", activePatternId, nullptr);
     root.setProperty ("nextPatternId", nextPatternId, nullptr);
@@ -1102,6 +1256,13 @@ void Song::fromValueTree (const juce::ValueTree& root)
         a.steps.clear();
     }
 
+    // the VIBS section names every macro that exists, so the vibrato table is
+    // emptied the same way ahead of the read: an undo that took a vibrato away has
+    // to leave it undefined again rather than keep the shape, amplitude and cycle
+    // its knobs had
+    for (auto& v : vibs)
+        v.present = false;
+
     if (auto at = root.getChildWithName ("ARPS"); at.isValid())
     {
         for (int i = 0; i < at.getNumChildren(); ++i)
@@ -1169,6 +1330,31 @@ void Song::fromValueTree (const juce::ValueTree& root)
         }
     }
 
+    if (auto vt = root.getChildWithName ("VIBS"); vt.isValid())
+    {
+        for (int i = 0; i < vt.getNumChildren(); ++i)
+        {
+            auto vv = vt.getChild (i);
+
+            if (! vv.hasType ("VIB"))
+                continue;
+
+            const int id = juce::jlimit (1, kMaxVibMacros, (int) vv.getProperty ("id", 0));
+            auto* m = findVib (id);
+
+            if (m == nullptr)
+                continue;
+
+            // a state that named the macro makes it one, its own values being read
+            // through the same clamps the knobs use, so a saved state cannot reach a
+            // shape, an amplitude or a cycle outside what the tab can ask for
+            m->present = true;
+            m->type = juce::jlimit (0, kVibTypeTop, (int) vv.getProperty ("type", kVibTypeSin));
+            m->amplitude = juce::jlimit (0, kVibAmpTop, (int) vv.getProperty ("amp", kVibDefaultAmp));
+            m->frequency = juce::jlimit (1, kVibFreqTop, (int) vv.getProperty ("freq", kVibDefaultFreq));
+        }
+    }
+
     nextPatternId = juce::jmax (1, (int) root.getProperty ("nextPatternId", 1));
     activePatternId = (int) root.getProperty ("activePatternId", patterns.empty() ? 0 : patterns.front().id);
 
@@ -1189,6 +1375,11 @@ void Song::fromValueTree (const juce::ValueTree& root)
     // song reset gives
     if (lastDefArpId() == 0)
         defineArp (1);
+
+    // and the same for the vibratos, so a state older than the letter V still
+    // arrives with one wobble on its tab rather than an empty one
+    if (lastDefVibId() == 0)
+        defineVib (1);
 }
 
 } // namespace rtr

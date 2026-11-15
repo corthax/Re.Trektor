@@ -33,6 +33,7 @@
 #include "ui/ToolsPanel.h"
 #include "ui/SettingsPanel.h"
 #include "ui/MacrosPanel.h"
+#include "ui/VibMacrosPanel.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -148,6 +149,19 @@ void collectSliders (juce::Component& root, std::vector<juce::Slider*>& out)
     }
 }
 
+// dropdowns in the order they were added to the component tree, which is what a
+// test reads a shape selector's own spelling and selection back from
+void collectComboBoxes (juce::Component& root, std::vector<juce::ComboBox*>& out)
+{
+    for (auto* child : root.getChildren())
+    {
+        if (auto* combo = dynamic_cast<juce::ComboBox*> (child))
+            out.push_back (combo);
+
+        collectComboBoxes (*child, out);
+    }
+}
+
 // the instrument a note is played on (JUCE numbers channels from 1, the tracker
 // names them from 0), or -1 when the note is not in the buffer
 int noteChannel (const juce::MidiBuffer& midi, int note)
@@ -240,13 +254,14 @@ int main()
     auto* tools = findChild<rtr::ToolsPanel> (*editor);
     auto* settings = findChild<rtr::SettingsPanel> (*editor);
     auto* macros = findChild<rtr::MacrosPanel> (*editor);
+    auto* vibs = findChild<rtr::VibMacrosPanel> (*editor);
 
     check (pool != nullptr && timeline != nullptr && tracker != nullptr
-               && tools != nullptr && settings != nullptr && macros != nullptr,
-           "editor exposes pool, timeline, tracker, tools, settings and macros");
+               && tools != nullptr && settings != nullptr && macros != nullptr && vibs != nullptr,
+           "editor exposes pool, timeline, tracker, tools, settings, arp macros and vib macros");
 
     if (pool == nullptr || timeline == nullptr || tracker == nullptr
-        || tools == nullptr || settings == nullptr || macros == nullptr)
+        || tools == nullptr || settings == nullptr || macros == nullptr || vibs == nullptr)
         return 1;
 
     auto& song = proc.getSong();
@@ -1740,11 +1755,11 @@ int main()
         }
     }
 
-    //== The Macros tab's vertical scrollbar =================================
+    //== The ARP MACRO tab's vertical scrollbar ===============================
     {
         // the tab has to be the one showing before its own strip can be grabbed,
         // which is what a host does by clicking the tab's name
-        if (auto* tab = findButton (*editor, "MACROS"))
+        if (auto* tab = findButton (*editor, "ARP MACRO"))
             tab->onClick();
 
         // the fill and the scrolls are model writes and view changes rather than
@@ -2333,9 +2348,10 @@ int main()
             walkPairOn (settings, "the settings panel");
             walkPairOn (tools, "the tools panel");
             walkPairOn (macros, "the macros panel");
+            walkPairOn (vibs, "the vib macros panel");
 
             check (proc.getUndoDepth() == panelDepth && sigAt (panelRow, panelCh) == panelSigEntered,
-                   "and answering the pair in five panels walks the line back and forth without net effect");
+                   "and answering the pair in six panels walks the line back and forth without net effect");
         }
 
         //== the keyboard focus a menu or a drag hands back =================
@@ -2584,13 +2600,16 @@ int main()
             check (tracker->copyStep != nullptr && timeline->copyStep != nullptr
                    && pool->copyStep != nullptr && settings->copyStep != nullptr
                    && tools->copyStep != nullptr && macros->copyStep != nullptr
+                   && vibs->copyStep != nullptr
                    && tracker->pasteStep != nullptr && timeline->pasteStep != nullptr
                    && pool->pasteStep != nullptr && settings->pasteStep != nullptr
                    && tools->pasteStep != nullptr && macros->pasteStep != nullptr
+                   && vibs->pasteStep != nullptr
                    && tracker->cutStep != nullptr && timeline->cutStep != nullptr
                    && pool->cutStep != nullptr && settings->cutStep != nullptr
-                   && tools->cutStep != nullptr && macros->cutStep != nullptr,
-                   "all six panels were given a copy, a paste and a cut step of their own");
+                   && tools->cutStep != nullptr && macros->cutStep != nullptr
+                   && vibs->cutStep != nullptr,
+                   "all seven panels were given a copy, a paste and a cut step of their own");
 
             auto* p = song.activePattern();
             check (p != nullptr, "an active pattern is there for the clipboard's Alt pair");
@@ -2746,6 +2765,7 @@ int main()
                 copyPairOn (settings, "the settings panel");
                 copyPairOn (tools, "the tools panel");
                 copyPairOn (macros, "the macros panel");
+                copyPairOn (vibs, "the vib macros panel");
 
                 // X11 hands a key held with Alt over as the character that press
                 // printed, so the pair is matched over that letter too, which is
@@ -2829,8 +2849,9 @@ int main()
 
         check (tracker->sliceStep != nullptr && timeline->sliceStep != nullptr
                && pool->sliceStep != nullptr && settings->sliceStep != nullptr
-               && tools->sliceStep != nullptr && macros->sliceStep != nullptr,
-               "all six panels were given the slice step the editor injects");
+               && tools->sliceStep != nullptr && macros->sliceStep != nullptr
+               && vibs->sliceStep != nullptr,
+               "all seven panels were given the slice step the editor injects");
 
         // the slice belongs to the timeline's edits, so it is refused while the
         // transport runs and needs the grid on; the fixture places a fresh clip
@@ -2911,6 +2932,7 @@ int main()
         sliceOneOn (settings, "the settings panel", pressSliceOn);
         sliceOneOn (tools, "the tools panel", pressSliceOn);
         sliceOneOn (macros, "the macros panel", pressSliceOn);
+        sliceOneOn (vibs, "the vib macros panel", pressSliceOn);
 
         // X11 hands a key held with Alt over as the character that press printed,
         // so the slice is matched over that letter too, which is how the
@@ -3347,6 +3369,125 @@ int main()
         // the rows this section parked the cursor on are below the window the
         // checks after it click into, so the view is brought back to the top
         tracker->keyPressed (juce::KeyPress (juce::KeyPress::homeKey, juce::ModifierKeys(), 0));
+    }
+
+    //== The VIB MACRO tab's card ==============================================
+    {
+        // the vibrato macros the Command column's V calls live on their own tab,
+        // which is added to and removed from the way the ARP MACRO tab is, and
+        // each card holds the three settings a wobble runs: its shape as a
+        // dropdown, its amplitude as a share of full pitchbend and the subticks
+        // one cycle takes, on the same sub-row grid an arpeggiator's steps use
+        if (auto* tab = findButton (*editor, "VIB MACRO"))
+            tab->onClick();
+
+        vibs->refresh();
+
+        check (song.vibDefined (1) && song.firstUndefVibId() == 2 && song.lastDefVibId() == 1,
+               "the default song has the one macro a row can name, and the tab has one card for it");
+
+        std::vector<juce::ComboBox*> shapes;
+        collectComboBoxes (*vibs, shapes);
+        std::vector<juce::Slider*> knobs;
+        collectSliders (*vibs, knobs);
+
+        check (shapes.size() == 1 && knobs.size() == 2,
+               "that macro gets its own dropdown and its two knobs");
+
+        if (shapes.size() < 1 || knobs.size() < 2)
+            return 1;
+
+        // the two knobs are told apart by the span they walk rather than by the
+        // order they were added in, which is what makes the check about one of
+        // them about that one however the card was built
+        juce::Slider* amp = nullptr;
+        juce::Slider* cycle = nullptr;
+
+        for (auto* k : knobs)
+        {
+            if (k->getRange().getEnd() == 1.0)
+                amp = k;
+            else
+                cycle = k;
+        }
+
+        check (amp != nullptr && cycle != nullptr, "the card exposes one knob per span, the pitchbend share and the cycle counted in subticks");
+
+        if (amp == nullptr || cycle == nullptr)
+            return 1;
+
+        check (amp->getRange().getStart() == 0.0 && amp->getRange().getEnd() == 1.0
+                   && amp->getInterval() == 0.01,
+               "the amplitude turns from off to full pitchbend in hundredths, the same hundredths the model keeps");
+
+        check (cycle->getRange().getStart() == 1.0 && cycle->getRange().getEnd() == (double) rtr::kVibFreqTop
+                   && cycle->getInterval() == 1.0,
+               "the cycle knob counts whole subticks one cycle takes, from one to the limit a row's argument can name");
+
+        check (amp->getValue() == (double) rtr::kVibDefaultAmp / (double) rtr::kVibAmpTop
+                   && cycle->getValue() == (double) rtr::kVibDefaultFreq,
+               "the card opens at the amplitude and the cycle a newly defined macro starts at");
+
+        check (shapes[0]->getNumItems() == rtr::kVibTypeTop + 1
+                   && shapes[0]->getSelectedId() == song.vibType (1) + 1,
+               "the dropdown offers the six shapes a wobble runs, opened at the one the macro holds");
+
+        bool spelled = true;
+
+        for (int i = 0; i < shapes[0]->getNumItems(); ++i)
+            if (shapes[0]->getItemText (i) != vibs->vibShapeLabel (shapes[0]->getItemId (i) - 1))
+                spelled = false;
+
+        check (spelled && shapes[0]->getNumItems() == rtr::kVibTypeTop + 1,
+               "the items are spelled as the tab draws a macro's shape, the dropdown's ids being one above the model's own");
+
+        const int depthBeforeShape = proc.getUndoDepth();
+
+        shapes[0]->setSelectedItemIndex (rtr::kVibTypeTriDown, juce::sendNotificationSync);
+        check (song.vibType (1) == rtr::kVibTypeTriDown,
+               "the dropdown's own change writes the shape to the macro, which is what a row already calling it swings by from there");
+        check (proc.getUndoDepth() == juce::jmin (depthBeforeShape + 1, song.settings.undoSteps),
+               "and picking a shape is one action of its own on the undo line, one step of the depth the Settings tab asks for once the line is full");
+
+        const int depthBeforeKnobs = proc.getUndoDepth();
+
+        amp->setValue (0.25, juce::sendNotificationSync);
+        cycle->setValue (6.0, juce::sendNotificationSync);
+        check (song.vibAmplitude (1) == 25 && song.vibFrequency (1) == 6,
+               "a knob turned writes its own setting: the share of full pitchbend and the subticks the cycle takes, six here");
+        check (vibs->vibAmplitudeLabel (song.vibAmplitude (1)) == "0.25",
+               "the amplitude is spelled as the share of full pitchbend rather than as the hundredth the model keeps");
+        check (proc.getUndoDepth() == juce::jmin (depthBeforeKnobs + 2, song.settings.undoSteps),
+               "each knob turned leaves a point of its own, the card's three settings being three separate actions, and once the line is full one of them drops out of it at the far end");
+
+        const int depthBeforeAdd = proc.getUndoDepth();
+
+        if (auto* add = findButton (*vibs, "+ Add macro"))
+            add->onClick();
+
+        check (song.vibDefined (2) && song.firstUndefVibId() == 3 && song.lastDefVibId() == 2,
+               "a fresh macro takes the lowest id that has none yet and moves the gap below it down, the way the ARP MACRO tab adds one");
+
+        check (song.vibType (2) == rtr::kVibTypeSin && song.vibAmplitude (2) == rtr::kVibDefaultAmp
+                   && song.vibFrequency (2) == rtr::kVibDefaultFreq,
+               "and it arrives at the shape, amplitude and cycle the model gives a newly defined one, not at what the card below it had");
+
+        if (auto* remove = findButton (*vibs, "- Remove selected"))
+            remove->onClick();
+
+        check (! song.vibDefined (2) && song.lastDefVibId() == 1 && song.firstUndefVibId() == 2,
+               "the remove button puts away the macro the last gesture picked out and leaves the ids naming the same macros below it, the same pairing the ARP MACRO tab uses");
+
+        check (song.vibAmplitude (1) == 25 && song.vibFrequency (1) == 6
+                   && song.vibType (1) == rtr::kVibTypeTriDown,
+               "the macro that was never picked out keeps the settings the knobs had left it at, the card being about which macro there is rather than about what it holds");
+
+        check (proc.getUndoDepth() == juce::jmin (depthBeforeAdd + 2, song.settings.undoSteps),
+               "a macro defined and a macro taken away are one action each, the card's three settings being three more above them");
+
+        // the tab the sections after this one click through is the tracker's
+        if (auto* tab = findButton (*editor, "TRACKER"))
+            tab->onClick();
     }
 
     //== Floating window size ==========================================

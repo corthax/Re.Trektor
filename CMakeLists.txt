@@ -73,6 +73,8 @@ target_sources(ReTrektor PRIVATE
     Source/ui/SettingsPanel.h
     Source/ui/MacrosPanel.cpp
     Source/ui/MacrosPanel.h
+    Source/ui/VibMacrosPanel.cpp
+    Source/ui/VibMacrosPanel.h
 )
 
 target_compile_definitions(ReTrektor PUBLIC

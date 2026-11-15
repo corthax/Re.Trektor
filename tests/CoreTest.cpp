@@ -142,6 +142,62 @@ struct Harness
         raw.clear();
     }
 };
+
+/** A row naming the vibrato letter beside the note it strikes, and the macro the
+    letter's argument calls: the fixture says which macro and what shape,
+    amplitude and cycle length that one holds, which row arms the swing, and which
+    row a note-off below it ends the swing at (-1 or the arming row itself meaning
+    no note-off at all). The pattern is grown to the length asked for, which is
+    what gives the swing rows of its own to keep swinging over rather than leaving
+    the default pattern's end the only thing that puts it away. */
+void seedVibRow (Song& s, int id, int type, int amplitude, int cycle,
+                 int armRow, int offRow, int length)
+{
+    s.defineVib (id);
+    s.setVibType (id, type);
+    s.setVibAmplitude (id, amplitude);
+    s.setVibFrequency (id, cycle);
+
+    s.patterns[0].setLength (length);
+
+    auto& cell = s.patterns[0].cell (armRow, 0);
+    cell.note = 60;
+    cell.inst = 0;
+    cell.vol = 100;
+    cell.cmd = kVibCmd;
+    cell.cmdVal = id;
+
+    if (offRow >= 0 && offRow != armRow)
+        s.patterns[0].cell (offRow, 0).note = kNoteOff;
+}
+
+/** Where a message of a kind carrying a given value was last seen in the order the
+    host would hear them in: the sample a raw record names is relative to the block
+    it was queued in, so the only ordering that means anything across blocks is the
+    order the records were collected in, and the last message rather than the first
+    is the one that matters for a row answering a swing that had already moved the
+    wheel over many of its own points. */
+int lastIndexOfKindValue (const Harness& h, int kind, int value)
+{
+    for (int i = (int) h.raw.size() - 1; i >= 0; --i)
+    {
+        if (h.raw[(size_t) i].kind == kind && h.raw[(size_t) i].pitch == value)
+            return i;
+    }
+
+    return -1;
+}
+
+int lastIndexOfKind (const Harness& h, int kind)
+{
+    for (int i = (int) h.raw.size() - 1; i >= 0; --i)
+    {
+        if (h.raw[(size_t) i].kind == kind)
+            return i;
+    }
+
+    return -1;
+}
 } // namespace
 
 int main()
@@ -1502,6 +1558,496 @@ int main()
 
         check (runStepsBelow > 20, "the run above keeps stepping below that channel's slide row, the two commands being in separate columns cooperating rather than one switching the other off, got " + juce::String (runStepsBelow));
         check (oneChannelOnly, "both columns name the same MIDI channel, so the wheel the slide moves is the one the run's notes are played against");
+    }
+
+    //== Vibrato macros =======================================================
+    {
+        std::cout << "Vibrato model (a macro's shape, amplitude and cycle, id 0 releasing)\n";
+        check (kVibCmd > kOlderCmdTop && kVibCmd > kCcTop,
+               "the vibrato letter's command value sits above both the highest value an older build could write and the highest plain CC the number field can spell, so no older row and no typed digit run can already be a vibrato");
+
+        Song s;
+        check (s.vibDefined (1) && s.vibType (1) == kVibTypeSin
+               && s.vibAmplitude (1) == kVibDefaultAmp && s.vibFrequency (1) == kVibDefaultFreq,
+               "a new song defines vibrato id 1 at the plain sinusoidal shape at half full pitchbend over a cycle of eight subticks, so the VIB MACRO tab has a card to show the way the ARP MACRO tab has");
+        check (s.firstUndefVibId() == 2 && s.lastDefVibId() == 1,
+               "the lowest free id and the highest defined one name the same gap");
+        check (s.findVib (kMaxVibMacros) != nullptr && s.vibs.size() == kMaxVibMacros,
+               "naming the top id grows the grow-only table to the id limit");
+        check (s.peekVib (0) == nullptr && s.peekVib (kMaxVibMacros + 1) == nullptr
+               && s.findVib (0) == nullptr,
+               "id 0 is the release call and there is no macro entry above the limit");
+    }
+    {
+        std::cout << "Vibrato table grow-only, clearing and defining again\n";
+        Song s;
+        s.defineVib (5);
+        check (s.vibs.size() == 5 && ! s.vibDefined (2) && ! s.vibDefined (4)
+               && s.firstUndefVibId() == 2 && s.lastDefVibId() == 5,
+               "naming id 5 extends the table with absent entries rather than moving the ones already in it, so a fresh macro still takes the lowest gap");
+
+        s.setVibType (5, kVibTypeTriDown);
+        s.setVibAmplitude (5, 96);
+        s.setVibFrequency (5, 111);
+        s.clearVib (5);
+        check (! s.vibDefined (5) && s.vibAmplitude (5) == 0 && s.vibFrequency (5) == 0,
+               "a cleared macro answers for nothing of its own, which is what makes the engine stop a wobble whose macro was taken away rather than swing it at nothing");
+        const auto* gone = s.peekVib (5);
+        check (gone != nullptr && gone->amplitude == 96 && gone->frequency == 111,
+               "clearing says a macro has none rather than erasing the shape, amplitude and cycle its knobs had, which is what re-defining it then starts over from");
+        s.defineVib (5);
+        check (s.vibType (5) == kVibTypeSin && s.vibAmplitude (5) == kVibDefaultAmp
+               && s.vibFrequency (5) == kVibDefaultFreq,
+               "defining a macro again starts from the defaults rather than from what the cleared one had still held");
+    }
+    {
+        std::cout << "Vibrato setters refusing an absent macro and clamping\n";
+        Song s;
+        s.clearVib (1);
+        s.setVibType (1, kVibTypeTriUp);
+        s.setVibAmplitude (1, 80);
+        check (! s.vibDefined (1) && s.vibType (1) == 0 && s.vibAmplitude (1) == 0,
+               "a setting only reaches a macro that is one, so an id nothing entered never answers with a shape, an amplitude or a cycle of its own");
+        s.defineVib (1);
+        const auto* fresh = s.peekVib (1);
+        check (fresh != nullptr && fresh->amplitude == kVibDefaultAmp,
+               "the refused settings left the entry's own amplitude alone, which is what defining the macro over them starts from");
+
+        s.setVibFrequency (1, kVibFreqTop + 55);
+        s.setVibAmplitude (1, -3);
+        s.setVibType (1, kVibTypeTop + 4);
+        check (s.vibFrequency (1) == kVibFreqTop && s.vibAmplitude (1) == 0
+               && s.vibType (1) == kVibTypeTop,
+               "the three settings clamp at their own tops rather than wrapping, which is what leaves the cycle length never at zero subticks and the amplitude never past full pitchbend");
+        s.setVibFrequency (1, 0);
+        check (s.vibFrequency (1) == 1, "a cycle clamps up to one subtick rather than down to nothing, which is what a wobble whose cycle knob was dragged to off swings on");
+    }
+    {
+        std::cout << "Vibrato arguments and macros surviving the saved form\n";
+        Song s;
+        s.patterns[0].cell (0, 0).cmd = kVibCmd;
+        s.patterns[0].cell (0, 0).cmdVal = 90;
+        s.patterns[0].cell (1, 0).cmd = kVibCmd;
+        s.patterns[0].cell (1, 0).cmdVal = kArgOff;
+        s.patterns[0].cell (2, 0).cmd = kVibCmd;
+        s.patterns[0].cell (2, 0).cmdVal = kArgStp;
+        s.defineVib (4);
+        s.setVibType (4, kVibTypeTriDown);
+        s.setVibAmplitude (4, 96);
+        s.setVibFrequency (4, 111);
+
+        Song r;
+        r.fromValueTree (s.toValueTree());
+        check (r.patterns[0].cell (0, 0).cmd == kVibCmd && r.patterns[0].cell (0, 0).cmdVal == 90
+               && r.patterns[0].cell (1, 0).cmdVal == kArgOff && r.patterns[0].cell (2, 0).cmdVal == kArgStp,
+               "the vibrato letter and its OFF and STP spellings survive the saved form unchanged, being saved as the argument's own numbers above the field's top");
+        check (r.vibDefined (4) && r.vibType (4) == kVibTypeTriDown
+               && r.vibAmplitude (4) == 96 && r.vibFrequency (4) == 111,
+               "the three settings a macro holds arrive as their own properties, which is what a saved state brings the knob positions back at");
+
+        Song twice;
+        twice.fromValueTree (r.toValueTree());
+        check (twice.vibDefined (1) && twice.vibDefined (4) && twice.firstUndefVibId() == 2
+               && twice.lastDefVibId() == 4,
+               "the saved form writes one entry per macro that is present rather than one per id the table has room for, so the round trip brings the default one and the macro the entry defined back at the ids they were at and leaves the gap between them a gap");
+
+        Song cleared;
+        cleared.clearVib (1);
+        cleared.defineVib (5);
+        Song back;
+        back.fromValueTree (cleared.toValueTree());
+        check (! back.vibDefined (1) && back.vibDefined (5) && back.lastDefVibId() == 5,
+               "a state that had the default macro taken away reads back without it, which is what an undo that removed a vibrato leaves it removed rather than the reset putting one back");
+
+        Song older;
+        auto root = s.toValueTree();
+        root.removeChild (root.getChildWithName ("VIBS"), nullptr);
+        older.fromValueTree (root);
+        check (older.vibDefined (1) && ! older.vibDefined (4)
+               && older.vibAmplitude (1) == kVibDefaultAmp && older.vibFrequency (1) == kVibDefaultFreq,
+               "a state older than the letter V names no vibrato at all, so the read arrives with the one default macro the way a fresh song does rather than an empty tab");
+    }
+
+    //== A wobble's grid, amplitude and cycle =================================
+    {
+        std::cout << "A sinusoidal wobble at full amplitude, a cycle exactly one row wide\n";
+        Harness h;
+        seedVibRow (h.song, 1, kVibTypeSin, 100, 6, 0, 3, 16);
+        h.runBlocks (94);
+
+        static const int fullSwing[] = { 13985, 16383, 13985, 8192, 2399, 0, 2399, 8192,
+                                         13985, 16383, 13985, 8192, 2399, 0, 2399, 8192,
+                                         13985, 16383, 13985, 8192, 2399, 0, 2399, 8192 };
+        check (h.bends.size() == 24 && h.bends == std::vector<int> (fullSwing, fullSwing + 24),
+               "a cycle six subticks wide is exactly one row wide at the default Settings, so each of the three wobble rows the note is held over draws one cycle of eight points and the note-off below the last of them takes the wheel back to the centre");
+        check (h.bends[1] == kBendTopPos && h.bends[5] == kBendBottomPos,
+               "the full amplitude reaches the wheel's own extremes rather than one of them leaned against further than it is: the height from the centre is the centre's own value, so the peak above would land one position past the top and is clamped to it, while the trough below lands exactly on the bottom");
+
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false,
+               "the row that named the letter struck its note and the row three below it released it, the swing having held its cycles over the rows in between");
+    }
+    {
+        std::cout << "An amplitude turned down and one turned to off\n";
+        Harness half;
+        seedVibRow (half.song, 1, kVibTypeSin, 50, 6, 0, 3, 16);
+        half.runBlocks (94);
+        static const int halfSwing[] = { 11088, 12288, 11088, 8192, 5296, 4096, 5296,
+                                         8192, 11088, 12288, 11088, 8192, 5296, 4096, 5296, 8192,
+                                         11088, 12288, 11088, 8192, 5296, 4096, 5296, 8192 };
+        check (half.bends.size() == 24 && half.bends == std::vector<int> (halfSwing, halfSwing + 24),
+               "the amplitude is a share of the wheel's own half height rather than a number of its own, so a knob at half swings half as far each way and keeps the wheel's own centre as the point its cycle passes through");
+
+        Harness quiet;
+        seedVibRow (quiet.song, 1, kVibTypeSin, 0, 6, 0, 3, 16);
+        quiet.runBlocks (94);
+        check (quiet.bends.empty(),
+               "an amplitude knob turned down to off moves the wheel nowhere at all: the arm row's first point already sits on the base and every point of the cycle sits on it too, which is what makes such a macro still a macro rather than no macro");
+    }
+    {
+        std::cout << "A cycle's width in subticks and the eight points it is drawn with\n";
+        Harness def;
+        seedVibRow (def.song, 1, kVibTypeSin, kVibDefaultAmp, kVibDefaultFreq, 0, 3, 16);
+        def.runBlocks (94);
+        static const int eightWide[] = { 11088, 12288, 11088, 8192, 5296, 4096, 5296,
+                                         8192, 11088, 12288, 11088, 8192, 5296, 4096, 5296,
+                                         8192, 11088, 8192 };
+        check (def.bends.size() == 18 && def.bends == std::vector<int> (eightWide, eightWide + 18),
+               "the default macro's cycle of eight subticks is one point per sub-row step, so its cycle is four thirds of a row wide and crosses the rows it sits in rather than starting on each of them");
+
+        Harness wide;
+        seedVibRow (wide.song, 2, kVibTypeSin, 100, 12, 0, 3, 16);
+        wide.runBlocks (94);
+        static const int wideCycle[] = { 12288, 15286, 16383, 15286, 12288, 8192, 4096,
+                                         1098, 0, 1098, 4096, 8192, 12288, 15286, 16383,
+                                         15286, 12288, 8192 };
+        check (wide.bends.size() == 18 && wide.bends == std::vector<int> (wideCycle, wideCycle + 18),
+               "a cycle twelve subticks wide is two rows wide and drawn with twelve points of it rather than the eight it is asked for at least, so its curve is cut at the twelfths of a cycle and its cycle crosses the rows it sits in over twice");
+
+        Harness tight;
+        seedVibRow (tight.song, 3, kVibTypeSin, 25, 1, 0, 1, 16);
+        tight.runBlocks (94);
+        static const int tightCycle[] = { 9640, 10240, 9640, 8192, 6744, 6144, 6744, 8192,
+                                          9640, 10240, 9640, 8192, 6744, 6144, 6744, 8192,
+                                          9640, 10240, 9640, 8192, 6744, 6144, 6744, 8192,
+                                          9640, 10240, 9640, 8192, 6744, 6144, 6744, 8192,
+                                          9640, 10240, 9640, 8192, 6744, 6144, 6744, 8192,
+                                          9640, 10240, 9640, 8192, 6744, 6144, 6744, 8192 };
+        check (tight.bends.size() == 48 && tight.bends == std::vector<int> (tightCycle, tightCycle + 48),
+               "a cycle one subtick wide is still drawn with the eight points kVibCyclePoints says a cycle is never drawn with fewer of, so the wheel moves eight times inside the sub-row grid rather than once over it and six cycles of it land inside one row");
+        check (tight.bends[0] == 9640 && tight.bends[7] == kBendCentrePos && tight.bends[8] == 9640
+               && tight.bends[46] == 6744 && tight.bends[47] == kBendCentrePos,
+               "each cycle of that narrow one repeats the same eight points and its last point leaves the wheel at 6744 rather than back at the base, which is what makes the 48th message the note-off row below taking that point back to the centre rather than one more point of the cycle");
+    }
+
+    //== A wobble's six shapes ================================================
+    {
+        std::cout << "The six shapes and their Up and Down spellings\n";
+
+        auto allAtOrAbove = [] (const Harness& hw, int base)
+        {
+            for (auto v : hw.bends)
+                if (v < base)
+                    return false;
+
+            return true;
+        };
+        auto allAtOrBelow = [] (const Harness& hw, int base)
+        {
+            for (auto v : hw.bends)
+                if (v > base)
+                    return false;
+
+            return true;
+        };
+
+        const char* shapeLabels[] = { "sinusoidal", "sinusoidal Up", "sinusoidal Down",
+                                      "triangle", "triangle Up", "triangle Down" };
+
+        static const int sinCycle[] = { 11088, 12288, 11088, 8192, 5296, 4096, 5296, 8192 };
+        static const int sinUpCycle[] = { 11088, 12288, 11088, 8192, 11088, 12288, 11088, 8192 };
+        static const int sinDownCycle[] = { 5296, 4096, 5296, 8192, 5296, 4096, 5296, 8192 };
+        static const int triCycle[] = { 10240, 12288, 10240, 8192, 6144, 4096, 6144, 8192 };
+        static const int triUpCycle[] = { 10240, 12288, 10240, 8192, 10240, 12288, 10240, 8192 };
+        static const int triDownCycle[] = { 6144, 4096, 6144, 8192, 6144, 4096, 6144, 8192 };
+        const int* cycles[] = { sinCycle, sinUpCycle, sinDownCycle, triCycle, triUpCycle, triDownCycle };
+
+        for (int kind = 0; kind <= kVibTypeTop; ++kind)
+        {
+            Harness h;
+            const int id = kind + 1;
+            seedVibRow (h.song, id, kind, 50, 6, 0, 1, 16);
+            h.runBlocks (40);
+
+            const int* want = cycles[kind];
+            check (h.bends.size() == 8 && h.bends == std::vector<int> (want, want + 8),
+                   (juce::String) ("the shape named ") + shapeLabels[kind]
+                       + " draws its cycle as the eight points of it that the amplitude names, the Up and Down spellings having one half of the plain shape's cycle folded back over the base");
+            if (kind == kVibTypeSinUp || kind == kVibTypeTriUp)
+                check (allAtOrAbove (h, kBendCentrePos),
+                       "the Up spelling has the cycle's second half inverted, so the wobble never reaches below its base and stays on one side of the pitch it swings about");
+            if (kind == kVibTypeSinDown || kind == kVibTypeTriDown)
+                check (allAtOrBelow (h, kBendCentrePos),
+                       "the Down spelling has the cycle's first half inverted, so the wobble never rises above its base, the other half being the one the plain shape swung to the far side in");
+        }
+    }
+    {
+        std::cout << "A shape's Up and Down spellings leaning on the wheel's ends at full amplitude\n";
+        Harness up;
+        seedVibRow (up.song, 1, kVibTypeSinUp, 100, 6, 0, 1, 16);
+        up.runBlocks (40);
+        static const int upFull[] = { 13985, 16383, 13985, 8192, 13985, 16383, 13985, 8192 };
+        check (up.bends.size() == 8 && up.bends == std::vector<int> (upFull, upFull + 8),
+               "the Up spelling of the sinusoidal shape at full amplitude climbs to the wheel's top twice a cycle with nothing below the base to go to, the fold landing on the peak the plain shape's second half would have reached below");
+
+        Harness down;
+        seedVibRow (down.song, 1, kVibTypeSinDown, 100, 6, 0, 1, 16);
+        down.runBlocks (40);
+        static const int downFull[] = { 2399, 0, 2399, kBendCentrePos, 2399, kBendBottomPos, 2399, kBendCentrePos };
+        check (down.bends.size() == 8 && down.bends == std::vector<int> (downFull, downFull + 8),
+               "the Down spelling of the same shape at full amplitude is that shape's cycle read through the base instead: it lands on the wheel's bottom twice a cycle and never rises above the base, the fold being the cycle's first half rather than its second");
+    }
+
+    //== The point a wobble swings about ======================================
+    {
+        std::cout << "A wobble armed under a bend row swinging about the point that row left\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+
+        auto& c0 = p.cell (0, 0);
+        c0.note = 60;
+        c0.inst = 0;
+        c0.vol = 100;
+        c0.cmd = kBendCmd;
+        c0.cmdVal = 96; // a point above the centre for the wobble to swing about
+
+        auto& c1 = p.cell (1, 0);
+        c1.cmd = kVibCmd;
+        c1.cmdVal = 1;
+        h.song.setVibAmplitude (1, 50);
+        h.song.setVibFrequency (1, 6); // a cycle exactly one row wide, so the
+                                        // swing's points land inside the rows below
+
+        p.cell (3, 0).note = kNoteOff;
+
+        // 94 blocks reach 2.005 ppq, past the row 3 that sits at 0.75
+        h.runBlocks (94);
+
+        // the wheel sits at 12288 before the wobble arms, so the swing measures from
+        // there: a half amplitude is 4096 either way, and the peak above lands on
+        // 16384, which is clamped to the wheel's own top one short of it
+        static const int aboutBent[] = { 12288, 15184, kBendTopPos, 15184, 12288, 9392, 8192, 9392,
+                                         12288, 15184, kBendTopPos, 15184, 12288, 9392, 8192, 9392,
+                                         8192 };
+        check (h.bends.size() == 17 && h.bends == std::vector<int> (aboutBent, aboutBent + 17),
+               "the wobble armed a row below the bend swings about the point that row left the wheel at rather than about the centre, its peak clamped at the wheel's own top where the base has no room above it for the full swing");
+        check (h.bends[0] == 96 * kBendStep, "the row above sent the point it named ahead of the swing's own first point, the two being one pitch rather than a jump");
+
+        auto indexOfKind = [] (const Harness& hw, int kind)
+        {
+            for (size_t i = 0; i < hw.raw.size(); ++i)
+            {
+                if (hw.raw[i].kind == kind)
+                    return (int) i;
+            }
+
+            return -1;
+        };
+        const int onAt = indexOfKind (h, 1);
+        const int wheelAt = indexOfKind (h, 5);
+        check (onAt >= 0 && wheelAt >= 0 && h.raw[onAt].offset == h.raw[wheelAt].offset,
+               "the row above bent the wheel at the same sample as the note it struck there, so the pitch the wobble later swings about is already in force at that note rather than one the row below it asks for");
+    }
+    {
+        std::cout << "A bend row below a running wobble re-basing it rather than ending it\n";
+        Harness h;
+        seedVibRow (h.song, 1, kVibTypeSin, 50, 6, 0, -1, 16);
+        auto& p = h.song.patterns[0];
+        p.cell (1, 0).cmd = kBendCmd;
+        p.cell (1, 0).cmdVal = 96;
+        p.cell (3, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        // the swing's points before row 1 measure from the centre, and the bend row
+        // asked for a new point rather than for the swing to end, so the points from
+        // that row's own sample on measure from 12288 instead: the peak above the new
+        // base would land one position past the wheel's top and is clamped to it
+        static const int reBased[] = { 11088, 12288, 11088, 8192, 5296, 4096, 5296,
+                                       12288, 15184, 16383, 15184, 12288, 9392, 8192,
+                                       9392, 12288, 15184, 16383, 15184, 12288, 9392,
+                                       8192, 9392, 8192 };
+        check (h.bends.size() == 24 && h.bends == std::vector<int> (reBased, reBased + 24),
+               "a bend row under a running wobble moves the point the swing measures about to the pitch it asks for rather than ending the swing or starting a new one, so the row's own point and the wobble's are one pitch and the points below reach over the new base");
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false,
+               "the bend row below the letter neither strikes a note nor releases the one the row above it held, the swing carrying on across it");
+    }
+
+    //== A wobble's release, its STP spelling and a row retargeting ===========
+    {
+        std::cout << "A release row putting the pitchbending away\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        seedVibRow (h.song, 1, kVibTypeSin, 100, 6, 0, -1, 16);
+
+        auto& off = p.cell (2, 0);
+        off.cmd = kVibCmd;
+        off.cmdVal = 0; // a 0 beside the letter names the release
+
+        p.cell (4, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        static const int released[] = { 13985, 16383, 13985, 8192, 2399, 0, 2399,
+                                        8192, 13985, 16383, 13985, 8192, 2399, 0, 2399, 8192 };
+        check (h.bends.size() == 16 && h.bends == std::vector<int> (released, released + 16),
+               "the release takes the wobble and the wheel it had left swinging away on its own row, the last point of the cycle having moved the wheel to 2399 just above the bottom and the row's own message naming the centre rather than a point of the cycle");
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false,
+               "the note the row above struck is still held to the note-off below, the release being about the wheel rather than about the note");
+
+        const int lastWobble = lastIndexOfKindValue (h, 5, 2399);
+        const int centreAt = lastIndexOfKindValue (h, 5, kBendCentrePos);
+        const int offAt = lastIndexOfKind (h, 0);
+        check (lastWobble >= 0 && centreAt > lastWobble && centreAt < offAt,
+               "the centre arrives at the row that released rather than being saved for the note-off below, which is what leaves no pitchbent wheel over the rows below the release");
+    }
+    {
+        std::cout << "The OFF the entry writes for an o spelling the same release\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        seedVibRow (h.song, 1, kVibTypeSin, 100, 6, 0, -1, 16);
+        p.cell (2, 0).cmd = kVibCmd;
+        p.cell (2, 0).cmdVal = kArgOff;
+        p.cell (4, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        static const int offReleased[] = { 13985, 16383, 13985, 8192, 2399, 0, 2399,
+                                           8192, 13985, 16383, 13985, 8192, 2399, 0, 2399, 8192 };
+        check (h.bends.size() == 16 && h.bends == std::vector<int> (offReleased, offReleased + 16),
+               "the OFF spelling does what a 0 beside the letter does, the argument field's own top being one below what the spelling needs, which is why the entry writes OFF rather than a number");
+
+        // the same song with a row naming only an argument a row below the release
+        Harness later;
+        later.song.patterns[0].setLength (16);
+        seedVibRow (later.song, 1, kVibTypeSin, 100, 6, 0, -1, 16);
+        later.song.patterns[0].cell (2, 0).cmd = kVibCmd;
+        later.song.patterns[0].cell (2, 0).cmdVal = kArgOff;
+        later.song.patterns[0].cell (3, 0).cmdVal = 1; // a bare argument under it
+        later.song.patterns[0].cell (4, 0).note = kNoteOff;
+        later.runBlocks (94);
+        check (later.bends == std::vector<int> (offReleased, offReleased + 16),
+               "a row naming only an argument below the release arms nothing: the release left the column calling nothing rather than calling id 0, the way a run's and a slide's release leave nothing below them");
+    }
+    {
+        std::cout << "An STP argument row holding a swing and a row naming a different macro\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        seedVibRow (h.song, 1, kVibTypeSin, 100, 6, 0, -1, 16);
+        h.song.defineVib (2);
+        h.song.setVibAmplitude (2, 25);
+        h.song.setVibFrequency (2, 6);
+
+        p.cell (1, 0).cmdVal = kArgStp; // only an argument, under the letter above
+        p.cell (2, 0).cmdVal = 2; // and a quiet macro named under the same carried letter
+        p.cell (4, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        // the swing's own points over the two rows above the retarget reach the row
+        // at 0.5, which is where the new base sits: the quiet macro's own cycle
+        // measures from 2399 at a quarter amplitude, so nothing of it leans anywhere
+        static const int retargeted[] = { 13985, 16383, 13985, 8192, 2399, 0, 2399,
+                                          8192, 13985, 16383, 13985, 8192, 2399, 0, 2399,
+                                          3847, 4447, 3847, 2399, 951, 351, 951, 2399,
+                                          3847, 4447, 3847, 2399, 951, 351, 951, 8192 };
+        check (h.bends.size() == 31 && h.bends == std::vector<int> (retargeted, retargeted + 31),
+               "an argument naming STP beside a carried letter asks for nothing and leaves the swing swinging over the rows below it, and the row below that names another macro id re-arms the swing over that macro, its cycle counting again from that row rather than from where the first stretch had got in its cycle");
+        check (h.bends[15] == 3847 && h.bends[29] == 951 && h.bends[30] == kBendCentrePos,
+               "the re-armed swing measures its quieter cycle from the point the first stretch's last point had got the wheel to rather than from where that stretch was armed, which is what keeps the retarget from jumping to the quieter macro's own base");
+    }
+    {
+        std::cout << "A row naming STP beside the letter ending that row's own swing\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        seedVibRow (h.song, 1, kVibTypeSin, 100, 6, 0, -1, 16);
+        p.cell (2, 0).cmd = kVibCmd;
+        p.cell (2, 0).cmdVal = kArgStp;
+        p.cell (4, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        static const int letterStp[] = { 13985, 16383, 13985, 8192, 2399, 0, 2399,
+                                         8192, 13985, 16383, 13985, 8192, 2399, 0, 2399, 8192 };
+        check (h.bends.size() == 16 && h.bends == std::vector<int> (letterStp, letterStp + 16),
+               "a row that names the letter itself and an STP argument ends that row's own swing rather than re-arming one, a wobble having no move of the wheel to hold, and leaves the wheel sitting at the point its last point had got to until the note-off below takes it back");
+        // the same song with a row naming only an argument under the letter the
+        // STP row left in force, which re-arms the swing one row above the note-off
+        Harness later;
+        later.song.patterns[0].setLength (16);
+        seedVibRow (later.song, 1, kVibTypeSin, 100, 6, 0, -1, 16);
+        later.song.patterns[0].cell (2, 0).cmd = kVibCmd;
+        later.song.patterns[0].cell (2, 0).cmdVal = kArgStp;
+        later.song.patterns[0].cell (3, 0).cmdVal = 1;
+        later.song.patterns[0].cell (4, 0).note = kNoteOff;
+        later.runBlocks (94);
+
+        static const int letterStpThenArg[] = { 13985, 16383, 13985, 8192, 2399, 0, 2399,
+                                                8192, 13985, 16383, 13985, 8192, 2399, 0, 2399,
+                                                8192, 10591, 8192, 2399, 0, 8192 };
+        check (later.bends.size() == 21 && later.bends == std::vector<int> (letterStpThenArg, letterStpThenArg + 21),
+               "the letter's own row left the column calling that letter, so a bare argument one row below re-arms the swing from the point the ended one had left the wheel at: its fuller amplitude reaches over the base by more than the base has room for, and the points of it that would land below the wheel's own bottom all sit on it rather than going past it");
+        check (later.bends[15] == kBendCentrePos,
+               "the re-armed swing says nothing at its own arming row, whose first point sits on the base the ended swing had left the wheel at, which is what makes the first message it sends one part way up its cycle rather than a jump to one of its extremes");
+    }
+
+    //== A wobble whose macro was taken away ==================================
+    {
+        std::cout << "The macro taken away while its wobble swings\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        seedVibRow (h.song, 2, kVibTypeSin, 100, 6, 0, -1, 16);
+        p.cell (4, 0).note = kNoteOff;
+
+        // 26 blocks reach 0.5547 ppq, past the wobble's eighteenth point at 0.53125
+        h.runBlocks (26);
+        const int before = h.bends.size();
+        h.song.clearVib (2);
+
+        // two more blocks, still short of the note-off row at 1.0 ppq: the flush
+        // below the next block boundary is what finds the macro gone
+        h.runBlocks (2);
+
+        check (h.bends.size() == before,
+               "the macro being taken away ends the swing at its next point rather than at the row that took it, and says nothing of its own: the wheel keeps whatever point of its own the swing had got to");
+        check (before == 17 && h.bends[before - 1] == 13985,
+               "the last point of the swing the run had played sits above the base the wobble swung about, which is what leaves a wheel bent rather than one already at its centre");
+
+        h.runBlocks (30);
+
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false
+               && h.bends.size() == before + 1 && h.bends.back() == kBendCentrePos,
+               "a release row below is what puts that wheel away, the note-off taking the point the swing had left back to its centre");
+    }
+    {
+        std::cout << "The clip its rows live in running out under a wobble\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (2);
+        h.song.setVibAmplitude (1, 100);
+        h.song.setVibFrequency (1, 6);
+        p.cell (0, 0).cmd = kVibCmd;
+        p.cell (0, 0).cmdVal = 1;
+        h.runBlocks (26);
+
+        static const int clipOut[] = { 13985, 16383, 13985, 8192, 2399, 0, 2399, 8192,
+                                       13985, 16383, 13985, 8192, 2399, 0, 2399, 8192 };
+        check (h.bends.size() == 16 && h.bends == std::vector<int> (clipOut, clipOut + 16),
+               "a swing this clip's single cell armed has no rows below the clip left to keep swinging over, so its cycle stops at the clip's end and the wheel it had left swinging comes back to its centre there, the same thing a ramp this clip armed comes back at");
+        check (h.notes.empty(), "the wobble armed with no note of its own has nothing to release, the wheel being all that is left to put away");
+        check (std::count_if (h.raw.begin(), h.raw.end(),
+                              [] (const RawEvent& e) { return e.kind == 2; }) == kMidiChannelCount,
+               "the all-notes-offs that are there are the ones the transport's own start asks for, one per channel, which is what leaves the clip's end sending only the wheel's take-back rather than releasing anything of its own");
     }
 
     //== Grid snapping ========================================================

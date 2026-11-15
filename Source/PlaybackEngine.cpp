@@ -1,6 +1,7 @@
 #include "PlaybackEngine.h"
 #include <algorithm>
 #include <set>
+#include <cmath>
 
 namespace rtr
 {
@@ -139,9 +140,10 @@ void PlaybackEngine::stopNote (std::vector<PendingEvent>& events, int offset, in
 
 //==============================================================================
 /** Ends the pitch wheel this channel has in force: the message that puts it back
-    at its centre only where the channel had actually left it bent, and no wheel
-    and no ramp in force below that. A ramp that was still climbing while its own
-    wheel never left the centre has only itself to put away, which is why no
+    at its centre only where the channel had actually left it bent, and no wheel,
+    ramp or wobble in force below that. A ramp that was still climbing while its own
+    wheel never left the centre, or a wobble that had only just started its cycle and
+    so was still sitting on its base, has only itself to put away, which is why no
     message is what ends it. The channel the message goes to is the one the row
     that ends the wheel names, the same way a bend row's own instrument names it,
     rather than the one a note the channel was holding came from. */
@@ -154,8 +156,11 @@ void PlaybackEngine::endWheel (std::vector<PendingEvent>& events, int ch, int mi
         events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh, kBendCentrePos) });
         c.endBend();
     }
-    else if (c.slideRunning())
-        c.endBend();
+    else if (c.slideRunning() || c.vibRunning())
+        c.endBend(); // a ramp or a wobble still in force with its wheel never having
+                     // left the centre has only itself to put away: a wobble in
+                     // particular sits on its base at the start of its cycle, so
+                     // nothing about its wheel says it is still swinging
 }
 
 //==============================================================================
@@ -401,6 +406,14 @@ void PlaybackEngine::bendTo (std::vector<PendingEvent>& events, int ch, int midi
     events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh + 1, position) });
     c.lastBendPos = position;
     c.bendClip = clipUid;
+
+    if (c.vibOn)
+        c.vibBase = position; // a wobble this column has swinging moves about the point
+                              // a bend row below it moved the wheel to rather than about
+                              // the point it was armed at, and keeps swinging: the bend
+                              // asked for a new point, not for the wobble to end, so its
+                              // cycle carries on from where it was in it and the points
+                              // below reach over the new base
 }
 
 //==============================================================================
@@ -471,6 +484,237 @@ void PlaybackEngine::slideCommand (std::vector<PendingEvent>& events, int ch, in
     // ramp's own start, so its first step holds the point the wheel is already at
     // and sends no message of its own, which is what keeps that row's note straight
     // and leaves the extreme to the step sitting span rows below
+}
+
+//==============================================================================
+/** A row naming the vibrato letter, or one naming only an argument under a letter
+    carried above it: the argument names which vibrato macro the column runs, so
+    the row itself says nothing about the wheel and arms a wobble whose points the
+    flush below moves over the grid the macro's own cycle length names. The wobble
+    swings about the point the wheel was at where it was armed, which is what lets
+    a bend row above it or a slide's extreme be the pitch it swings from, and about
+    the point a bend row below moved it to while it runs, which is what keeps that
+    row's own pitch and the wobble's swing in step with one another rather than
+    making the bend end the swing. The release spells itself the two ways a call's
+    does: the id 0 beside the letter and the OFF the entry writes for an o both put
+    the pitchbending away, closing any arpeggiator run this column was in the same
+    way a slide's OFF closes one and taking the wheel back to its centre so nothing
+    stays bent under the rows below; the STP spelling asks for nothing beside a
+    vibrato since a wobble has no move of the wheel to stop. An id naming a macro
+    that has none of its own still arms the wobble here, and its flush puts it away
+    at the first point of it, the way a run whose macro was taken away stops at its
+    next step rather than at the row that took it. */
+void PlaybackEngine::vibCommand (std::vector<PendingEvent>& events, int ch, int id, int offset,
+                                 double rowPpq, const juce::Uuid& clipUid, bool noteOnRow,
+                                 const Song& song)
+{
+    auto& c = channels[(size_t) ch];
+
+    if (id == kArgStp)
+        return; // a wobble has no move of the wheel to stop, so an STP row says
+                // nothing at all and leaves the wobble above still swinging over
+                // the rows below it, the same thing a row beside a call's STP asks
+
+    if (id == 0 || id == kArgOff)
+    {
+        // the release: the wobble is put away and the wheel it had left swinging
+        // taken back, both at this row, so the rows below it have neither the
+        // letter nor a wobble and sit under a straight pitch
+        if (c.arpId > 0 && ! noteOnRow)
+            closeArp (events, offset, ch);
+
+        c.endArp();
+        endWheel (events, ch, juce::jlimit (0, kMidiChannelCount - 1, c.lastInst) + 1, offset);
+
+        // a release leaves the column calling nothing rather than calling id 0, the
+        // way a run's release and a slide's OFF leave nothing below them, which is
+        // what stops an argument-only row further down arming a wobble again
+        c.lastCmd = -1;
+        c.lastCmdVal = -1;
+        return;
+    }
+
+    // a vibrato and a run cannot both be in force in one column, so this row closes
+    // the run the column was in exactly as a slide row does: the note the run's last
+    // step entered is released here and the run is over, while a run another column
+    // of the same MIDI channel was in stays where it is
+    if (c.arpId > 0 && ! noteOnRow)
+        closeArp (events, offset, ch);
+
+    c.endArp();
+
+    c.vibOn = true;
+    c.vibId = juce::jlimit (1, kMaxVibMacros, id);
+    c.vibClip = clipUid;
+    c.vibOrigin = rowPpq;
+    c.vibCount = 0;
+
+    // the wobble's cycle starts at the row that armed it, counted from there rather
+    // than read off the rows, the way a run's steps and a ramp's are counted
+    c.vibBase = c.lastBendPos;
+
+    // arming says nothing about the wheel, the way arming a ramp does: the cycle's
+    // first point sits on the base the wheel is already at, which is what keeps the
+    // row that named the letter and the row a bare wobble's note sits on at the
+    // pitch they were already at rather than jumping to one side of the swing there
+    // the macro's three settings are read at every point rather than here, so
+    // arming needs nothing of the song but keeps the same shape as a slide's
+    // answer for the row that wrote it
+    (void) song;
+}
+
+//==============================================================================
+/** One point of a vibrato's cycle: how far the macro's shape says the pitch sits
+    from the base a wobble swings about, as a share of the macro's own amplitude,
+    at the phase of its cycle given, 0 at the cycle's start and just short of a
+    whole cycle round. The sinusoidal shape curves, the triangle one ramps, and the
+    Up and Down spellings of each fold half of that cycle back over the base rather
+    than swinging to the far side of it: the Up kinds have the cycle's second half
+    of it inverted, so the pitch only goes above the base, and the Down kinds have
+    its first half inverted, so it only goes below - the two halves being the ones
+    the plain shape swings to the far side and to the near side in, which is what
+    folding one of them back leaves the whole wobble on one side of its base. */
+static double vibShape (int type, double phase)
+{
+    double shape;
+
+    if (type >= kVibTypeTri)
+    {
+        // four straight sides over the cycle: the ramp climbs to the far top a
+        // quarter of the way in, comes back through the base by halfway and to its
+        // own bottom by three quarters, then closes on the base, which is what
+        // leaves a triangle's corners on the cycle's quarters rather than having
+        // them bunched at its ends
+        const double q = phase * 4.0;
+        shape = q < 1.0 ? q : ( q < 3.0 ? 2.0 - q : q - 4.0 );
+    }
+    else
+        shape = std::sin (phase * juce::MathConstants<double>::twoPi);
+
+    if (phase >= 0.5 && ( type == kVibTypeSinUp || type == kVibTypeTriUp ))
+        shape = -shape;
+    else if (phase < 0.5 && ( type == kVibTypeSinDown || type == kVibTypeTriDown ))
+        shape = -shape;
+
+    return shape;
+}
+
+//==============================================================================
+/** The points of a vibrato this channel's column has in force, moved over the grid
+    the macro's own cycle length names rather than the plain sub-row one: a cycle
+    eight subticks wide at the eight points it is drawn with with the Settings' six
+    subticks to the row is one point every 4/3 of a subtick, which is what lets a
+    cycle the macro asked for shorter than one point per sub-row step still show its
+    curve rather than landing on one point of it every sub-row, and what leaves a
+    cycle eight subticks or wider having one point per sub-row step. The points are
+    counted from the arming row rather than read off the rows, the way a run's steps
+    and a ramp's are, which is what a row a transport jump makes this block play
+    again leaves on the same point of the cycle instead of advancing it twice, and
+    what keeps a wobble that cycled many times exact rather than drifted by its own
+    fractions. Only a point that changes the wheel's position says anything, which is
+    what the arming row's own point sends nothing of its own, and what leaves a
+    macro whose amplitude knob is at off holding the pitch it is at over its cycles
+    rather than moving the wheel every point of them. A wobble never finishes by
+    itself: a cycle repeats for as long as the column carries the letter, so the
+    clip that armed it and the release rows are what put it away. */
+void PlaybackEngine::flushVib (std::vector<PendingEvent>& events, int ch, double ppqStart,
+                               double ppqLimit, double ppqPerSample, int numSamples,
+                               const Song& song)
+{
+    auto& c = channels[(size_t) ch];
+
+    if (! c.vibRunning())
+        return;
+
+    const auto* macro = song.peekVib (c.vibId);
+
+    if (macro == nullptr || ! macro->defined())
+    {
+        c.endVib(); // the macro the wobble was running has none of its own any more,
+                    // which is what a run whose macro was taken away answers at its
+                    // next step: the wheel keeps whatever point of its own the
+                    // wobble's last point left it at, and a release row below is
+                    // what puts that away
+        return;
+    }
+
+    const double rowsPerBeat = (double) juce::jmax (1, song.settings.rowsPerBeat);
+    const double rowSpanPpq = 1.0 / rowsPerBeat;
+    const int subticks = juce::jmax (1, song.settings.subticksPerRow);
+
+    // the macro's three settings are re-read here, so a macro whose shape,
+    // amplitude or cycle was turned while its wobble ran changes the wobble from
+    // where it is rather than leaving what the arming row had still in force
+    const int cycle = juce::jlimit (1, kVibFreqTop, macro->frequency);
+    const int amplitude = juce::jlimit (0, kVibAmpTop, macro->amplitude);
+
+    c.vibCycle = cycle;
+    c.vibPoints = juce::jmax (cycle, kVibCyclePoints);
+
+    // the amplitude is a share of the wheel's own half-height, so a knob at full
+    // reaches the wheel's own extremes from a wobble sitting at its centre, and
+    // counted in whole wheel positions rather than in the argument's steps, which
+    // is what leaves no rounding where the swing's own curve crosses the centre
+    c.vibHeight = amplitude * kBendCentrePos / kVibAmpTop;
+
+    const double cycleSpanPpq = rowSpanPpq * (double) cycle / (double) subticks;
+    const double pointPpq = cycleSpanPpq / (double) c.vibPoints;
+
+    // a wobble whose next point sits more than a row behind where this block starts
+    // cannot be placed any more, which is what a scrub or a jump leaves behind, so
+    // it ends rather than swinging late at where it had got to
+    if (c.vibOrigin + (double) c.vibCount * pointPpq < ppqStart - rowSpanPpq)
+    {
+        c.endVib();
+        return;
+    }
+
+    const int midiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst) + 1;
+
+    while (true)
+    {
+        // the point's position is the arming row plus its count over the cycle's
+        // own point width, never a sum of that width into itself, so a wobble that
+        // cycled many times over many blocks stays exact
+        const double pointTime = c.vibOrigin + (double) c.vibCount * pointPpq;
+
+        if (pointTime >= ppqLimit)
+            break; // it waits for the rows below or for the next block
+
+        if (pointTime >= ppqStart - kRowAlignEps)
+        {
+            const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
+                                             (int) std::llround ((pointTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
+
+            // the cycle's phase is the point inside it over the points that cycle
+            // is drawn with, counted from the arming row rather than carried round
+            // from the point before, which is what a cycle that wrapped many times
+            // keeps its shape rather than its drift
+            const double phase = (double) (c.vibCount % c.vibPoints) / (double) c.vibPoints;
+            const double shape = vibShape (macro->type, phase);
+
+            // the swing is measured from the base the wobble was armed at or a bend
+            // row below moved it to, and kept inside the wheel's own extremes, which
+            // is what an amplitude at full reaches without one of the wheel's ends
+            // being leaned against further than it is
+            const int position = juce::jlimit (kBendBottomPos, kBendTopPos,
+                                               c.vibBase + (int) std::llround (shape * (double) c.vibHeight));
+
+            if (position != c.lastBendPos)
+            {
+                // the same standard pair a bend row sends, at this point's sample,
+                // and ahead of the note the row this point sits inside strikes, so
+                // a note entering while the wheel swings is played at the point
+                // the swing had got to rather than the one before it
+                events.push_back ({ offset, 0, juce::MidiMessage::pitchWheel (midiCh, position) });
+                c.lastBendPos = position;
+                c.bendClip = c.vibClip; // the clip whose rows armed the wobble is
+                                        // what has a swing to put away at its end
+            }
+        }
+
+        ++c.vibCount;
+    }
 }
 
 //==============================================================================
@@ -627,6 +871,16 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // the point this left the wheel at
                 state.endSlide();
             }
+
+            // a row naming a command that is not the bend letter leaves no wobble in
+            // force either: a bend row asked for a new point on the wheel rather than
+            // for the swing to end, so it re-bases the swing below instead, while
+            // every other command's wheel is a point or nothing at all and the swing
+            // above it has no rows of its own left to keep swinging under this one;
+            // the vibrato row that arms its own wobble does so below, at the point
+            // this left the wheel at, the way a slide row arms its own ramp
+            if (cell.cmd != kBendCmd)
+                state.endVib();
         }
 
         // An explicit volume or pan cell always drives its configured controller
@@ -692,6 +946,14 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // STP one by leaving the wheel at the point it had got to
                 slideCommand (events, ch, offset, rowPpq, cell.cmdVal,
                               cell.cmd == kSlideUpCmd, noteHere, clip.uid, song);
+            else if (cell.cmd == kVibCmd)
+                // the letter's argument names which vibrato macro the column runs
+                // rather than anything about the wheel itself, so the row arms a
+                // wobble whose points the flush below moves over the macro's own
+                // cycle grid, answers an OFF one by taking the wheel back and holds
+                // an STP one by asking for nothing at all
+                vibCommand (events, ch, cell.cmdVal, offset, rowPpq, clip.uid,
+                            noteHere, song);
             else
                 events.push_back ({ offset, 3, juce::MidiMessage::controllerEvent (midiCh + 1,
                                                                                   juce::jlimit (0, kCcTop, cell.cmd),
@@ -726,6 +988,16 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 slideCommand (events, ch, offset, rowPpq, cell.cmdVal,
                               state.lastCmd == kSlideUpCmd, noteHere, clip.uid, song);
             }
+            else if (state.lastCmd == kVibCmd)
+            {
+                // under a carried vibrato letter the argument is a new macro id, so
+                // the row starts that wobble rather than saying anything about the
+                // wheel: an OFF or 0 one takes the pitchbending away and a STP one
+                // asks for nothing, both the way the letter's own row answers them,
+                // which is what lets a wobble be retargeted as it swings
+                vibCommand (events, ch, cell.cmdVal, offset, rowPpq, clip.uid,
+                            noteHere, song);
+            }
             else
             {
                 // the argument of an arpeggiator call is its macro id, so a row
@@ -742,11 +1014,12 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
         if (noteOff)
             state.columnNote = -1;
 
-        // the ramp this channel's column has in force is not moved here: its steps
-        // are a sub-row wide rather than a row wide, so process() flushes them after
-        // the row it has processed, up to that row's end, which is what leaves a
-        // row's own steps waiting for the block that reaches them rather than being
-        // bunched onto this row's samples
+        // the ramp this channel's column has in force is not moved here, and neither
+        // is the swing of a wobble it has in force: their steps are a sub-row wide and
+        // a wobble's points nearer that than it, so process() flushes them after the
+        // row it has processed, up to that row's end, which is what leaves a row's
+        // own steps and points waiting for the block that reaches them rather than
+        // being bunched onto this row's samples
 
         uiRow[(size_t) ch].store (row);
     }
@@ -819,9 +1092,10 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     // already been processed, so the part this block may still play stops at the
     // end of the last row the engine owned, which is what keeps a run the column
     // supersedes lower down from replaying steps that belong below that row. The
-    // steps of a slide's ramp wait the same way, which is what leaves the block
-    // boundary landing inside a row's own sub-row steps to be picked up rather
-    // than dropped or bunched onto one sample.
+    // steps of a slide's ramp and the points of a wobble's cycle wait the same way,
+    // which is what leaves the block boundary landing inside a row's own sub-row
+    // steps or a cycle's own points to be picked up rather than dropped or bunched
+    // onto one sample.
     for (int ch = 0; ch < kMaxTrackerChannels; ++ch)
     {
         auto& c = channels[(size_t) ch];
@@ -839,6 +1113,9 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
 
         if (c.slideRunning())
             flushSlide (events, ch, ppqStart, juce::jmin (ppqEnd, c.slideRowEnd), ppqPerSample, numSamples, song);
+
+        if (c.vibRunning())
+            flushVib (events, ch, ppqStart, juce::jmin (ppqEnd, c.vibRowEnd), ppqPerSample, numSamples, song);
     }
 
     for (auto& clip : song.clips)
@@ -902,6 +1179,7 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 c.lastRow = row;
                 c.arpRowEnd = rowEnd;
                 c.slideRowEnd = rowEnd;
+                c.vibRowEnd = rowEnd;
 
                 // the steps of a run that reached this row sound up to its end;
                 // the ones past it wait for the next rows or the next block,
@@ -909,10 +1187,15 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 // squeezed onto this row's samples. The steps of a ramp the column
                 // is in sound the same way up to this row's end, which is what
                 // keeps the wheel climbing over the sub-row grid rather than being
-                // moved to the point a whole row reaches for
+                // moved to the point a whole row reaches for, and the points of a
+                // wobble's cycle swing the same way up to it, which is what keeps
+                // the wheel moving over that cycle's own points rather than over
+                // the rows it sits inside
                 flushArp (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
 
                 flushSlide (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+
+                flushVib (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
             }
         }
 
@@ -944,16 +1227,22 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                         c.lastRow = rowAtStart;
                         c.arpRowEnd = rowEnd;
                         c.slideRowEnd = rowEnd;
+                        c.vibRowEnd = rowEnd;
 
                         // the run this row starts counts from the row itself, so
                         // its first step is played at this block's first sample
                         // rather than being dropped for sitting behind the start.
                         // A ramp this row armed counts from this row too, which is
                         // what a slide written at the row a seek landed inside
-                        // starts climbing at that row rather than a row below it
+                        // starts climbing at that row rather than a row below it,
+                        // and a wobble this row armed counts its cycle from it as
+                        // well, which is what a vibrato written at the row a seek
+                        // landed inside swings from that row rather than a row below
                         flushArp (events, ch, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
 
                         flushSlide (events, ch, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+
+                        flushVib (events, ch, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
                     }
                 }
             }
@@ -987,12 +1276,16 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 // A ramp this clip armed that had not reached its extreme yet has
                 // no rows below the clip left to finish it either: its own wheel
                 // may still sit at the centre, in which case only the ramp needs
-                // putting away and no message is what takes it back
+                // putting away and no message is what takes it back, and a swing
+                // this clip armed has no rows below it left to keep swinging either,
+                // which is what leaves a wobble at the pitch its last point had got
+                // to rather than one that carries on over the clip below
                 const bool wheelBent = c.lastBendPos != kBendCentrePos;
                 const bool clipBentIt = c.bendClip == clip.uid && wheelBent;
                 const bool clipRampedIt = c.slideClip == clip.uid && c.slideRunning();
+                const bool clipWobbledIt = c.vibClip == clip.uid && c.vibRunning();
 
-                if (clipBentIt || clipRampedIt)
+                if (clipBentIt || clipRampedIt || clipWobbledIt)
                 {
                     if (wheelBent)
                     {
@@ -1007,16 +1300,35 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     }
 
     // Notes whose owning clip was deleted or is no longer under the playhead,
-    // and the arpeggiator runs belonging to such a clip: nothing below the playhead
-    // can play a run whose clip is gone, so its waiting steps end as well.
+    // the arpeggiator runs belonging to such a clip, and the wobble a such a clip
+    // had armed: nothing below the playhead can play a run whose clip is gone, so
+    // its waiting steps end as well, and nothing below it can swing a wobble whose
+    // clip is gone either, which is what leaves the wheel that wobble had left off
+    // the centre returned rather than bent over the clips that are still under it.
     for (int ch = 0; ch < kMaxTrackerChannels; ++ch)
     {
         auto& c = channels[(size_t) ch];
 
-        if (c.activeNote < 0 && c.arpId <= 0)
+        if (c.activeNote < 0 && c.arpId <= 0 && ! c.vibRunning())
             continue;
 
         const auto* clip = song.findClip (c.activeClip);
+
+        // a column whose rows armed a run or a wobble without striking a note of
+        // their own holds no note whose clip says which clip the column sits in, so
+        // the clip those rows themselves live in is what their steps and points
+        // belong to: their being gone is what ends them, the way the clip a wobble
+        // was armed by is what puts its swing away at its end, and a column that
+        // names neither clip has nothing of its own for a gone clip to be about
+        if (clip == nullptr)
+        {
+            if (c.arpId > 0)
+                clip = song.findClip (c.arpClip);
+
+            if (clip == nullptr && c.vibRunning())
+                clip = song.findClip (c.vibClip);
+        }
+
         bool stillUnder = false;
 
         if (clip != nullptr)
@@ -1039,6 +1351,24 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 stopNote (events, 0, ch, c.activeMidiCh, c.activeNote);
 
             c.endArp();
+
+            // a wobble the same clip had armed belongs to that clip too, so the
+            // wheel it had left swinging comes back to the centre here rather than
+            // over the clips that are still under the playhead, the way a ramp the
+            // gone clip armed comes back; a wheel this clip had nothing to do with
+            // is left where its own rows left it, and only the wobble is put away
+            if (clip != nullptr && c.vibClip == clip->uid)
+            {
+                if (c.lastBendPos != kBendCentrePos)
+                {
+                    const int bendMidiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst) + 1;
+                    events.push_back ({ 0, 0, juce::MidiMessage::pitchWheel (bendMidiCh, kBendCentrePos) });
+                }
+
+                c.endBend();
+            }
+            else
+                c.endVib();
         }
     }
 

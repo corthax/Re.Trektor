@@ -13,7 +13,8 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
       pool (p),
       tools (p),
       settings (p),
-      macros (p)
+      macros (p),
+      vibs (p)
 {
     setLookAndFeel (&lookAndFeel);
 
@@ -34,7 +35,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
         setSize (1240, 760);
 
     //== tabs =================================================================
-    for (auto* b : { &trackerTab, &macrosTab, &settingsTab })
+    for (auto* b : { &trackerTab, &macrosTab, &vibTab, &settingsTab })
     {
         b->setClickingTogglesState (false);
         b->setColour (juce::TextButton::buttonColourId, theme::panel);
@@ -44,6 +45,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
 
     trackerTab.onClick = [this] { setTab (Tab::tracker); };
     macrosTab.onClick = [this] { setTab (Tab::macros); };
+    vibTab.onClick = [this] { setTab (Tab::vibs); };
     settingsTab.onClick = [this] { setTab (Tab::settings); };
 
     //== grid controls ========================================================
@@ -104,6 +106,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     addAndMakeVisible (tools);
     addChildComponent (settings);
     addChildComponent (macros);
+    addChildComponent (vibs);
 
     // every model change ends in commitEdit(), which records the state the
     // model reached as the newest point of the undo line before refreshing, so
@@ -134,6 +137,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     };
 
     macros.onModelChanged = [this] { commitEdit(); };
+    vibs.onModelChanged = [this] { commitEdit(); };
 
     // every panel answers the Alt pair of undo and redo with the editor's own
     // two steps rather than with a copy of its own: a key press is sent to the
@@ -157,6 +161,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     wireUndoRedo (tools);
     wireUndoRedo (settings);
     wireUndoRedo (macros);
+    wireUndoRedo (vibs);
 
     // the cell clipboard's Alt spellings need the same treatment for the same
     // reason: the hosts answer Ctrl+C, Ctrl+V and Ctrl+X with their own clipboard
@@ -167,7 +172,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     // with everything, which is the plain spelling's meaning rather than one
     // field at a time, and Alt+X cuts, which is that copy followed by emptying
     // exactly the cells it took, so a cut and a following paste move them. The
-    // steps are injected rather than reached through the panels, so all six walk
+    // steps are injected rather than reached through the panels, so all seven walk
     // the one clipboard the Ctrl pair and the tracker's menu use, and a paste or
     // a cut that changed the model records its point of the undo line through the
     // tracker's own change and refreshes the whole view
@@ -184,6 +189,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     wireClipboard (tools);
     wireClipboard (settings);
     wireClipboard (macros);
+    wireClipboard (vibs);
 
     // the Alt slice at the playhead, injected into every panel the way the undo
     // pair and the clipboard's steps are: a press during a menu or a pool drag
@@ -191,7 +197,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     // was spent by the host rather than by the plug-in, so the Alt letter is the
     // one route the slice has besides the timeline's own menu. The step is the
     // editor's rather than the timeline's so the slice still commits through the
-    // one funnel that records the undo point and refreshes all six views
+    // one funnel that records the undo point and refreshes every view
     auto wireSlice = [this] (auto& panel)
     {
         panel.sliceStep = [this] { doSlice(); };
@@ -203,6 +209,7 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     wireSlice (tools);
     wireSlice (settings);
     wireSlice (macros);
+    wireSlice (vibs);
 
     // the other half of what those paths leave behind: a context menu's popup
     // and a pattern the pool started dragging are windows with no parent
@@ -222,9 +229,9 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
         panel.focusRescue = [this, &panel]
         {
             // the tracker is what has to hear keys, so it is the focus to hand
-            // back; where it is hidden, which is the Settings and Macros tabs,
-            // the panel takes it instead so a press still walks up to the
-            // editor rather than stopping at nothing focused at all
+            // back; where it is hidden, which is the Settings, ARP MACRO and
+            // VIB MACRO tabs, the panel takes it instead so a press still walks
+            // up to the editor rather than stopping at nothing focused at all
             if (tracker.isShowing())
                 tracker.grabKeyboardFocus();
             else
@@ -389,7 +396,10 @@ void ReTrektorAudioProcessorEditor::resized()
     //== top bar ==============================================================
     auto top = area.removeFromTop (38).reduced (6, 5);
     trackerTab.setBounds (top.removeFromLeft (86));
-    macrosTab.setBounds (top.removeFromLeft (86));
+    // the two macro tabs are 10 px wider than the plain ones, which is what their
+    // two-word names are spelled in rather than shrunk below the other tabs' letter
+    macrosTab.setBounds (top.removeFromLeft (96));
+    vibTab.setBounds (top.removeFromLeft (96));
     settingsTab.setBounds (top.removeFromLeft (86));
 
     top.removeFromLeft (12);
@@ -404,7 +414,7 @@ void ReTrektorAudioProcessorEditor::resized()
     zoomOutButton.setBounds (top.removeFromLeft (26));
     zoomInButton.setBounds (top.removeFromLeft (26));
 
-    positionLabel.setBounds (top.removeFromRight (260));
+    positionLabel.setBounds (top.removeFromRight (244));
 
     //== bottom bar ===========================================================
     auto bottom = area.removeFromBottom (34).reduced (6, 5);
@@ -440,6 +450,7 @@ void ReTrektorAudioProcessorEditor::resized()
         timeline.setVisible (true);
         settings.setVisible (false);
         macros.setVisible (false);
+        vibs.setVisible (false);
     }
     else
     {
@@ -447,9 +458,12 @@ void ReTrektorAudioProcessorEditor::resized()
         tracker.setVisible (false);
         settings.setVisible (currentTab == Tab::settings);
         macros.setVisible (currentTab == Tab::macros);
+        vibs.setVisible (currentTab == Tab::vibs);
 
         if (currentTab == Tab::settings)
             settings.setBounds (area);
+        else if (currentTab == Tab::vibs)
+            vibs.setBounds (area);
         else
             macros.setBounds (area);
     }
@@ -462,12 +476,15 @@ void ReTrektorAudioProcessorEditor::setTab (Tab tab)
 
     trackerTab.setToggleState (tab == Tab::tracker, juce::dontSendNotification);
     macrosTab.setToggleState (tab == Tab::macros, juce::dontSendNotification);
+    vibTab.setToggleState (tab == Tab::vibs, juce::dontSendNotification);
     settingsTab.setToggleState (tab == Tab::settings, juce::dontSendNotification);
 
-    for (auto* b : { &trackerTab, &macrosTab, &settingsTab })
+    for (auto* b : { &trackerTab, &macrosTab, &vibTab, &settingsTab })
         b->setColour (juce::TextButton::buttonColourId, theme::panel);
 
-    auto* active = tab == Tab::tracker ? &trackerTab : (tab == Tab::macros ? &macrosTab : &settingsTab);
+    auto* active = tab == Tab::tracker ? &trackerTab
+                                       : ( tab == Tab::macros ? &macrosTab
+                                                             : ( tab == Tab::vibs ? &vibTab : &settingsTab ));
     active->setColour (juce::TextButton::buttonColourId, theme::selection);
 
     resized();

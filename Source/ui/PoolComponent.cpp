@@ -392,7 +392,7 @@ void PoolComponent::drawGridPreview (juce::Graphics& g, const Pattern& p,
             {
                 g.setColour (cell.cmd == kArpCmd ? theme::cmdMacro
                                 : cell.cmd == kBendCmd || cell.cmd == kSlideUpCmd
-                                      || cell.cmd == kSlideDownCmd ? theme::cmdOther
+                                      || cell.cmd == kSlideDownCmd || cell.cmd == kVibCmd ? theme::cmdOther
                                                                   : theme::cmdCC);
                 g.fillRect (x + cellW - 3, y + 1, 2, 2);
             }

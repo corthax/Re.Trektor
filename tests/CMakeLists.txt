@@ -68,6 +68,7 @@ target_sources(ReTrektorEditorShot PRIVATE
     ../Source/ui/ToolsPanel.cpp
     ../Source/ui/SettingsPanel.cpp
     ../Source/ui/MacrosPanel.cpp
+    ../Source/ui/VibMacrosPanel.cpp
 )
 
 target_include_directories(ReTrektorEditorShot PRIVATE ../Source)
@@ -103,6 +104,7 @@ target_sources(ReTrektorUiTest PRIVATE
     ../Source/ui/ToolsPanel.cpp
     ../Source/ui/SettingsPanel.cpp
     ../Source/ui/MacrosPanel.cpp
+    ../Source/ui/VibMacrosPanel.cpp
 )
 
 target_include_directories(ReTrektorUiTest PRIVATE ../Source)

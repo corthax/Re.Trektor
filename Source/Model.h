@@ -49,7 +49,16 @@ constexpr int kMidiChannelCount = 16;
     no rows, so the span 0 no longer means anything and a slide always takes at
     least one row, while a 0 beside a bend letter keeps naming the wheel's own
     bottom. An argument that is neither a number nor one of those letters is
-    ignored and leaves the cell's value as it was. */
+    ignored and leaves the cell's value as it was.
+
+    A vibrato's argument names which vibrato macro the column runs, the same way
+    an arpeggiator call names one of its macros: id 0 and the o spelling are the
+    release rather than a macro, which switches the pitchbending off and puts the
+    wheel back at its centre, and the s spelling asks for nothing at all, so the
+    wobble above keeps holding the point it is at. A vibrato moves about whatever
+    point the wheel is at where it was armed rather than about the wheel's centre,
+    which is what lets the letter that bent the pitch, a slide's extreme or a
+    plain bend argument all be the base a wobble swings from. */
 constexpr int kArgOff = 128;  // the argument that reads OFF: an arpeggiator going off or the wheel's release
 constexpr int kArgStp = 129;  // the argument that reads STP: the wheel held at the point it is at
 constexpr int kMaxArpMacros = 127; // arpeggiator macros, ids 1..127; the id 0 call releases
@@ -66,6 +75,19 @@ constexpr int kArpTopStep = 127;      // a step's jump is clamped to this far of
 constexpr int kArpEmptyStep = -128; // a step that sounds nothing and sustains the one before
 constexpr int kArpNoteOffStep = -129; // a step that opens the note it would have held
 constexpr int kArpDefaultSteps = 8; // steps a newly defined macro starts with
+constexpr int kVibCmd = 147;      // command value 147 runs a vibrato, entered as V
+constexpr int kMaxVibMacros = 127; // vibrato macros, ids 1..127; the id 0 call releases
+constexpr int kVibTypeTop = 5;    // the highest of the six vibrato shapes
+constexpr int kVibTypeSin = 0;    // a normal sinusoidal wobble, both above and below the base
+constexpr int kVibTypeSinUp = 1;  // the same cycle with its second half inverted, so only above
+constexpr int kVibTypeSinDown = 2; // the same cycle with its first half inverted, so only below
+constexpr int kVibTypeTri = 3;    // the triangle wobble, both above and below the base
+constexpr int kVibTypeTriUp = 4;  // the same ramp with its far half inverted, so only above
+constexpr int kVibTypeTriDown = 5; // the same ramp with its near half inverted, so only below
+constexpr int kVibAmpTop = 100;   // a vibrato's amplitude at full pitchbend, in hundredths
+constexpr int kVibFreqTop = 127;  // the widest cycle a vibrato can ask for, in subticks
+constexpr int kVibDefaultAmp = 50; // the amplitude a newly defined macro starts at, in hundredths
+constexpr int kVibDefaultFreq = 8; // the cycle a newly defined macro starts at, in subticks
 constexpr int kMaxUndoSteps = 200; // most undo steps the undo line can be asked for
 
 /** Column visibility bits: the chips above a channel toggle one field of one
@@ -84,8 +106,8 @@ struct Cell
     int inst = kEmpty;    // kEmpty or 0..15 (MIDI output channel)
     int vol = kEmpty;     // kEmpty or 0..127
     int pan = kEmpty;     // kEmpty or 0..127
-    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D)
-    int cmdVal = kEmpty;  // kEmpty, 0..127: a macro id, a point on the wheel or a slide's rows; kArgOff = OFF and kArgStp = STP above the field's own top
+    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D); 147 = vibrato (V)
+    int cmdVal = kEmpty;  // kEmpty, 0..127: a macro id, a point on the wheel, a slide's rows or a vibrato macro id; kArgOff = OFF and kArgStp = STP above the field's own top
 
     bool empty() const noexcept
     {
@@ -425,6 +447,37 @@ struct ArpMacro
 };
 
 //==============================================================================
+/** A vibrato macro the Command column's letter V calls: one shape, one amplitude
+    and one cycle length, all three entered on the VIB MACRO tab. The shape names
+    how the wobble moves about the point the wheel is already at, the amplitude
+    says how far it moves in hundredths of full pitchbend and the cycle length
+    says how many subticks one whole cycle of it takes, on the same sub-row grid
+    an arpeggiator's steps and a slide's ramp use. A macro holds a value for each
+    of the three at all times, so being present is what makes it one: clearing it
+    says so rather than erasing a setting, which is what keeps a macro that was
+    only asked to sound nothing at amplitude 0 a macro rather than no macro. */
+struct VibMacro
+{
+    bool present = false;
+    int type = kVibTypeSin;                    // one of the six shapes
+    int amplitude = kVibDefaultAmp;            // hundredths of full pitchbend
+    int frequency = kVibDefaultFreq;           // subticks one cycle takes
+
+    bool defined() const noexcept { return present; }
+
+    /** A newly defined macro starts at the plain sinusoidal shape at half full
+        pitchbend over a cycle of eight subticks, a wobble that reads at once on
+        the tab without anything being entered into it. */
+    void setDefault()
+    {
+        present = true;
+        type = kVibTypeSin;
+        amplitude = kVibDefaultAmp;
+        frequency = kVibDefaultFreq;
+    }
+};
+
+//==============================================================================
 struct Settings
 {
     bool midRowIgnored = true;
@@ -542,6 +595,26 @@ public:
     void setArpStep (int id, int index, int value) noexcept; // a jump, clamped, or a sentinel
     void setArpLooped (int id, bool looped) noexcept;
 
+    //== Vibrato macros ========================================================
+    /** Vibrato macros live in one grow-only table of their own, added to and
+        removed from exactly as the arpeggiator ones are: naming an id extends the
+        table with absent entries, removing one leaves its room and the values it
+        had, and defining it again starts from the defaults. The id 0 call is the
+        release and has no entry. */
+    VibMacro* findVib (int id); // grows the table to name the id, null out of range
+    const VibMacro* peekVib (int id) const noexcept; // reads it without growing it
+    bool vibDefined (int id) const noexcept;
+    int vibType (int id) const noexcept;     // the shape it holds, 0 when it has none
+    int vibAmplitude (int id) const noexcept; // its amplitude, 0 when it has none
+    int vibFrequency (int id) const noexcept; // its cycle length, 0 when it has none
+    int firstUndefVibId() const noexcept; // 0 once every id is taken
+    int lastDefVibId() const noexcept;    // 0 when nothing is defined
+    void defineVib (int id); // fresh macro at the default shape, amplitude and cycle
+    void clearVib (int id); // leaves it undefined, keeping its room
+    void setVibType (int id, int type) noexcept; // one of the six shapes
+    void setVibAmplitude (int id, int amplitude) noexcept; // hundredths of full pitchbend
+    void setVibFrequency (int id, int frequency) noexcept; // subticks one cycle takes
+
     //== Serialization =========================================================
     juce::ValueTree toValueTree() const;
     void fromValueTree (const juce::ValueTree& tree);
@@ -552,6 +625,7 @@ public:
     std::vector<Pattern> patterns;
     std::vector<Clip> clips;
     std::vector<ArpMacro> arps;
+    std::vector<VibMacro> vibs;
 
     int activePatternId = 0;
     double editPlayheadBeats = 0.0;

@@ -3,13 +3,14 @@
     the component tree so the layout can be verified without looking at pixels.
 
     Usage: ReTrektorEditorShot /path/out.png [width height] [--dump]
-           [--tab=settings] [--channels=N] [--rows=N] [--scroll=PCT]
+           [--tab=settings|vibs] [--channels=N] [--rows=N] [--scroll=PCT]
            [--click-timeline=PCT] [--hide=0v1c] [--expand-pool]
            [--drag-preview=IDX] [--select=ROW0,CH0,ROW1,CH1] [--paste-at=ROW,CH]
            [--undo=N] [--redo=N] [--arp=0,+4,off,-8] [--arp-loop] [--arp-call=ROW]
            [--arp-call-id=VAL] [--arp-note-off=ROW] [--bend=ROW] [--bend-arg=VAL]
            [--slide=ROW] [--slide-down=ROW] [--slide-arg=VAL]
-           [--macros=N] [--cmd-carry]
+           [--vib-shape=SinUp] [--vib-amp=N] [--vib-cycle=N]
+           [--vib-call=ROW] [--vib-call-id=VAL] [--vib-macros=N] [--macros=N] [--cmd-carry]
 
     --arp= writes signed semitone steps into arpeggiator id 1, so a Macros-tab
     shot shows a step strip of its own length rather than one that is all empty;
@@ -47,6 +48,23 @@
     --slide-arg=129 is the STP its s writes, drawn STP, so a shot can show the two
     spellings beside a slide letter; the narrowest slide a row can ask for is one
     row, since a 0 beside a slide letter is the entry's own way of spelling OFF.
+
+    --vib-shape=, --vib-amp= and --vib-cycle= set the three settings a wobble runs
+    on vibrato macro 1, which is what makes a --tab=vibs shot show a card that has
+    been set rather than one left at what a fresh macro starts at: the shape is one
+    of the tab's own six spellings (Sin, Sin Up, Sin Down, Triangle, Triangle Up,
+    Triangle Down, spaces and dashes optional) or the number the model holds, the
+    amplitude is the hundredths of full pitchbend the model keeps, so 25 is the knob
+    spelled 0.25, and the cycle is counted in subticks one sin or triangle cycle
+    takes, the same grid an arpeggiator's steps and a slide's ramp are measured over.
+    --vib-macros=N has the song define N vibrato macros, ids 1..N, which is what
+    makes a VIB MACRO-tab shot long enough that the cards do not all fit and the
+    tab has to draw the scrollbar and thumb it offers. --vib-call=ROW names a
+    vibrato call in tracker channel 0 at that row, which paints the command
+    column's letter V and its decimal macro id; --vib-call-id=VAL names the id
+    that call writes, so --vib-call-id=0 makes it the release, whose argument is
+    drawn OFF rather than as a 0 and which leaves the rows below it carrying no
+    command at all.
 
     --cmd-carry writes the command column's carried case in both channels: a row
     that names only an argument under the explicit CC the demo already has at row
@@ -226,6 +244,59 @@ int main (int argc, char** argv)
             args.remove (i);
         }
 
+    // the three settings a wobble runs, written into vibrato macro 1 so a VIB MACRO
+    // tab shot shows a card that has been set rather than one left at the defaults
+    juce::String vibShapeText; // one of the six spellings or the number the model holds
+    int vibAmplitude = -1; // hundredths of full pitchbend, the share the knob spells
+    int vibCycle = -1; // subticks one cycle takes, the grid an arpeggiator's steps use
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--vib-shape="))
+        {
+            vibShapeText = args[i].fromFirstOccurrenceOf ("=", false, false);
+            args.remove (i);
+        }
+
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--vib-amp="))
+        {
+            vibAmplitude = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--vib-cycle="))
+        {
+            vibCycle = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    // how many vibrato macros to have defined, ids 1..N, which is what makes a
+    // VIB MACRO-tab shot long enough that its cards do not all fit
+    int vibMacrosToDefine = 1;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--vib-macros="))
+        {
+            vibMacrosToDefine = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    int vibCallRow = -1; // a row naming the vibrato letter in tracker channel 0
+    int vibCallId = 1; // the macro id that call names, so --vib-call-id=0 writes the
+    // release, whose argument is drawn OFF rather than as a 0
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--vib-call-id="))
+        {
+            vibCallId = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--vib-call="))
+        {
+            vibCallRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
     int bendRow = -1;
     for (int i = args.size(); --i >= 0;)
         if (args[i].startsWith ("--bend="))
@@ -323,6 +394,15 @@ int main (int argc, char** argv)
             tab = args[i].fromFirstOccurrenceOf ("=", false, false).toLowerCase();
             args.remove (i);
         }
+
+    // the tab is asked for by the button's own text, and the two macro tabs now
+    // spell themselves ARP MACRO and VIB MACRO, which is why the shot keeps its
+    // short aliases: --tab=macros names the arpeggiator's tab, as older shots did,
+    // and --tab=vibs names the vibrato's
+    if (tab == "macros" || tab == "arp" || tab == "arp macro")
+        tab = "arp macro";
+    else if (tab == "vibs" || tab == "vib" || tab == "vib macro")
+        tab = "vib macro";
 
     // column visibility for the shot: each pair is a channel digit plus i/v/p/c
     // (instrument, volume, pan, command), so "--hide=0v1c" hides the volume of
@@ -440,6 +520,52 @@ int main (int argc, char** argv)
         {
             p.cell (slideDownRow, 0).cmd = rtr::kSlideDownCmd;
             p.cell (slideDownRow, 0).cmdVal = slideArg; // D 12: and the span down to its bottom
+        }
+
+        if (vibShapeText.isNotEmpty() || vibAmplitude >= 0 || vibCycle >= 0)
+        {
+            // the three settings a wobble runs, so the tab's card shows a shape
+            // that is picked out and two knobs that are turned rather than a card
+            // left at what a fresh macro starts at
+            song.defineVib (1);
+
+            if (vibShapeText.isNotEmpty())
+            {
+                // the six spellings the tab's dropdown offers, with their spaces
+                // and dashes dropped so the flag can be typed without quoting them,
+                // or the number the model holds for the shape
+                static const juce::String shapeNames[] = { "sin", "sinup", "sindown",
+                                                           "triangle", "triangleup", "triangledown" };
+
+                const juce::String kind = vibShapeText.removeCharacters (" -").toLowerCase();
+                int kindValue = -1;
+
+                for (int t = 0; t <= rtr::kVibTypeTop; ++t)
+                    if (kind == shapeNames[t])
+                        kindValue = t;
+
+                song.setVibType (1, kindValue >= 0 ? kindValue : vibShapeText.getIntValue());
+            }
+
+            if (vibAmplitude >= 0)
+                song.setVibAmplitude (1, vibAmplitude);
+
+            if (vibCycle >= 0)
+                song.setVibFrequency (1, vibCycle);
+        }
+
+        if (vibCallRow >= 0)
+        {
+            p.cell (vibCallRow, 0).cmd = rtr::kVibCmd;
+            p.cell (vibCallRow, 0).cmdVal = vibCallId; // V 1: the letter command and its macro id
+        }
+
+        if (vibMacrosToDefine > 1)
+        {
+            // the ids a row can name, all of them fresh, which is what makes the
+            // list long enough that the tab has to draw its scrollbar and thumb
+            for (int id = 2; id <= vibMacrosToDefine; ++id)
+                song.defineVib (id);
         }
 
         if (arpStepsList.isNotEmpty())

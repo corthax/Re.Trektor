@@ -46,15 +46,17 @@ namespace
         rather than naming a new one: the arpeggiator's release spells itself two
         ways, the 0 beside the call letter and the OFF the entry writes for an o,
         and a 0 under a carried call is the release as much as the row that named
-        both letters is. The two slide letters take the OFF spelling the same way,
-        where it answers for the wheel being put back at its centre rather than for
-        a slide of no rows at all, and the entry writes the same 0 beside a carried
-        or named slide letter for it, which is why a 0 there releases too - a 0
-        beside the bend letter keeps naming the wheel's own bottom, the point the
-        wheel reads rather than a command being put away. Only the STP spelling
-        asks to be carried on, since a row beside it only stops the move the wheel
-        was making and leaves the letter in force under it. A row that puts a
-        command away leaves the column carrying nothing below it. */
+        both letters is. The vibrato letter takes the same two spellings, its 0 being
+        the id that calls no macro and its OFF being the release the entry writes, and
+        the two slide letters take the OFF spelling the same way, where it answers for
+        the wheel being put back at its centre rather than for a slide of no rows at
+        all, and the entry writes the same 0 beside a carried or named slide letter for
+        it, which is why a 0 there releases too - a 0 beside the bend letter keeps naming
+        the wheel's own bottom, the point the wheel reads rather than a command being put
+        away. Only the STP spelling asks to be carried on, since a row beside it only
+        stops the move the wheel was making and leaves the letter in force under it;
+        a vibrato has no move to stop, so the spelling means nothing beside its letter.
+        A row that puts a command away leaves the column carrying nothing below it. */
     bool commandArgumentReleases (int cmd, int cmdVal)
     {
         if (cmdVal == kArgOff)
@@ -63,7 +65,7 @@ namespace
         if (cmdVal != 0)
             return false;
 
-        return cmd == kArpCmd || cmd == kSlideUpCmd || cmd == kSlideDownCmd;
+        return cmd == kArpCmd || cmd == kVibCmd || cmd == kSlideUpCmd || cmd == kSlideDownCmd;
     }
 
     /** Whether a row that named a command leaves one in force for the rows
@@ -848,6 +850,14 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     text = cmdNum == kSlideUpCmd ? "U" : "D";
                                     colour = theme::cmdOther;
                                 }
+                                else if (cmdNum == kVibCmd)
+                                {
+                                    // a vibrato call is drawn as its letter, in the same
+                                    // lilac the wheel's own commands are read in, and its
+                                    // argument is the vibrato macro the VIB MACRO tab shows
+                                    text = "V";
+                                    colour = theme::cmdOther;
+                                }
                                 else
                                 {
                                     text = valueString (cmdNum, fieldGlyphs (Field::cmdNum));
@@ -875,9 +885,11 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                 const bool bendCall = cmdNum == kBendCmd;
                                 const bool slideCall = cmdNum == kSlideUpCmd
                                                       || cmdNum == kSlideDownCmd;
+                                const bool vibCall = cmdNum == kVibCmd;
 
                                 if (( arpCall && cmdVal == 0 ) || cmdVal == kArgOff
-                                    || ( slideCall && cmdVal == 0 ))
+                                    || ( slideCall && cmdVal == 0 )
+                                    || ( vibCall && cmdVal == 0 ))
                                     // the release reads as what it does rather than
                                     // as a number: an arpeggiator's going off, spelled
                                     // by the 0 the row named or by the OFF the entry
@@ -885,7 +897,12 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     // OFF, which puts the wheel back at its centre
                                     // instead of making it climb - a 0 read under a
                                     // slide letter means the same thing, which is why
-                                    // the column stops carrying the letter below it
+                                    // the column stops carrying the letter below it, and
+                                    // a vibrato's release spells itself the same two ways
+                                    // as a call's do: the 0 that names no macro and the
+                                    // OFF the entry writes for an o, both of which put the
+                                    // pitchbending back off rather than leaving a wobble
+                                    // swinging under the rows below
                                     text = "OFF";
                                 else if (cmdVal == kArgStp)
                                     // the STP spelling reads as the hold it asks for:
@@ -896,8 +913,8 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     text = valueString (cmdVal, fieldGlyphs (Field::cmdVal));
 
                                 colour = arpCall ? theme::cmdMacro
-                                                 : ( bendCall || slideCall ) ? theme::cmdOther
-                                                                            : theme::cmdCC;
+                                                 : ( bendCall || slideCall || vibCall ) ? theme::cmdOther
+                                                                                       : theme::cmdCC;
 
                                 // an argument the row did not name is the one the
                                 // column carries down from above, drawn dimmer like
@@ -1956,14 +1973,15 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
         // 11 and nothing about a typed number's spelling reaches one of the
         // letters, a digit already being typed having been appended by the
         // editing path above, and the argument typed next names what that
-        // letter's own field means: a macro id for A, a point on the wheel for B
-        // and a span in rows for U and D
+        // letter's own field means: a macro id for A, a point on the wheel for B,
+        // a span in rows for U and D and a vibrato macro id for V
         if (cursorField == Field::cmdNum)
         {
             const int letterCmd = text == 'a' || text == 'A' ? kArpCmd
                                 : text == 'b' || text == 'B' ? kBendCmd
                                 : text == 'u' || text == 'U' ? kSlideUpCmd
                                 : text == 'd' || text == 'D' ? kSlideDownCmd
+                                : text == 'v' || text == 'V' ? kVibCmd
                                                              : kEmpty;
 
             if (letterCmd != kEmpty)
@@ -1997,18 +2015,18 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
         // pitchbending off and puts the wheel back at its centre, and an s lands
         // the STP one, which stops whatever move the wheel was making and leaves
         // it sitting on the point it had got to. An o also goes off an
-        // arpeggiator run, the release the 0 beside the call letter already
-        // spells, but an s asks for nothing beside a call or a plain CC, since
-        // neither has a wheel to stop, so a letter neither of them means where
-        // the cursor sits is left alone rather than writing a value or typing a
-        // note beside it, and the cell's value stays as it was
+        // arpeggiator run or a vibrato, the release the 0 beside either call letter
+        // already spells, but an s asks for nothing beside a call or a vibrato,
+        // since neither has a move of the wheel to stop, so a letter neither of
+        // them means where the cursor sits is left alone rather than writing a
+        // value or typing a note beside it, and the cell's value stays as it was
         if (cursorField == Field::cmdVal)
         {
             const int kind = commandKindAt (cursorRow, cursorChannel);
             const bool wheelKind = kind == kBendCmd || kind == kSlideUpCmd || kind == kSlideDownCmd;
-            const bool arpKind = kind == kArpCmd;
+            const bool releaseKind = kind == kArpCmd || kind == kVibCmd || wheelKind;
 
-            const int letterVal = text == 'o' || text == 'O' ? ( wheelKind || arpKind ? kArgOff : kEmpty )
+            const int letterVal = text == 'o' || text == 'O' ? ( releaseKind ? kArgOff : kEmpty )
                                 : text == 's' || text == 'S' ? ( wheelKind ? kArgStp : kEmpty )
                                                              : kEmpty;
 
