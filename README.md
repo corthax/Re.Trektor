@@ -203,7 +203,110 @@ cmake --build tests/build -j"$(nproc)"
   release had already opened at that very sample of that block, which is what a
   host answering the sample rather than the order inside one needs so it does not
   hear that note as opened at once, and nothing of that pitch closing it again over
-  the rows below.
+  the rows below, and the vibrato macros and the wobbles they run at that same layer:
+  the grow-only table's one default macro at the plain sinusoidal shape at half full
+  pitchbend over a cycle of eight subticks - so the VIB MACRO tab has a card the way
+  the ARP MACRO tab has steps - its `firstUndefVibId` / `lastDefVibId` pair naming the
+  same gap, naming the top id growing the grow-only table to the id limit while id
+  `0` stays the release call and there is no entry above the limit, naming an id
+  extending it with absent entries rather than moving the ones already in it so a
+  fresh macro still takes the lowest gap, clearing one leaving its room and the shape,
+  amplitude and cycle its knobs had while the entry answers for nothing of its own -
+  which is what makes the engine stop a wobble whose macro was taken away rather than
+  swing it at nothing - and defining it again starting over from the defaults rather
+  than from what the cleared one had still held; the setters refusing an absent macro,
+  so an id nothing entered never answers with a shape, an amplitude or a cycle of its
+  own, and the three settings clamping at their own tops rather than wrapping, which is
+  what leaves the cycle never at zero subticks - it clamps up to one - and the amplitude
+  never past full pitchbend; the vibrato letter's command value sitting above both the
+  highest value an older build could write and the highest plain CC the number field can
+  spell, so no older row and no typed digit run can already be a vibrato, the letter and
+  its `OFF` and `STP` spellings surviving the saved form as the argument's own numbers
+  above the field's top and a macro's three settings arriving as their own properties,
+  which is what a saved state brings the knob positions back at, the saved form writing
+  one entry per macro that is present rather than one per id the table has room for so a
+  round trip with a gap between two defined macros brings the two back at the ids they
+  were at and leaves the gap a gap, a state that had the default macro taken away reads
+  back without it - which is what an undo that removed a vibrato leaves it removed rather
+  than the reset putting one back - and an older state's arriving as no section at all
+  leaves the read with the one default macro a fresh song defines rather than an empty tab;
+  a wobble's grid - a cycle 6 subticks wide being exactly one row wide at the default
+  Settings, so each of the three rows a note is held over draws one cycle of eight points
+  and the note-off below the last of them takes the wheel back to its centre, and the full
+  amplitude reaching the wheel's own extremes rather than one of them leaned against further
+  than it is: the height from the centre is the centre's own value, so the peak above would
+  land one position past the top and is clamped to it while the trough below lands exactly
+  on the bottom - the amplitude being a share of the wheel's own half height rather than a
+  number of its own, so a knob at half swings half as far each way and keeps the wheel's own
+  centre as the point its cycle passes through, and a knob turned down to off moves the wheel
+  nowhere at all, the arming row's first point already sitting on the base and every point of
+  the cycle sitting on it too, which is what makes such a macro still a macro rather than no
+  macro at all; the default macro's cycle of eight subticks being one point per sub-row step
+  and four thirds of a row wide so its cycle crosses the rows it sits in rather than starting
+  on each of them, a cycle 12 subticks wide being two rows wide and drawn with 12 points of
+  it rather than the 8 it is asked for at least, so its curve is cut at the twelfths of a
+  cycle, and a cycle one subtick wide still drawn with the 8 a cycle is never drawn with fewer
+  of, so the wheel moves 8 times inside the sub-row grid rather than once over it, 6 cycles of
+  it land inside one row, each of them repeating the same 8 points, and its last point leaves
+  the wheel at 6744 rather than back at the base, which is what makes the 48th message the
+  note-off row below taking that point back to the centre rather than one more point of the
+  cycle; the six shapes and their Up and Down spellings drawing their cycle as the points of
+  it the amplitude names, the sinusoidal one curving and the triangle one ramping, the Up
+  spellings having the cycle's second half inverted so the wobble never reaches below its base
+  and stays on one side of the pitch it swings about and the Down spellings having its first
+  half inverted so it never rises above it, the other half being the one the plain shape swung
+  to the far side in - at full amplitude those lean on the wheel's ends, the sinusoidal Up
+  climbing to the wheel's top twice a cycle with nothing below the base to go to, the fold
+  landing on the peak the plain shape's second half would have reached below, and the sinusoidal
+  Down landing on the wheel's bottom twice a cycle and never rising above the base, that spelling
+  being the plain shape's cycle read through the base instead; the point a wobble swings about
+  being wherever the wheel already is rather than the centre, so one armed a row under a bend
+  row swings about the point that row left the wheel at, its peak clamped at the wheel's own top
+  where the base has no room above it for the full swing, that row above sending the point it
+  named ahead of the swing's own first point and the two being one pitch rather than a jump since
+  the row bent the wheel at the same sample as the note it struck there, so the pitch the wobble
+  later swings about is already in force at that note rather than one the row below it asks for,
+  and a bend row under a running wobble moving the point the swing measures about to the pitch it
+  asks for rather than ending the swing or starting a new one, the row's own point and the
+  wobble's being one pitch and the points below reaching over the new base, that bend row
+  neither striking a note nor releasing the one the row above it held so the swing carries on
+  across it; a release row taking the wobble and the wheel it had left swinging away on its own
+  row - the last point of the cycle having moved the wheel to 2399 just above the bottom and the
+  row's own message naming the centre rather than a point of the cycle, so no pitchbent wheel is
+  left over the rows below the release - while the note the row above struck is still held to the
+  note-off below, the release being about the wheel rather than about the note, that centre
+  arriving at the row that released rather than being saved for the note-off below; the `OFF`
+  the entry writes for an `o` doing what a `0` beside the letter does, the argument field's own
+  top being one below what the spelling needs, and a row naming only an argument below that
+  release arming nothing, the release having left the column calling nothing rather than calling
+  id `0` the way a run's and a slide's release leave nothing below them; an `STP` argument row
+  asking for nothing and leaving the swing swinging over the rows below it, the row under that
+  naming another macro id re-arming the swing over that macro, its cycle counting again from that
+  row rather than from where the first stretch had got in its cycle, and that re-armed swing
+  measuring its quieter cycle from the point the first stretch's last point had got the wheel to
+  rather than from where that stretch was armed, which is what keeps the retarget from jumping to
+  the quieter macro's own base; a row that names the letter itself and an `STP` argument ending
+  that row's own swing rather than re-arming one, a wobble having no move of the wheel to hold,
+  and leaving the wheel sitting at the point its last point had got to until the note-off below
+  takes it back, that letter's own row leaving the column calling it so a bare argument one row
+  below re-arms the swing from the point the ended one had left the wheel at - its fuller
+  amplitude reaching over the base by more than the base has room for, the points of it that
+  would land below the wheel's own bottom all sitting on it rather than going past it - and that
+  re-armed swing saying nothing at its own arming row, whose first point sits on that base, which
+  is what makes the first message it sends one part way up its cycle rather than a jump to one of
+  its extremes; a macro taken away while its wobble swings ending the swing at its next point
+  rather than at the row that took it and saying nothing of its own, the wheel keeping whatever
+  point of its own the swing had got to, whose last point sits above the base so the wheel is
+  left bent rather than one already at its centre, and a release row below is what puts that
+  wheel away, the note-off taking the point the swing had left back to its centre; and the clip
+  those rows live in running out under a wobble that armed no note of its own, a swing that clip's
+  single cell armed having no rows below the clip left to keep swinging over so its cycle stops at
+  the clip's end and the wheel it had left swinging comes back to its centre there - 16 bends of
+  the two cycles of eight points it holds over the clip's two rows, the wobble armed with no note
+  of its own having nothing to release so the wheel being all that is left to put away, and the
+  only all-notes-offs there the ones the transport's own start asks for, one per channel, which is
+  what leaves the clip's end sending only the wheel's take-back rather than releasing anything of
+  its own.
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column chips
   clicked per channel, selection gestures — a click selecting one cell, a drag
@@ -274,7 +377,7 @@ cmake --build tests/build -j"$(nproc)"
   spellings of the same pair walked in both cases of the letter because a key
   held by Alt is handed over as the character that press printed, the pair
   answered by every panel rather than only by the editor, so the tracker,
-  timeline, pool, settings, tools and macros panels each walk one point per
+  timeline, pool, settings, tools, ARP MACRO and VIB MACRO panels each walk one point per
   press against the plug-in's line and a letter the pair does not name stays
   refused there too, the keyboard focus handed back by the tracker, timeline and
   pool once their menus, their alerts or their drags have closed — the hand-back
@@ -302,7 +405,7 @@ cmake --build tests/build -j"$(nproc)"
   the newest one its rows entered beside that letter, read through the tracker's
   own new `carriedCommandValue` above and under such a row, and a release written
   as only its argument under a carried call ending it there so both reads come
-  back empty under one, and the Macros tab's one length field and
+  back empty under one, and the ARP MACRO tab's one length field and
   looped tick per macro that exists, its `+ Add macro` and `- Remove selected` pair,
   the `- Remove selected` one clearing the macro the step cursor sits on rather than
   the last one a row can name, a number typed one character at a time at the drawn
@@ -310,7 +413,11 @@ cmake --build tests/build -j"$(nproc)"
   of the undo line rather than one per press, `Escape` dropping a number half typed
   rather than writing half of it, the tab filled with 25 macros through the model and
   a refresh rather than through its own buttons so the undo line keeps the length the
-  sections below lean on, clicked through the `MACROS` and `TRACKER` tab buttons since
+  sections below lean on, clicked through the `ARP MACRO` and `TRACKER` tab buttons — the
+  tab buttons now spelling `ARP MACRO` and `VIB MACRO` rather than the one `MACROS` the
+  vibrato tab's card was reached through before it had a tab of its own, and the two macro
+  tabs' buttons being 10 px wider than the plain ones so their two-word names are spelled
+  rather than shrunk — since
   a tab that is not the one showing has no bounds to grab, the wheel moving its
   scrollbar and a click of the strip's column jumping the drawn thumb to the pointer
   while a drag carries it back to the head, a drag of a card rather than of the strip
@@ -363,12 +470,40 @@ cmake --build tests/build -j"$(nproc)"
   column under it carrying no call, these reads going through the tracker's own new
   `commandKindAt` beside its `carriedCommandNumber` / `carriedCommandValue` pair, with the
   undo checks reading the cell back through the song rather than through
-  a held reference since restoring a state replaces the pattern objects) and confirms
+  a held reference since restoring a state replaces the pattern objects, and the VIB MACRO
+  tab's own card, its tab button clicked and the panel refreshed: the default song having the
+  one macro a row can name and the tab one card for it, that macro getting its own dropdown and
+  its two knobs, the two knobs told apart by the span they walk rather than by the order they
+  were added in so a check about one of them is about that one however the card was built, the
+  amplitude turning off to full pitchbend in hundredths - the same hundredths the model keeps -
+  and the cycle counting whole subticks one cycle takes from one to the limit a row's argument
+  can name, the card opening at the amplitude and the cycle a newly defined macro starts at, the
+  dropdown offering the six shapes a wobble runs, opened at the one the macro holds, the dropdown's
+  own ids being one above the model's own and its items read back as spelled by the panel's own
+  `vibShapeLabel` rather than as a second copy of what the tab draws, the dropdown's own change
+  writing the shape to the macro - which is what a row already calling that id swings by from
+  there - and spending one point of the undo line of its own, a knob turned writing its own
+  setting: the share of full pitchbend and the subticks the cycle takes, six here, and the
+  amplitude spelled as that share rather than as the hundredth the model keeps, read back through
+  the panel's own `vibAmplitudeLabel`, each knob turned leaving a point of its own so the card's
+  three settings are three separate actions and once the line is full one of them drops out of it
+  at the far end, which is why those depth checks read the line back as the depth the Settings
+  tab's Undo steps row asks for rather than as one more than it can hold, `+ Add macro` taking the
+  lowest id that has none yet and moving the gap below it down the way the ARP MACRO tab adds one,
+  the fresh macro arriving at the shape, amplitude and cycle the model gives a newly defined one
+  rather than at what the card below it had, and `- Remove selected` putting away the macro the
+  last gesture picked out and leaving the ids naming the same macros below it, the same pairing the
+  ARP MACRO tab uses, the macro that was never picked out keeping the settings the knobs had left
+  it at - the card being about which macro there is rather than about what it holds - and a macro
+  defined and a macro taken away being one action each, the card's three settings being three more
+  above them) and confirms
   which
   MIDI channel and which controller value the notes and columns end up on
 * `ReTrektorEditorShot` – renders the editor headlessly and can dump the
-  component layout (`--dump`, optionally `--tab=settings|macros|tools` to show a
-  whole tab at once, the Settings tab's rows all being the decimal ones now its
+  component layout (`--dump`, optionally `--tab=settings|macros|vibs|tools` to show a
+  whole tab at once - the shot keeps its short aliases, `--tab=macros` naming the
+  ARP MACRO tab the older shots asked for by name and `--tab=vibs` naming the VIB
+  MACRO one, since the tab buttons now spell those two-word names out - the Settings tab's rows all being the decimal ones now its
   row offering another spelling has gone and the tools panel's instrument dropdowns
   naming their choices `-0 .. -15`,
   `--expand-pool` to show the pool grid preview, `--channels=N` to
@@ -431,7 +566,26 @@ cmake --build tests/build -j"$(nproc)"
   a shot shows the lilac `U OFF` with the rows under that row carrying nothing, and
   `--slide-arg=129` is the `STP` its `s` writes, so a shot shows the lilac `D STP` with
   that letter and that spelling carried dim over the rows under it, and the narrowest
-  slide a row can ask for taking one row rather than the `0` spelling a slide over none)
+  slide a row can ask for taking one row rather than the `0` spelling a slide over none),
+  `--vib-shape=`, `--vib-amp=` and `--vib-cycle=` to set the three settings a wobble runs on
+  vibrato macro 1 - the shape one of the VIB MACRO tab's own six spellings (Sin, Sin Up, Sin
+  Down, Triangle, Triangle Up, Triangle Down, with their spaces and dashes optional) or the
+  number the model holds for it, the amplitude the hundredths of full pitchbend the model keeps
+  so 25 is the knob spelled 0.25, and the cycle counted in subticks one sin or triangle cycle
+  takes on the same grid an arpeggiator's steps and a slide's ramp are measured over - which is
+  what makes a `--tab=vibs` shot show a card whose shape is picked out and whose two knobs are
+  turned rather than one left at what a fresh macro starts at; `--vib-macros=N` to have the song
+  define N of them, ids 1..N all of them fresh, which is what makes such a shot long enough that
+  the cards do not all fit and the tab has to draw its scrollbar and thumb - the dump reading the
+  panel back as `VibMacrosPanel` at 176,38 908x688 holding 25 dropdowns and 50 knobs for a 25-macro
+  song, 22 of the cards laid out and visible while the three that do not fit are hidden rather
+  than drawn past the window, and the shot showing the strip's thumb at the far end of its track
+  with `V 25`'s own card clipped at the bottom edge; `--vib-call=ROW` to name a vibrato call in
+  tracker channel 0 at that row, which paints the command column's lilac `V` and its decimal
+  macro id and leaves that letter and that argument carried dim over the rows under it in that
+  channel only, and `--vib-call-id=VAL` naming the id that call writes, so `0` makes it the
+  release, whose argument is drawn `OFF` rather than as a `0` and which leaves the rows below it
+  carrying no letter and no argument at all)
 
 Example:
 
@@ -446,8 +600,10 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
 
 ## Layout
 
-* **Top bar** – Tracker / Macros / Settings tabs, snap toggle, grid selector,
-  zoom out/in, host position.
+* **Top bar** – `TRACKER` / `ARP MACRO` / `VIB MACRO` / `SETTINGS` tabs, snap
+  toggle, grid selector, zoom out/in, host position. The two macro tabs are 10 px
+  wider than the plain ones, which is what their two-word names are spelled in
+  rather than shrunk below the other tabs' letter.
 * **Left panel** – pattern pool. Every pattern is listed with id and name.
   Unused patterns can be edited and placed; used patterns show an "in use"
   marker. Drag a pattern onto the timeline to place it: while it is dragged it
@@ -459,7 +615,7 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   first 12
   rows × up to 4 channels (notes, `===` note-offs, channel dividers, beat
   lines, and a teal/orange/lilac tick where a plain CC, an arpeggiator call or one of
-  the three wheel letters is present). "Copy pattern"
+  the four wheel letters is present). "Copy pattern"
   and "Copy pattern data" both put the pattern's cells on the clipboard; the
   second is a shortcut for grabbing the whole pattern's data so a later paste
   can start a new pattern from it — instance vs unique is chosen when pasting.
@@ -565,7 +721,7 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   restored song holds. `Ctrl+Z` or `Alt+Z` while a number is still half typed
   closes that buffer instead of stepping, which is what makes one press one
   effect.
-* **Macros tab** – the arpeggiator macros the Command column's letter `A` calls.
+* **ARP MACRO tab** – the arpeggiator macros the Command column's letter `A` calls.
   Nothing is painted above the cards but the tab's title and the one label row
   naming what its own rows hold (`MACRO`, `LENGTH`, `LOOPED`, `STEPS`), since what
   the rules are belongs to the Commands map and this file rather than to a memo the
@@ -600,6 +756,49 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   puts the thumb's middle under the pointer and holds it there while the button is held,
   so the list can be dragged to a chosen place; a drag started anywhere else is a drag
   of a card, which picks a step cursor up rather than moving the list.
+* **VIB MACRO tab** – the vibrato macros the Command column's letter `V` calls, added
+  to and removed from exactly as the arpeggiator macros are: `+ Add macro` defines the
+  lowest id that has none yet at the shape, amplitude and cycle the model gives a fresh
+  one — the plain sinusoidal wobble at half full pitchbend over a cycle of eight subticks,
+  so the card shows a wobble the way the ARP MACRO tab's card has steps to show — and
+  `- Remove selected` clears the macro the last click of a card or the arrows picked out,
+  falling back to the highest id a row can name while nothing is picked out and leaving the
+  ids below the removed one naming the same macros. Clearing says a macro has none rather
+  than erasing the shape, the amplitude and the cycle its knobs had, which is what re-defining
+  it then starts over from. Nothing is painted above the cards but the tab's title and the one
+  label row naming what its own rows hold (`MACRO`, `SHAPE`, `AMPLITUDE (of full bend)` and
+  `CYCLE (subticks per swing)`), since the rules belong to the Commands map and this file
+  rather than to a memo the cards would have to be read under. One card per defined macro,
+  named by the call a row writes (`V 1`) in the lilac the wheel's own commands are read in
+  rather than in the orange of an arpeggiator call, which is what makes the two macro tabs
+  tell the two letters apart at a glance, and marked in its own line by a cursor rule drawn
+  left of that name rather than over one of its settings. A card holds the three settings a
+  wobble runs on one line: the shape as a dropdown over the six spellings `Sin`, `Sin Up`,
+  `Sin Down`, `Triangle`, `Triangle Up` and `Triangle Down` — the sinusoidal one curving and
+  the triangle one ramping in four straight sides whose corners sit on the cycle's quarters
+  rather than bunched at its ends, the `Up` spellings having the cycle's second half folded
+  back over the base so the pitch only ever goes above it and the `Down` spellings having its
+  first half folded so it only ever goes below — then the plug-in's usual number widgets for
+  the amplitude, spelled as the share of full pitchbend rather than as the hundredth the model
+  keeps and turning from off to full in hundredths, and for the cycle, counted in whole subticks
+  one sin or triangle cycle takes, from one to the 127 a row's argument can name, the same
+  grid an arpeggiator's steps and a slide's ramp are measured over. A card exists whether or
+  not a knob is turned, so a macro whose amplitude is at off still has a card and still
+  swings — at nowhere of its own — rather than being no macro at all, and each of the three
+  settings is an action of its own, so a card whose shape was picked and whose two knobs were
+  turned leaves three points of the undo line rather than one. A card is 22 px tall plus a 4
+  px gap, so a list of them longer than the panel's height is what the tab scrolls rather than
+  grows without bound: the same vertical strip on its right edge, 10 px in from that edge,
+  whose thumb is as tall as the share of the track the cards that fit take so the thumb reads
+  as the window that is showing, is turned by the mouse wheel as well as grabbed by the mouse,
+  which is what the mouse alone does when a host gives it no wheel, and a click anywhere in
+  that column puts the thumb's middle under the pointer and holds it there while the button is
+  held so the list can be dragged to a chosen place, the tab answering a pointer in that
+  strip's column ahead of its card hit-tests, which is why a grab of the strip never reads as
+  a click on the card behind it. A click on the card's own name — the part left of the
+  dropdown — is what picks that macro out for the remove button and the arrows to answer
+  against, the settings themselves being turned by the controls sitting over the card rather
+  than by a click of the card.
 * **Right panel** – Transpose, instrument Remapping and Selection
   Interpolation. Each tool uses the selected scope: selection only, whole
   pattern, all patterns in the song, or all created patterns, but
@@ -692,7 +891,7 @@ writes at the cursor the last click parked, at its row and channel, the same pla
 `Ctrl+V` and `Alt+V` write at, the menu's cut writing nothing but leaving those
 cells empty, and the two items after them are the Undo / Redo pair.
 
-The Macros tab's own strip is grabbed the same way its horizontal twin is: a click
+The ARP MACRO tab's own strip is grabbed the same way its horizontal twin is: a click
 anywhere in that strip's column, 10 px in from the tab's right edge and level with the
 cards rather than with the foot holding its two buttons, puts the thumb's middle under
 the pointer and carries it along while the button is held, so a list of macros longer
@@ -702,6 +901,19 @@ list as well. A click in a card is what picks a step cursor up there, so a drag 
 away from the strip moves the cursor rather than the list, and the tab answers a pointer
 in the strip's column ahead of its card hit-tests, which is why a grab of the strip never
 reads as a click on the card behind it.
+
+The VIB MACRO tab is grabbed the same way again, its own strip living 10 px in from that
+tab's right edge and level with its cards rather than with the foot holding its `+ Add
+macro` and `- Remove selected` pair, the wheel turning that list and a click of that
+column taking the drawn thumb to the pointer for as long as the button is held, while a
+drag started anywhere else picks a card out rather than moving the list — a click on the
+card's own `V 1` name being what picks it, since a pointer over one of the three settings
+lands on the control sitting there instead. That dropdown is what a drag over its six
+spellings answers, and its change reaching the macro is what makes a row already calling
+that id swing by the new shape from there rather than holding the one the row that armed
+it had; the two knobs drag, take a typed value in their text box and answer the
+`+` and `-` buttons beside them like the plug-in's other number widgets, the amplitude
+walking off to full pitchbend in hundredths and the cycle walking whole subticks.
 
 ## Keyboard map
 
@@ -716,7 +928,7 @@ Q 2 W 3 E R 5 T 6 Y 7 U   ->  next octave
 | --- | --- |
 | `/` or `F1` | octave down |
 | `*` or `F2` | octave up |
-| `` ` `` | note-off (`===`), and in the Macros tab the note-off step drawn `OFF` |
+| `` ` `` | note-off (`===`), and in the ARP MACRO tab the note-off step drawn `OFF` |
 | `Enter` | advance by step skip |
 | `Tab` / `Shift+Tab` | next / previous field |
 | Arrow keys, Page Up/Down, Home/End | move cursor |
@@ -826,13 +1038,17 @@ and no row that offers one. Instrument values are the MIDI output channel
 (`0`–`15`), drawn with the column's dash as `-0` to `-15`, the same labels the
 tools panel's remap dropdowns use. Volume and Pan take `0`–`127` as up to three
 digits, displayed right-aligned like the pan column. The Command field accepts
-`0`–`127` and the four letters `A`, `B`, `U` and `D`: an `A` typed as the command number
+`0`–`127` and the five letters `A`, `B`, `U`, `D` and `V`: an `A` typed as the command number
 field's first character claims it and means `128`, the arpeggiator call, whose
 argument names the macro id, a `B` claims it and means `144`, the pitch bend, whose
-argument names a point on the wheel, and a `U` or a `D` claims it and means `145` or
+argument names a point on the wheel, a `U` or a `D` claims it and means `145` or
 `146`, a slide of the wheel to its top or to its bottom, whose argument says how many
 rows below the one that named the letter its extreme sits over rather than where on
-that wheel it goes. The CC `10` and CC `11` a column asks for are typed `10` and `11`,
+that wheel it goes, and a `V` claims it and means `147`, the vibrato, whose argument names
+which of the VIB MACRO tab's macros the column swings. The claim is only the command
+number field's, which is what keeps `V` a note letter where the note column is asked for:
+typed there it still types an F natural, the way the slide letter `D` still types a D
+natural. The CC `10` and CC `11` a column asks for are typed `10` and `11`,
 and a letter typed after a run of digits only claims
 the field, the number being typed having been dropped rather than read as a
 command, so nothing about a number's spelling reaches one of the letters. A
@@ -841,11 +1057,12 @@ since the number field tops at the highest CC `127` and only the letters themsel
 reach above it: typing `146` into that field gives the highest CC rather than the
 slide letter, an older build's `143` cannot be typed back at all, and an interpolation
 ramp climbs toward that highest CC rather than inventing a command. Each letter has to
-leave an argument behind, so a call starts at the release id `0`, a bend starts at the
+leave an argument behind, so a call and a vibrato start at the release id `0`, a bend starts at the
 wheel's centre `64` and a slide starts at the default span of `8` rows, which is what
-makes a row naming only the `B` bend nowhere rather than lock the wheel to its bottom
-and a row naming only a slide letter take its extreme over 8 rows rather than over
-none at all. The call pair is drawn orange and the three wheel pairs lilac, every
+makes a row naming only the `B` bend nowhere rather than lock the wheel to its bottom,
+a row naming only a slide letter take its extreme over 8 rows rather than over
+none at all and a row naming only the `V` read as `V OFF` rather than run the default macro.
+The call pair is drawn orange and the three wheel pairs and the vibrato pair lilac, every
 value in the view being decimal, and either letter a row carries from above
 draws dim like any other carried command. So does the argument carried beside
 it, and that argument is the newest one that column's rows entered rather than
@@ -856,20 +1073,28 @@ argument is the span the rows below are still taking toward the extreme rather
 than a new point on that wheel. An argument of `0` typed under a carried call
 is the arpeggiator release on its own, that row reading a bright `OFF` beside
 the letter carried into it and the rows under it carrying neither the letter
-nor an argument, and the same `0` read beside a named or a carried slide letter
+nor an argument, and the same `0` read beside a named or a carried vibrato letter
+lands that vibrato's own release there rather than a call of macro `0`, since id
+`0` calls nothing — the entry writing the `OFF` a row spells for an `o` being the
+other way of spelling it, both of them drawing `OFF` and both of them leaving the
+column carrying neither the letter nor an argument below, and the same `0` read beside a named or a carried slide letter
 lands that release there rather than a slide over no rows at all, since the
 narrowest span the field can ask for takes one row. The argument field answers
 two letters rather than digits, since neither is a number the field could spell:
 an `o` or an `O` lands the `OFF` the drawing reads, switching the pitchbending
-off and putting the wheel back at its centre beside a wheel letter and going
-the arpeggiator run off beside a call, and an `s` or an `S` lands the `STP`,
-which stops whatever move the wheel was making and leaves it sitting on the
-point it had got to, beside a wheel letter only. A letter neither of those two
+off and putting the wheel back at its centre beside a wheel letter, going
+the arpeggiator run off beside a call and taking a vibrato's swing off beside the
+vibrato letter, and an `s` or an `S` lands the `STP`, which stops whatever move the
+wheel was making and leaves it sitting on the point it had got to, beside a wheel letter only — an `s` aimed at the vibrato letter
+is refused rather than written, since a wobble has no move of the wheel to stop,
+the cell keeping the argument it had and the swing above still swinging over the
+rows below it. A letter neither of those two
 claims is ignored rather than written, the cell keeping the value it had, and
-it types no note in the note column beside it either, so an `s` aimed at a call
-or at a plain CC asks nothing of a run that has no wheel to stop.
+it types no note in the note column beside it either, so an `s` aimed at a call,
+at a vibrato or at a plain CC asks nothing of a run or a swing that has no wheel
+to stop.
 
-The Macros tab's steps are typed the same way rather than one press at a time: the
+The ARP MACRO tab's steps are typed the same way rather than one press at a time: the
 arrows and Page Up/Down move the step cursor over the cards it draws, with `Tab` joining
 the down arrow, and a sign and up to three digits then build one step's number in the
 cell the cursor sits on, which draws that number while it lasts rather than the step's
@@ -886,6 +1111,19 @@ the step the cursor sits on rather than writing a number into it, so the cell re
 the run's own release, and the cursor stays where it was the way `Delete` and `Backspace`
 leave it. `Delete` and `Backspace` make a step sound nothing, which
 sustains the step before it rather than the base note.
+
+The VIB MACRO tab has no numbers to type, so its own keyboard does only what its cards
+need: the arrows and `Tab` move a macro cursor from card to card, `PageUp` and `PageDown`
+go to the list's own ends — the nearest defined macro at or below the top rather than one
+card up — and where there is no cursor yet the arrows start from the highest id a row can
+name, which is what the remove button answers against as well. The three settings on a card
+are turned by JUCE's own controls rather than typed into the cell: the shape dropdown is
+dragged over its six spellings, its change writing the shape to the macro so a row already
+calling that id swings by it from there and leaving one point of the undo line for that one
+pick, and the two knobs take a typed amount in their text box as well as a drag, each of
+them leaving a point of its own. Defining a macro and taking one away are one action each
+as well, so a card whose three settings were all touched and that was then defined and
+removed leaves five points of the line rather than one.
 
 ## MIDI model
 
@@ -1087,6 +1325,86 @@ sustains the step before it rather than the base note.
   of the clip whose rows armed it: a ramp still climbing there has no rows below that
   clip left to finish it even when its own wheel never left the centre, so only the
   ramp needs putting away and no message is what takes it back.
+* Command `147`, entered as the letter `V`, runs one of the VIB MACRO tab's macros and its
+  argument names that macro's id, `1`–`127`, the release spelled the same two ways an
+  arpeggiator call spells it — the id `0` a row names beside the letter and the `OFF` the
+  entry writes for an `o`, both drawn `OFF` — which puts the pitchbending away and takes the
+  wheel back to its centre at that row, the last point of the cycle having left it somewhere
+  else, so the rows under a release sit under a straight pitch rather than at whatever point
+  of the swing they would have got to. A release leaves the column calling nothing rather than
+  calling id `0`, which is why a further row there that names only an argument arms nothing,
+  while a row under a carried `V` naming another macro's id re-arms the swing there: the cycle
+  counts again from that row and the new stretch measures its shape, its amplitude and its cycle
+  from wherever the previous one's last point had got the wheel rather than jumping to the new
+  macro's own base. An `STP` one asks nothing at all, a wobble having no move of the wheel to
+  stop, and leaves the swing above still swinging over the rows below it — the editor refuses the
+  `s` spelling beside the vibrato letter rather than writing it, so that argument is one a saved
+  state or a shot's own flag puts there. The pair is drawn lilac like the wheel's own rather than
+  in an arpeggiator call's orange, since a vibrato is a wheel move, and as with a slide row the
+  run that column was in is closed here rather than kept: the note its last step entered is
+  released at that row and the run ended, while a run another tracker channel of the same MIDI
+  channel was in is left alone, its steps still walking below.
+* What that wobble does with the wheel:
+  * it swings about whatever point the wheel is already at where it was armed — a bend row's own
+    point, a slide's extreme or the centre — rather than about the centre, which is what lets the
+    letter that bent the pitch, a slide's extreme and a plain bend argument all be the base a
+    wobble swings from. The swing is clamped at the wheel's own top or bottom where the base has
+    no room above or below it for the full amplitude. A bend row under a swing that is still
+    running moves the point it measures about to the pitch that row asks for rather than ending
+    the swing or starting a new one, and neither strikes a note nor releases the one the row above
+    it held, so the swing carries on across it, its own point and that row's being one pitch
+    rather than a jump;
+  * it re-reads the macro's three settings at every point of its cycle rather than once at the
+    arming row, which is what leaves a shape, an amplitude or a cycle turned on the tab while a
+    wobble was swinging changing that wobble from where it is rather than holding what the arming
+    row had still in force, and what ends a swing whose macro was taken away at its next point
+    rather than at the row that took it, saying nothing of its own and leaving the wheel at
+    whatever point of its own the swing had got to, a release row below being what puts that away;
+  * its cycle is the macro's own, counted in subticks on the grid the Settings row "Subticks per
+    row" names, and it is never drawn with fewer than 8 points of it, so a cycle 12 subticks wide
+    is two rows wide cut at the twelfths of a cycle rather than the eighths it asked for at least,
+    a cycle 8 subticks wide at the default 6 subticks to a row is four thirds of a row wide with
+    one point per sub-row step and crosses the rows it sits in rather than starting on each of
+    them, and one a single subtick wide still moves the wheel 8 times inside that grid rather than
+    once over it, so 6 cycles of it land inside one row and its last point leaves the wheel off
+    the base rather than back at it;
+  * its points are counted from the arming row in transport position and its phase from that count,
+    the way a run's steps and a ramp's are rather than read off the rows or carried round from the
+    point before, which is what a transport jump that makes this block play a row again leaves on
+    the same point of the cycle instead of advancing it twice and what keeps a swing that cycled
+    many times over many blocks exact rather than drifted by its own fractions;
+  * it sends the standard pitch bend pair, CC105 and CC106, to the MIDI channel that row's
+    instrument names like every other command row: the position is the wheel's centre 8192 plus
+    the shape's share of the macro's own height, and that height is the amplitude's share of the
+    wheel's own half-height 8192 — so a knob at full reaches the wheel's own extremes from a swing
+    sitting at the centre, the peak above landing one position past the wheel's top 16383 and
+    clamping to it while the trough below lands exactly on its bottom — counted in whole wheel
+    positions rather than in the argument's steps of 128, which is what leaves nothing rounded
+    where the swing's own curve crosses the centre. Only a point that changes the wheel's position
+    says anything, which is what leaves the arming row's own point, sitting on the base, sending
+    nothing of its own and a row that armed a wobble under a bend row leaving that row's own point
+    ahead of the swing's first, and what leaves a macro whose amplitude knob is at off holding the
+    pitch it is at over its cycles rather than moving the wheel at every point of them — such a
+    macro still being a macro rather than no macro at all, its cycle still turning and its points
+    still counted even though none of them moves the wheel.
+  * the six shapes are two curves and their folds: Sin curves and Triangle ramps in four straight
+    sides whose corners sit on the cycle's quarters rather than bunched at its ends — climbing to
+    its far top a quarter of the way in, back through the base by halfway and to its own bottom
+    three quarters in — and the `Up` spellings of each have the cycle's second half inverted, so
+    the wobble never reaches below its base, while the `Down` spellings have its first half
+    inverted, so it never rises above it; at full amplitude that has the sinusoidal `Up` landing on
+    the wheel's top twice a cycle with nothing below the base to go to and the sinusoidal `Down`
+    landing on its bottom twice, the fold being the half the plain shape swung to the far side in;
+  * it never ends by itself: a cycle repeats for as long as the column carries the letter, so what
+    puts a swing away is the row that released it, the end of the clip whose rows armed it — where
+    that clip armed the wobble with no note of its own there is nothing to release and no note-off
+    to close it, so the clip's end takes the wheel back and nothing else, the all-notes-offs being
+    the ones the transport's own start asks for rather than any of the clip's — the loop that closes
+    a column whose clip was deleted or is no longer under the playhead, which names the clip the
+    wobble's own rows lived in since a column that armed a swing without striking a note has no note
+    whose clip says where it sits, and a swing whose next point sits more than a row behind where
+    this block starts, which is what a scrub or a jump leaves a swing ended at where it had got to
+    rather than one swinging late at that point.
 * A tracker pattern can use up to 127 tracker channels, independent of the 16
   MIDI output channels. Identical notes triggered on multiple tracker channels
   in the same row are sent only once.
@@ -1134,7 +1452,8 @@ sustains the step before it rather than the base note.
   — which is what lets a loop whose block boundary landed a little past its start
   still play the note sitting exactly on that start
 * Subticks per row (default 6): how many equal parts one row is divided into,
-  which is what names an arpeggiator step's width and a slide wheel's next move -
+  which is what names an arpeggiator step's width, a slide wheel's next move and how
+  wide one vibrato macro's cycle is -
   a macro sounds one step per part, so 6 puts a step at a sixth of a row and lets
   the eight steps a fresh macro holds reach past the row that called the letter
   `A`; those eight sound nothing until entered, so it is their width rather than
@@ -1147,7 +1466,14 @@ sustains the step before it rather than the base note.
   letter's ramp had reached up to the end of the row above, and the `s` that asks to
   hold leaves the wheel sitting on that same point, since a row's own sub-row steps
   are flushed only after that row's command has answered and are left waiting there
-  for an ended ramp rather than moving the wheel before the answer
+  for an ended ramp rather than moving the wheel before the answer. A wobble counts its
+  cycle the same way rather than over the rows: the VIB MACRO tab's cycle knob spells
+  whole subticks one sin or triangle cycle takes, so a cycle of 6 is exactly one row
+  wide at the default 6 while a cycle of 8 is four thirds of a row wide and one of
+  12 is two rows wide, and it is that width over the 8 points a cycle is never drawn
+  with fewer of that says how far apart the wheel's own moves are - one point per
+  sub-row step at a cycle of the default 8, and 8 points inside those parts rather than
+  one move over them at a cycle narrower than that
 * Rows per beat (default 4, i.e. one row per 16th note)
 * New pattern length in rows (default 64, maximum 1024) — resizing an existing
   pattern never discards rows: shortening hides the tail and enlarging brings it
@@ -1178,9 +1504,12 @@ sustains the step before it rather than the base note.
   `128`–`143` lands on the letter `A` while the argument it holds stays
   the argument it was, which for the older encoding was the ignored value, so
   the macro that call now names — usually id `0`, the release — has to be
-  re-entered by hand. This build's own bend letter is a command value `144`
-  that older build could not have written, so no older row turns into a bend
-  and none of those calls becomes one.
+  re-entered by hand. This build's own bend letter, its two slide letters and its
+  vibrato letter are command values `144`–`147` that an older build could not have
+  written, so no older row turns into a bend, a slide or a wobble and none of
+  those calls becomes one; an older state has no `VIBS` section either, since
+  nothing older than the letter `V` had a vibrato to save, so the read arrives
+  with the one default macro a fresh song defines rather than with an empty tab.
 * The base note a call steps from belongs to the column rather than to the
   channel, so a call in a column that has named no note, or whose note a note-off
   took away, sounds nothing rather than stepping off whatever note another clip
@@ -1216,21 +1545,29 @@ sustains the step before it rather than the base note.
   whichever way they now read.
 * A pitch wheel left bent by a channel whose clip was deleted outright is taken
   back only at the next release point or transport re-arm rather than by the loop
-  that closes the notes and the arpeggiator runs of a clip the playhead is no
-  longer over: such a channel has no note of its own to release and no clip end
-  of its own to close, so a row that only bent keeps its wheel bent across that
-  gap. The same gap reaches a slide, whose ramp belongs to the tracker channel
-  rather than to the clip that armed it: only that clip's own end puts a ramp
-  that is still climbing away, since it is the only one whose rows ran out, so
-  a ramp armed by the rows of a clip that is gone keeps the wheel climbing over
-  the sub-rows of any further clip of that channel until a release point below takes
-  it back - the ramp's own steps being a sub-row wide rather than a row wide, which is
-  what makes a wheel a release point is taken back from a point of that line rather
-  than from one of the row's own.
+  that closes the notes, the arpeggiator runs and the wobbles of a clip the playhead is no
+  longer over. That loop now names the clip an arpeggiator's or a wobble's own rows
+  lived in when the column has no note whose clip says where it sits, since a row
+  that armed a run or a swing without striking a note leaves no note to point at
+  one: their being gone is what ends them, and what returns the wheel such a
+  swing had left off the centre there rather than leaving it bent over the clips
+  that are still under the playhead, the way the clip a wobble was armed by is
+  what puts its swing away at its own end. The wheel's own letters are what that
+  loop still has nothing to name, so a row that only bent keeps its wheel bent
+  across that gap - and a slide, whose ramp belongs to the tracker channel
+  rather than to the clip that armed it, keeps climbing: only that clip's own end
+  puts a ramp that is still climbing away, since it is the only one whose rows ran
+  out, so a ramp armed by the rows of a clip that is gone keeps the wheel climbing
+  over the sub-rows of any further clip of that channel until a release point below
+  takes it back - the ramp's own steps being a sub-row wide rather than a row wide,
+  which is what makes a wheel a release point is taken back from a point of that line
+  rather than from one of the row's own.
 * Where the asks named only the wheel, its readings at the other kinds are the
   plug-in's own: an `s` beside an arpeggiator call is refused rather than written,
   a run having no wheel to stop and the row sounding nothing and leaving the run
-  above it as it was, an `s` beside a plain CC is refused the same way, and a `0`
+  above it as it was, an `s` beside a vibrato letter refused the same way, a swing
+  having no move of the wheel to stop either and leaving the swing above still
+  swinging, and an `s` beside a plain CC is refused the same way, and a `0`
   beside the bend letter's own row keeps naming the wheel's bottom while the `o`
   there spells the release. The `STP` hold asks nothing of the note column, so the
   note that row or a row above it struck is still held under it bent at the point
@@ -1244,6 +1581,29 @@ sustains the step before it rather than the base note.
   there, the claim being only the argument field's, and where a host puts a release, the
   note it re-triggers at that row and the following note-ons when they all land at one
   sample.
+* A wobble never ends by itself: a cycle repeats for as long as the column carries the
+  letter `V`, so what puts the pitchbending away is a release row — spelled by the id
+  `0` beside the letter or by the `OFF` the entry writes for an `o`, the two reading
+  the same way an arpeggiator call's release does — the end of the clip whose rows
+  armed the swing, which is what a swing a clip armed with no note of its own needs
+  since no note-off of it was ever going to close it and nothing of it was ever
+  going to release anything, the all-notes-offs being the ones the transport's own
+  start asks for, or a transport re-arm. A swing whose macro was taken away ends at
+  its next point rather than at the row that took it, says nothing of its own and
+  leaves the wheel at whatever point of its own the swing had got to, so a release
+  row below is still what puts that away. An `STP` spelling beside the vibrato letter
+  is a number a saved state or a shot's own flag leaves there rather than something
+  the editor offers, since the entry refuses the `s` there — a wobble has no move of
+  the wheel to stop, so such a row leaves the swing above still swinging over the
+  rows below it. What only the hosts can say for a wobble is how wide a pitch they
+  hear it swing: the amplitude is a share of the plug-in's own 14-bit wheel rather
+  than of a host's pitchbend range, so a knob at full reaches that wheel's own
+  extremes and means whatever the host's own range says that is, and how many CC105
+  and CC106 pairs in a row a host lets through before it hears the swing as one
+  pitch rather than as a shape — the plug-in sends one per point of a cycle that
+  changes the wheel's position and no more, that being one every sub-row step at a
+  cycle 8 subticks or wider and never more than 8 points over a cycle at a narrower
+  one.
 * No audio processing of any kind.
 * The Linux VST3 build exposes the plug-in as an effect (`Fx` category). Hosts
   that hide MIDI effects (Reaper in some routing setups) can use the
@@ -1279,7 +1639,8 @@ sustains the step before it rather than the base note.
   shape is gone in that host rather than only in the fixture; what that section
   still covers at the engine alone is the moved-clip-from-time-0 scenario, which
   has not been asked in a host at all.
-* Command kinds beyond plain CC, the arpeggiator call and the pitch wheel (a dedicated
+* Command kinds beyond plain CC, the arpeggiator call, the pitch wheel and the
+  vibrato that wobbles it (a dedicated
   pitch bend CC105/CC106 pair rather than the standard pitch wheel message, tempo, song
   position) are future work.
 * Selection snaps to channel boundaries: a cell is one channel's visible
@@ -1511,6 +1872,42 @@ keeps a note entered at a same-numbered sample of the block below still asking t
 opening, and allNotesOff's own per-channel note-offs not being recorded at all is what keeps a transport
 re-arm and a loop wrap re-articulating exactly as the fixtures above pin, that block being the one a host
 hands over while the transport is stopped and so may never deliver at all.
+The vibrato letter is command value `147` (commit 579e210): the bend, slide and vibrato letters sit
+above `kOlderCmdTop = 143` so an older state's argument of `130`-`143` still lands on the highest
+macro id rather than turning into one of these, and `128` and `129` still read as the OFF and STP
+sentinels rather than as ids, so nothing an older build could write becomes a wobble and nothing a
+digit run can type reaches the letter. Only the command number field claims the letter, so `V` typed
+where the note column is asked for still types F natural, the way the slide letter `D` still types a
+D natural, and the note key `v` stays a note key rather than being spent twice. A macro is a
+`VibMacro { present, type, amplitude, frequency }` in a grow-only `std::vector<VibMacro> vibs`, since
+clearing one leaves its room and the shape, amplitude and cycle its knobs had rather than erasing the
+settings, which is what a macro that goes off still answers at and re-defining then starts over from;
+the `present` flag is what says a macro exists, so a card exists whether or not a knob is turned and
+the table only ever grows, keeping ids in place the way the arp table does. `VIBS`/`VIB` with `id`/`type`/
+`amp`/`freq` props is the saved form, one entry per macro that is present rather than one per id the
+table has room for, and the read empties `present` over the whole table ahead of it the way the `ARPS`
+read does, which is what an undo that took a vibrato away leaves it undefined rather than holding the
+knob positions it had. A wobble swings about `c.lastBendPos` rather than the wheel's centre, so a bend
+row's own point, a slide's extreme and the centre can all be the base it swings from, and it is measured
+on `vibPoints = max (cycle, kVibCyclePoints = 8)` subticks rather than the row's own `subticksPerRow`
+steps, so the curve is cut at the cycle's own fractions (a cycle 6 wide is one row wide, one 12 two rows
+and one 8 four thirds of a row at the default Settings), a cycle of 12 is drawn with 12 points rather
+than the 8 it asked for at least, and a cycle of 1 still moves the wheel 8 times inside that grid instead
+of once over it, with the phase counted from the arming row's transport position the way an arp run's
+steps and a slide's ramp are, so a transport jump re-delivering a row does not advance the swing twice.
+A wobble never ends by itself: what puts it away is the row that released it, the end of the clip whose
+rows armed it (which is what a swing a clip armed with no note of its own needs, since no note-off was
+ever going to close it), the clip-gone loop, or a swing whose next point sits more than a row behind
+where this block starts. The gone-clip loop had to learn to name a run's or a swing's own clip rather
+than only `c.activeClip`, which a command-only row never sets, so when a column has no active note it
+falls back to `c.arpClip` then `c.vibClip` (commit 579e210) - without that fallback that `else` branch
+ended the swing and sent nothing of the wheel at all, so the 16 bends the clip-runs-out fixture pins
+came back as an empty run rather than as the swing's own points. The UI's tab names had to be spelled
+out rather than reused: the ARP MACRO and VIB MACRO buttons are 10 px wider than the plain ones, since
+a tab's own text is what a test compares against and the vibrato card needed a tab of its own before
+it could be reached at all. The ComboBox was preferred over a hand-drawn selector because JUCE's own
+already reaches the model through onChange, which is what lets a dropdown pick be one point of the
+undo line and a knob turned two more rather than a card being one action of its own.
 Work State
 Completed
 Repo init, JUCE 8.0.9 vendored/committed; CMakeLists.txt for VST3 MIDI effect.
@@ -2801,635 +3198,161 @@ at the row above it, a stop sitting exactly at it, a loop wrap of one pattern pl
 back, which takes the releases away through allNotesOff rather than through that clip's own end, and
 the moved-clip-from-time-0 stuck-note scenario - beside Bitwig's and Carla's hearing of one fewer
 note-off of one pitch at one sample.
-
+The vibrato macros and the wobble they run landed (commit 579e210): the model grew a `VibMacro` beside
+`ArpMacro` and a grow-only `std::vector<VibMacro> vibs` beside `macros`, with `kVibCmd = 147`, the shape
+top `kVibTypeTop = 5`, the amplitude top `kVibAmpTop = 100` (a hundredth of full pitchbend each), the
+cycle top `kVibFreqTop = 127` subticks, the fresh macro's `kVibDefaultAmp = 50` and `kVibDefaultFreq = 8`
+defaults and the `firstUndefVibId` / `lastDefVibId` pair the arp one already had; `VIBS`/`VIB` with
+`id`/`type`/`amp`/`freq` props was added to the saved form next to `ARPS`, both sides of it emptied before
+the read so an undo that took a macro away leaves it undefined rather than holding its knobs, and `reset()`
+now defines vibrato id 1 the way it defines arp id 1, which is what the VIB MACRO tab has a card for. The
+engine grew `flushVib`, `vibCommand` and the static `vibShape` over the six curves, and `ChannelState` its
+`vibOn` / `vibId` / `vibClip` / `vibOrigin` / `vibCount` / `vibRowEnd` / `vibBase` / `vibCycle` / `vibPoints`
+/ `vibHeight` fields plus `endVib` and `vibRunning`, the swing being measured on `max (cycle,
+kVibCyclePoints = 8)` counted subticks about `c.lastBendPos`, its height `amplitude * kBendCentrePos /
+kVibAmpTop` so an amplitude of 100 is the wheel's own half-height, its points clamped to `[kBendBottomPos,
+kBendTopPos]` and only a point that changes the wheel's position saying anything, the `Up` kinds negating
+the shape once `phase >= 0.5` and the `Down` kinds while `phase < 0.5`, and one `std::sin` or the triangle's
+own ramp per point rather than a table of shapes. The clip-gone loop now names `c.arpClip` then `c.vibClip` when a column has
+no active note, which is what a wobble armed with no note of its own takes back at a clip's end. The UI
+grew `Source/ui/VibMacrosPanel.h/.cpp`, a card of one `juce::ComboBox` over the six spellings and two
+`juce::Slider`s per macro with the tab's own `vibShapeLabel` and `vibAmplitudeLabel` readers, its scrollbar
+10 px in from its right edge answering the wheel and a grab, and its `+ Add macro` / `- Remove selected`
+pair; the editor's tab enum grew `vibs` and the tab buttons now read `ARP MACRO` and `VIB MACRO` 10 px
+wider than the plain ones, with `wireUndoRedo`, `wireClipboard`, `wireSlice` and `onModelChanged` given
+the panel so all seven walk one point per press and a tab that is not showing stays deaf, the tracker
+claiming `V` as `kVibCmd` in the command number field only, drawing the `V` pair in `theme::cmdOther`
+lilac, reading a `0` argument there as the `V OFF` its release spells, refusing an `s` beside the letter
+in `commandArgumentReleases` and telling a command row's kind through `commandKindAt`, and the pool's
+grid preview grew its fourth wheel tick. Rebuilt with no new warnings, the .so at sha256
+046b3e93927f0fe8319bf95efce70a4dbecb56c63bf7b00e5a1b6abd89cb1cfc and the installed bundle refreshed
+by rsync -a --checksum over its directory rather than its single .so, so the installed copy matches
+that hash while moduleinfo.json stayed at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee
+since nothing about the plug-in's identity changed. CoreTest went from 319 to 379 checks PASS with 0
+failures, its six new sections pinning the model, the grid, the six shapes, the point a wobble swings
+about, the release, the STP and a row retargeting one another and a macro taken away mid-swing; its
+wobble armed with no note of its own takes all 16 bends of its two cycles out over the clip's two rows,
+13985/16383/13985/8192/2399/0/2399/8192 twice, the whole run the gone-clip fallback was needed for,
+since without it that loop named no clip for such a column at all, ended the swing and sent nothing
+of the wheel, so the same fixture came back with no bends at all. The cycle-one fixture at a quarter
+of full pitchbend repeats the same eight points six times inside one row and its last point leaves
+the wheel at 6744 rather than back at the base, which is what makes the 48th message the note-off row
+below taking that point back to the centre rather than one more point of the cycle; UiTest went from
+676 to 734 checks PASS with 0 failures, its new VIB MACRO section driving the ComboBox through
+setSelectedItemIndex with juce::sendNotificationSync and the two knobs through their text boxes,
+reading the six spellings back through the panel's own vibShapeLabel rather than a second copy of
+what the tab draws and the amplitude through vibAmplitudeLabel (25) == 0.25, and asserting the card's
+three settings as three undo points against the depth the Settings tab's Undo steps row asks for,
+which is why its depth checks read the line back as juce::jmin (before + n, song.settings.undoSteps)
+rather than one more than it can hold; Smoke stayed at 13 checks PASS with the serialised state grown
+from 2392 to 2463 bytes since the VIBS section is saved state rather than the engine's three numbers.
+Five shots pinned it, each 1240x760: /tmp/opencode/arptab.png 991fffe6c52af501f45c55dd2e708b72a0b07bfaedf06737ac06fcbc0bbf6443
+with the tab button now reading ARP MACRO rather than MACROS, /tmp/opencode/vibmac.png 21a9117c19c6e2c6741cba068b82bf3f109d1b75e319b28025c19b6973720534
+showing one card whose dropdown is picked out at Triangle Up and whose knobs read 0.75 and 12,
+/tmp/opencode/vibmany.png showing 25 macros of which 22 are laid out at 116x22 and 3 hidden at 0x0
+rather than drawn past the window, the strip's thumb at the far end of its track with V 25's own card
+clipped at the bottom edge, and /tmp/opencode/vibletter.png 82f2b95c2f7f539e2cbbb987e57a64fe38e221a64121401b8cbc036d67dc6de3
+/ /tmp/opencode/viboff.png 7580fec80bf3b70b5fe3720a2762b51e4e6595367b3b5bbf1f560384d79de305 showing
+the tracker's lilac V 1 at row 6 carried dim over the rows under it and the same row spelled V OFF
+with neither letter nor argument drawn under it; the baseline /tmp/opencode/vibnone.png re-taken with
+no vibrato flags holds zero pixels of that exact lilac 0xffd8b4e8 and none within twelve of it, while
+vibletter holds one exactly it and three more within twelve - the letter's glyph being drawn over a dark
+plate so most of it blends with the background rather than spelling the colour - and viboff holds eight,
+being the release's three-glyph OFF in that same colour, so the lilac those pictures hold is drawn by the
+vibrato's own letters rather than by anything the demo's other rows already had. Portability
+was re-checked rather than assumed: max GLIBC_2.38 and GLIBCXX_3.4.32 still, the four names the
+new curve leans on - sin, sincos, sinf and sincosf, all at GLIBC_2.2.5 - already sitting in the older
+build-instrument artefact's own dynsym beside them, so the curve asked for no symbol of its own, and
+sqrtf and atan2f are still not asked for by name.
 Active
-Nothing is open in the code: this round's change is landed, built, installed and tested - a
-release of a pitch a channel queued at a sample being recorded as that pitch, that MIDI channel
-and that sample of the block it was queued in, the stuck-key guard in startNote asking that record
-before it adds an opening of its own, and process() clearing those three at the start of every
-playing block since a release only lives inside the block being queued, so a note entered at a
-same-numbered sample of the block below it still asks the guard for its own opening - which is
-what one pattern placed twice back to back, its foot's note and the next clip's row 0 holding one
-pitch, now hands a host: one note-off of that pitch ahead of the note-on that lower clip enters at
-its row 0 rather than two, and nothing of that pitch closing that note after it. That boundary has
-since been asked again, one pattern placed twice back to back, in the host the report was seen in,
-and no abrupt cut was heard there, so the report's own shape is gone in that host rather than only
-in the fixture, and what that duplicate was - the guard's second release of a pitch that clip's own
-end had already released beside the note-on one sample later - is settled rather than reported. What
-is still known only from the hosts is the rest of that shape the boundary sends rather than that one:
-a boundary entering a different pitch, a note change inside one clip, a same-pitch re-trigger at a
-row, a note entered at the very row a clip ends on, and a transport re-arm or a loop wrap putting its
-channel-wide releases ahead of the note-on that lands at its own first sample, none of them asked of
-in a host since this one was, the moved-clip-from-time-0 stuck-note scenario among them. What the
-ordinary shapes keep is the one release plus one note-on at one sample a note change inside a clip and a
-same-pitch re-trigger at a row already had, since a change releases a pitch other than the one
-entered below it and a re-trigger sits at a sample no release of that pitch was queued at, so neither
-of them reaches the record, and the re-arm and loop-wrap allNotesOff ordering is pinned as it was by
-the sections above. Not recording allNotesOff's own per-channel note-offs is this round's one
-deliberate call rather than an open question: that block is what the transport hands over while it is
-stopped, so those releases may never be delivered at all and a pitch opened there is not one a host
-was already shown to be holding.
-
-Nothing is open in the code beside that hearing: the argument field's two letter spellings OFF
-and STP, the wheel being ended rather than left bent under an arpeggiator call on its own column,
-a slide row closing the arpeggiator run that column was in while the same two commands on separate
-tracker channels of one MIDI channel work together, and an arpeggiator's release re-triggering the
-note it measured from at its own row, are landed, built, installed and tested, and the U and D
-slide's ramp interpolated over the Settings' sub-row grid rather than moved to one new point once
-on every row of its span, the two letters themselves, the arpeggiator's openings, the carried
-command argument and the one decimal spelling the view has are landed as they were with only the
-hosts hearing them still open. The Command half of the column names four kinds rather than three:
-the letter A claims the number as 128 with the macro id as its argument, the letter B claims 144
-with a point on the wheel, and the U and D claim 145 and 146 with a row count as theirs, since a
-slide's argument says how many rows below the naming one its extreme sits over rather than where on
-the wheel that extreme is. All three wheel values sit above kOlderCmdTop = 143, the highest value an
-older build could write for its M0-M15 macro kinds, so the read clamps only 128-143 to the call
-letter while this build's own three values read back as themselves and no older row can already be
-a slide; all three also sit above kCcTop = 127, the number field's own top, so a run of typed digits
-cannot invent one of the letters while an interpolation ramp still climbs toward the highest CC. The
-argument field of its own answers two letters rather than only digits, since neither spelling is a
-number that field can spell: an o or an O lands kArgOff = 128, the OFF that switches the pitchbending
-off and puts the wheel back at its centre beside a wheel letter and goes the arpeggiator run off
-beside a call, and an s or an S lands kArgStp = 129, the STP that stops whatever move the wheel was
-making and leaves it sitting on the point it had got to, beside a wheel letter only. A 0 typed beside
-a slide letter lands the same OFF rather than a slide over no rows at all, so the span 0 means nothing
-anymore and the narrowest slide the field can ask for takes one row, an s beside a call or beside a
-plain CC is refused rather than written since neither has a wheel to stop, and a letter neither claim
-owns is left alone rather than written so the cell keeps the value it had and no note is typed in the
-note column beside it; both spellings sit above that field's own top rather than inside it, survive
-the saved form unchanged as the argument's own numbers and are drawn OFF and STP in the three glyphs
-its widest spelling already needed, the call pair still orange and the three wheel pairs still sharing
-the one lilac. An arpeggiator's release, spelled either by the id 0 beside the call letter or by the
-OFF an o writes, releases the note the run was left sounding, strikes the note the run measured from
-again at its own row so the column goes back to sounding its own base note rather than going silent
-under the release, and leaves the column calling nothing below it whichever way it was spelled - a row
-that struck a note of its own or one naming the column's note-off having already spoken that base, so
-neither re-strikes. A slide and a run cannot both be in force in one column, so a row under a carried
-call that names a slide letter closes that run there, releasing the note its last step entered at that
-row and arming a ramp of its own below it, while the A call's own row ends the wheel that column had
-rather than leaving it bent under the run, that call's row being the only one able to put it back at
-the centre; any other command that is not a slide ends a ramp that was still climbing while leaving
-the wheel where that row left it, so the point such a row asks for stays a point rather than becoming
-a climb. What belongs to a tracker channel rather than to a MIDI channel keeps working beside what
-shares the MIDI channel, so a slide in one tracker channel and a run in another of the same MIDI
-channel leave each other alone and that run's steps go on sounding against the wheel that channel's
-ramp is moving. A slide is a state the column carries down like a bend rather than one its own row
-only, so the
-row that named one is the ramp's own start, the wheel staying where it already was there with nothing sent
-of that row and the note it strikes playing straight, while the sub-rows under it move it along the grid the
-Settings row "Subticks per row" names rather than jumping to a new point once on every row under it, and land
-on the extreme exactly over the span's own last row, an empty one taking the default span of 8 rows the
-letter's entry writes and 127 being the widest the field can name; a row under a carried
-letter naming only an argument stays implicit and re-arms a ramp of
-its own from wherever the wheel's sub-rows had got to, which is how a slide is retargeted while it runs, and
-a ramp re-armed over a wheel already at the extreme moves nothing. The ramp is counted from its own start in transport
-position rather than read off the row, so a row a transport jump makes this block play again lands on the
-same step of the ramp rather than being advanced twice, and its steps are flushed by flushSlide beside
-flushArp after the rows this block processed, up to the end of the row the engine last owned, rather than
-being moved once inside either letter's branch, which is what leaves a row's own sub-row steps waiting for
-the block that reaches them the way an arpeggiator run's do; each step moves at the pitch wheel's own order
-0 so it precedes the note-on of the row it sits inside and a note entering while the wheel climbs is bent by
-where the climb had got to rather than by where the row above it left it. Release points gained the slide's
-own ends: the note-offs of allNotesOff and stopNote take a ramp that is still climbing away, the wheel having
-already moved on the sub-rows of the row the note-off sits in, and the end of the clip whose rows armed it
-puts one away that is still climbing, a ramp still climbing there having no rows below that clip left to
-finish it, so when its own wheel never left the centre only the ramp needs putting away and no message is
-what takes it back. What the two letters leave the wheel with is one rule rather than two, a slide that reached its extreme
-leaving the wheel sitting at a point of the column's own like a bend row left it, and both letters share the
-lilac theme::cmdOther the bend pair already had rather than bringing a fourth colour in, the pool's grid-preview
-tick painting that lilac for all three wheel kinds.
-
-The Macros tab's five fixes stand landed as before it: the tab paints no description memo, keeps its title and the one MACRO / LENGTH /
-LOOPED / STEPS label row at y 48 with kContentTop taking the cards up to 70; a newly defined
-macro arrives as eight steps that all sound nothing, ArpMacro::setDefault and Song::setArpLength
-writing kArpEmptyStep rather than the ramp kArpDefaultJump used to name, so a macro's shape is
-only ever where it was entered; a step's number is typed rather than committed one press at a
-time, the value living only in stepText until commitStepText lands it, so a sign and up to three
-digits reach one value inside ±127, the cell the cursor sits on shows it while it lasts, the
-arrows and a click of another card close it and Escape drops it; - Remove selected clears the
-macro the step cursor sits on rather than the last one a row can name; and the drawn scrollbar
-is grabbed as well as turned, its geometry living in the scrollbarX / thumbHeight / thumbTop /
-scrollToPointer helpers one set of so paint and the drag cannot drift apart, with mouseDown,
-mouseDrag and mouseUp carrying the grab. The pitch bend round stands landed as before it: the letter B claims the command number as 144 and leaves the wheel's centre 64 as the argument
-it has to write beside it, bendTo sends the standard pitch wheel pair at the order that puts the
-move ahead of the note its own row strikes, the read sends an older state's command 128-143 to the
-letter A with the argument it had while only 144 reads back as a bend, and the clip-end take-back
-keyed on the ChannelState's own new bendClip returns a wheel a row left bent without striking. The
-arpeggiator round likewise stands: the letter A claims its half of the column, the macro table and
-its ARPS section read and write, the Macros tab holds one card per defined macro with its LENGTH
-field, LOOPED tick and drawn step strip, and the engine sounds one step per subtick and counts steps
-rather than positions so a looped run's cycle boundaries stay exact. What the two letters leave the
-engine with is one rule rather than two: a bend is carried state like a volume, a pan or an instrument,
-so the re-centre that used to sit inside startNote is gone and the notes below the row that asked
-for a point stay bent, the wheel returning to its centre only where a release happens - the note-offs
-of allNotesOff and stopNote, a row naming the arpeggiator call on the column that wheel was bent in,
-a row naming an OFF argument under a wheel letter, a transport re-arm, the editor's own all-notes-off,
-and the end of the clip whose rows last moved it. The gap left deliberately is the one release point that cannot be had:
-a wheel left bent by a channel whose clip was deleted outright has no note of that channel to release
-and no clip end of its own to close, so it is taken back only at the next release point or re-arm
-rather than by the loop that closes such a clip's notes and arpeggiator runs. The old macro kinds are
-still not reconciled: an older row's command 128-143 lands on the letter A keeping the argument it had,
-which for the older encoding was the ignored value, so the macro those calls name has to be re-entered,
-and the older state's own macro definitions are dropped outright - while this build's bend letter is
-a command value that build could not have written, so no older row turns into a bend and none of those
-calls becomes one. The new empty steps cost the older encoding nothing of its own: a fresh macro still
-holds eight of them under the same length and the same saved base64 field, only read as nothing until
-entered. The loop fix's residual is unchanged: the re-arm recovers the row a wrapped transport's block
-start fell inside, so a wrap whose boundary landed more than one row past its start can still leave
-the row sitting exactly at the start unplayed, and Bitwig was reported leaving its boundary inside
-the first row, which is the case that now plays; a wider miss would need the re-arm to reach back
-over every row the wrap skipped rather than over the one the start fell inside. Whether a mid-row
-start reached by a forward seek should play the row as a wrap does is the user's to settle, and the
-current build keeps that case honouring the Settings row.
+Nothing is open in the code: this round's vibrato landed end to end. The model grew a grow-only vibrato
+table holding each macro's shape, its amplitude as a hundredth of full pitchbend and its cycle counted in
+subticks, saved as a VIBS section of one VIB entry per macro that is present and read with the whole
+table emptied ahead of it, so an undo that took a macro away leaves it undefined rather than holding its
+knobs; the engine grew flushVib and vibCommand swinging the pitch wheel about wherever it already sits
+rather than about its own centre, on max (cycle, kVibCyclePoints = 8) counted subticks and at amplitude *
+kBendCentrePos / kVibAmpTop of height, clamped at the wheel's own ends, only a point that changes the
+wheel's position saying anything, its six sinusoidal and triangle curves with the Up spellings folding
+the cycle's second half over the base and the Down spellings its first. A release row, the end of the
+clip whose rows armed the swing, the loop for a clip that is gone or no longer under the playhead - which
+now names c.arpClip then c.vibClip for a column that armed a run or a swing without striking a note of
+its own - and a swing whose next point sits more than a row behind where this block starts are what put
+a wobble away, since it never ends by itself. The VIB MACRO tab was added the way the ARP MACRO one was,
+one card per defined macro holding a ComboBox over the six spellings and two Sliders, the tab's own
+vibShapeLabel and vibAmplitudeLabel being what a test reads a shape and an amplitude back through rather
+than a second copy of what is drawn, its scrollbar 10 px in from its right edge answering the wheel and
+a grab alike, and its + Add macro / - Remove selected pair taking the lowest id that has none and putting
+away the macro the last gesture picked out. The tab buttons now spell ARP MACRO and VIB MACRO 10 px
+wider than the plain ones, the tracker claims V as kVibCmd in the command number field only so the note
+column still types F natural, a 0 argument there reads the V OFF its release spells, an s beside the letter
+is refused since a wobble has no move of the wheel to stop, the pair shares the wheel's own lilac and
+the pool's grid preview gained a fourth wheel tick. It is built, installed and pinned at three layers
+rather than only at one: CoreTest 379 checks, UiTest 734 and Smoke 13 all PASS with 0 failures against
+the .so at 046b3e93927f0fe8319bf95efce70a4dbecb56c63bf7b00e5a1b6abd89cb1cfc in a bundle refreshed by
+rsync -a --checksum over its directory rather than its single file, and the shots name the two macro
+tabs, the one card at Triangle Up with its knobs at 0.75 and 12, the 25-macro list that has to scroll
+with 22 cards laid out and 3 hidden rather than drawn past the window, the tracker's lilac V 1 carried
+dim over the rows under it and the same row spelled V OFF. What is still only the hosts' to hear is the
+whole wobble: no host has yet been shown to swing a pitchbend at all, so how wide a swing one hears at a
+knob reading 0.75, how many CC105/CC106 pairs in a row it lets through before it hears one pitch rather
+than a shape, what its own pitchbend range makes the plug-in's full wheel and where a swing armed over a
+clip a seek or a scrub jumped into starts swinging from all stay open, and the same goes for whether a
+host keeps a swing that outlives its clip's own end alive rather than hearing the take-back this build
+sends there. Nothing is open in the code beside those hearings: the two tab names, the one point of the
+undo line per dropdown pick and per knob turned, the s refused beside the vibrato letter, the OFF spelled
+two ways, the lilac pair, the fourth pool tick and the tab's scrollbar are landed and pinned, and the
+only known gap left is the one the shape itself names - an STP beside a vibrato letter is a number a
+saved state or a shot's flag leaves there rather than something the editor offers, since the entry
+refuses the s there and the engine answers such a row by doing nothing at all.
 Blocked
-No Reaper installed; VST3 host testing limited to JUCE smoke test + Carla
-availability.
-This round's one change is the same shape of cover rather than a stronger one: CoreTest names
-the boundary of two clips of one pattern as one note-off of that pitch ahead of the note-on the
-lower clip enters at its row 0 rather than two, that note-on still being reached at all, and
-nothing of that pitch closing it right after or anywhere over that lower clip's rows, with the
-counts saying 4 entries and 4 releases rather than the 5 the guard's extra made, and the raw
-event order rather than any block-relative offset being what names that shape. The user's own check
-has since found no abrupt cut at that boundary, in the host the report was seen in, so what the
-suites could not show on their own - that a host answering the sample rather than the order inside
-one no longer opens the note entered at the row below a clip's end at once - is heard rather than
-inferred, and that one shape is landed rather than reported; what that check has not asked beside it
-is a boundary entering a different pitch, a note entered at the row above that boundary rather than
-at the clip's own foot row, a transport stop sitting exactly at that boundary, a loop wrap of one
-pattern placed twice back to back, which takes the releases through allNotesOff rather than through
-that clip's own end and is the one path the record was left out of on purpose, and the moved-clip-
-from-time-0 stuck-note scenario the section above pins, while what Bitwig, which honours an
-all-notes-off where that host's receivers ignore one, and Carla make of that one fewer note-off at
-one sample is still not asked of either.
-The modal routing that made the Alt pair inert cannot be
-reproduced by the menu tests, which call the menu callback directly rather than
-going through showMenuAsync or startDragging, so both the per-panel answer and the
-focus hand-back are covered at the panel and at the drop and pinned by reading
-ComponentPeer::getTargetForKeyPress, PopupMenuCompletionCallback and the MenuWindow
-constructor rather than by a headless popup. The cell clipboard's Alt pair is covered
-the same way rather than more strongly: it is pinned at each panel's keyPressed and at
-the editor's own branch, so what a host does with Ctrl+C and Ctrl+V before the plug-in
-sees them is still only known from the hosts, and no headless test holds a clipboard
-of its own that the plug-in could be shown losing. The cut is covered in that same shape
-rather than in a stronger one: it is pinned at each panel's keyPressed and in the editor's
-branch, while the cell menu's "Cut selection" item and the callback that answers id 6 are
-only read, since no test opens a popup through showMenuAsync or drives that callback, so
-what a host does with its own Ctrl+X before the plug-in is offered it is still known only
-from the hosts. The Alt+S slice and the two paste submenus are covered in that
-same weak shape rather than in a stronger one: the slice is pinned at each panel's
-keyPressed and in the editor's own branch, and the submenus' leaves by the paste
-calls their callback makes rather than by the popup that would have selected one
-of the new 17..23 ids, so the menu's own selection of a leaf, the fact that the
-additive submenu really opens as its own submenu beside the plain one, and what a
-host spends its Ctrl+X and Ctrl+Shift+C / Ctrl+Shift+V on before the plug-in is
-offered them are still read-only. The Settings row the user settled by dropping
-is the one question that no longer needs the hosts or a headless popup: UiTest
-shows the panel exposing no toggle under that name and the saved settings block
-carrying no such property, so what is still unknown about the Settings tab is
-only what a host spends the keyboard spells it swallows before the plug-in sees
-them. The transport re-arm is the same shape of cover rather than a stronger one: CoreTest names
-the ordering of the channel-wide releases against the note-ons queued for the same block sample,
-that no CC 120 leaves the live paths, the row a wrapped pass's block boundary landed inside being
-played once at that block's first sample and the wrap's arithmetic over the blocks after it, but
-what Bitwig does with an all-notes-off it receives and where it leaves a loop's block boundary
-inside a row are known from its behaviour and the user's reports rather than from a host the
-tests can drive. The arpeggiator is the same shape of cover rather than a stronger one: UiTest
-drives the letter's entry, a 10 typed as its own three decimal digits, the A typed after them
-claiming the field and dropping them, a row naming only an argument under a carried
-call, the panel's length slider, looped tick, + Add macro and the - Remove selected one, the step
-cursor and a number typed at it one character at a time, the scroll a wheel leaves on a taller
-panel and a click and a drag of the drawn strip's own column, and CoreTest names the step widths,
-the loop's exact boundaries, the empty step, the octave snap at both ends, an A 0 release, the
-base a call takes from the column it is in rather than from the note the channel was left
-sounding, the run a switched call leaving its last note released ahead of the new run's first
-step, a call the column has no note for sounding nothing rather than leaning on a note from
-above a note-off, the clip end closing a run that was still looping, the steps growing adds
-sounding nothing and the undo read taking an earlier state's steps back; but a second call in
-one column is named at the engine rather than shown heard in a host, the Macros tab's own
-context menu and a drag made on a card's length bar rather than its value written through
-setValue are still only read, and a number the tests hand over one KeyPress at a time is only
-known to reach a host's keyboard in that shape, so what a host spends a key of its own on before
-the plug-in is offered it hides that whole step rather than only the sign rules. Where a host's
-MIDI receiver puts a note-on that lands a subtick rather than a row apart, how it spends a note-off
-and a note-on that arrive at one sample, which is the shape a switched call hands it, how far it
-carries a step's note while the run is still going, and what it does with the letter A before the
-plug-in is offered the press remain known only from the hosts. The pitch bend is
-the same shape of cover rather than a stronger one: CoreTest names the standard pair and the wheel
-position its argument names, that the move leaves at the same block sample as the note-on of the
-row that asked for it and ahead of it, that the argument's centre reads the wheel's centre exactly
-rather than a step off it, that the wheel is moved once down a column and is not straightened by
-anything between that row and the note-off which also releases the note the channel was holding,
-that argument-only rows under a carried letter move that same wheel in turn through its bottom and
-back, and that a clip's own end returns a wheel a row left bent while it struck nothing; and UiTest
-drives the letter's claim and the centre argument it writes with it, the argument typed next, an
-argument-only row under the carried letter, an 11 typed as its own three decimal digits and
-the B typed after them claiming the field and dropping the number, a typed 144 landing on the highest
-CC rather than inventing the letter and the claim being one point of the undo line the editor walks
-back and forward; but where a host's MIDI receiver maps a 14-bit position to a sounding pitch, how
-far it honours a wheel it was left with while the transport is stopped or across a block boundary,
-whether it wants the standard pair at all rather than one wider message, how long a host holds a
-bend for notes its own synth plays from a re-armed position, and what a host does with the letter B
-before the plug-in is offered the press are known only from the hosts.
-This round's five asks are the same shape of cover rather than a stronger one: CoreTest
-names a call beside the row's note-off being answered there, its steps measured from the
-note that row was releasing, its note-ons counted against the run and its release read
-through the raw event order as a note-off ordered ahead of that run's first note-on at
-the same sample, and names the release leaving the column carrying nothing so a macro
-an argument under one would have switched to never sounds; UiTest reads the tracker's
-own carriedCommandNumber as holding the call above a release and nothing at all under
-one, with that release's argument drawn OFF, and reads the Macros tab's own stepBand as
-changing at six steps rather than at the sixteen cells a line wraps at; and EditorShot
-draws each of the three shapes in a shot - the dim carried letter beside a dim carried
-argument, the A OFF with nothing carried under it and the call bright in a row holding
-the column's note-off. What is still known only from the hosts is where their MIDI
-receivers put a note-off and a note-on handed at one sample, which is the shape a call
-beside a note-off sends them, how long a host holds the note that release cut, whether
-a host spends its own reading of the letter A and the argument 0 before the plug-in is
-offered the press, whether a host keeps the plug-in's own three-glyph argument cell rather
-than restyling the column, and where the bands move when the Settings
-row "Subticks per row" is set to anything but its default, which the tests only read at
-the default.
-The decimal round's one change is the same shape of cover rather than a stronger one: the suites
-show the Settings tab exposing no toggle under the name the row used to have, the saved
-state carrying no such property and an older state that still carries one reloading with
-nothing to read it into and not carrying it on, the three decimal digits a command field
-takes at the keyboard with a letter typed after them claiming that field and dropping them,
-the remap dropdowns naming their instruments -0 .. -15, and EditorShot having no flag that
-would ask for another spelling to render. What is still known only from the hosts is whether
-a host restyles the numbers it shows at all - its own theme, its own font, its own digit
-width - and where it puts the plug-in's own field widths once it has no spelling setting to
-read, which is the whole of what a view the tests cannot drive can add.
-This round's one change is the same shape of cover rather than a stronger one: the suites read
-the argument a column carries through the tracker's own new carriedCommandValue rather than at a
-pixel, so UiTest shows the carried id following the newest argument an argument-only row entered
-under a carried call rather than the argument that call itself named, and both reads coming back
-empty under a release written as only its argument, while EditorShot's --cmd-carry fixture grew a
-call in the other channel above a row naming only its 0 there, so the shot shows the release read
-OFF beside the letter carried into it with neither letter nor argument drawn over the rows under
-it rather than the call being carried on. What is still known only from the hosts is whether one
-sees the dim argument the rows under an argument-only row carry move to the newest one entered
-rather than staying the one the letter above called with, whether an argument-only 0 under a
-carried call reads OFF on its own row and leaves the rows under it drawing neither letter nor
-argument, whether the row itself stays implicit rather than becoming an explicit call there, and
-whether the undo line is unchanged by an argument entered under a command already in force, since
-the suites only read the carry through the accessors and only render the shape to a PNG the hosts
-never see.
-This round's one change is the same shape of cover rather than a stronger one: CoreTest
-names an opening mid-run ordering its release between the note-ons either side of it and
-counting one release per opening, one at a run's head releasing nothing while the tail of
-the same run closes what the next step entered, a looped cycle stepping through its openings
-and sounding itself again after the one release, and that the only note an opening ever stops
-is the one that run entered, so nothing a column or another run was holding is cut; the
-round trip putting an opening at a step and reading it back through the two-byte block, and
-an older ARP record of four one-byte steps widening with its jumps, its steps that sound
-nothing and its absence intact; UiTest drives the Macros tab's backtick and tilde pair spelling
-the step under the cursor the `+ Add macro` button left parked there, claiming the press,
-spending exactly one point of the undo line for that one press and leaving the cursor on the
-step it opened, reads the opened step and an empty one back through the panel's own stepLabel
-as OFF and --, walks Ctrl+Z and Ctrl+Y across the spelling and clears the opened step at a
-point of its own; and EditorShot's --arp= token off draws the word in the jump's orange in a
-Macros-tab shot against dots in the same places. What is still known only from the hosts is
-where their MIDI receivers put a note-off and the next note-on a run sounds after an opening,
-which is the shape a step of OFF hands them at one subtick rather than a row apart and the
-shape a looped cycle hands them when its next cycle's first step opens the note the cycle left
-holding; how far a host carries a run's note while the run is still going, since an opening
-that cuts nothing of its own at a run's head is only heard as nothing at all when the host kept
-that note in the first place; whether the note a step opens is the note the row above was holding
-rather than one the channel was left sounding from another clip or another call, which is what
-the run's own note is read for at the engine rather than heard from a synth; how long a host
-holds a note an opening cut while the run keeps going, whether a host spends its own reading of
-the backtick before the plug-in is offered the press, whether a host keeps the plug-in's own
-three-glyph argument cell rather than restyling the column, and where the bands move when the
-Settings row "Subticks per row" is set to anything but its default, which the tests only read at
-the default.
-This round's one change is the same shape of cover rather than a stronger one: CoreTest names the
-two values sitting above kOlderCmdTop and above kCcTop, both letters and their row counts surviving the
-saved form, an older state's calls at either end of its range landing on the call letter rather than
-turning into a bend or a slide, this build's own three wheel values reading back as themselves, the
-sub-row climb to the top over a span of 4 landing on kBendTopPos exactly with its 25 wheel messages
-arriving a sixth of a row apart and returning only at the note-off below, D 0 reaching kBendBottomPos
-on the naming row's own sample at count 0, a row naming only an argument re-arming a span of 1 from
-where the sub-rows had got to mid-row while a further one over a wheel already at the extreme moves
-nothing, a note-off a row below ending a ramp whose sub-rows had already sent five whole positions
-down toward the wheel's bottom, and a slide wider than the clip that named it having its 48-step ramp
-put away at that clip's end with only 23 of those steps heard above it and no note of that channel ever
-playing; UiTest drives the
-U claim and the default span of 8 it leaves beside it, 2 typed over that argument naming the two rows
-over whose sub-rows the wheel climbs, an argument-only row under the carried letter staying implicit
-and naming a span of its own, a D typed after an 11 claiming the field and dropping that number while
-the entry leaves the default span, a typed 146 giving the highest CC rather than inventing either
-letter, the same letter still entering a D natural where the note column is asked for at an octave the
-section names, and the whole two-row climb back as its twelve wheel moves in one continuous run of
-64-sample blocks under a clip and a pattern of the section's own rather than through the shared jumped
-helper, a transport jump releasing whatever the synth was holding and that release being exactly what
-ends a slide the host jumped out of; and EditorShot draws the lilac U with its decimal span and the
-lilac D with its own in the same two shots the round before drew, since the wheel's own hearing lives
-in the engine rather than in the drawing. What is still known only from the hosts is where their MIDI
-receivers put a wheel moved on a sub-row of a row that struck nothing and how they map a 14-bit position
-to a sounding pitch, how many of a ramp's sub-row positions a host lets through before it hears the
-slide as one move rather than as a climb - which is what makes the ramp's own hearing the one thing
-this round changed and the one thing only the hosts can name -, how far a host honours those positions
-across its own block boundary rather than hearing one jump at the extreme, which is why the tests can
-only show the run as a continuous chain of 64-sample blocks under their own clip with the shared jumped
-helper unable to play a ramp at all, how long a host holds a wheel left at an extreme by a slide that
-reached it while the transport is stopped or across a loop's wrap, whether the row that named a slide
-keeps playing its own note straight there, whether a host reads the letters U and D as its own before
-the plug-in is offered the press, whether the D typed at the note column still enters a D natural rather
-than being heard as the slide, whether a host hears the wheel as a ramp of six moves a row rather than
-one jump a row, which is what the Settings row "Subticks per row" is the hearing of and what only the
-hosts can name, whether the sub-row steps of a ramp whose clip ran out are heard at that clip's end or
-dropped with it, and whether a host shows the dim span carried beside a carried letter moving to the
-newest one an argument-only row entered rather than the one the letter itself named.
+No Reaper installed; the only host on this machine is /usr/bin/carla, so a vibrato is verifiable at the
+engine and at CoreTest for the model and the wheel's own values, at UiTest for the tab's controls and the
+undo line and at EditorShot for the lilac paint, the V OFF and the scrolled list, rather than by what a
+host hears, and this round's own hearing stays open until a host that swings a pitchbend is available.
+The host floor was re-checked rather than assumed: the built .so still needs at most GLIBC_2.38 and
+GLIBCXX_3.4.32, the four names the curve leans on - sin, sincos, sinf and sincosf, all at GLIBC_2.2.5 -
+already being in the older build-instrument artefact's dynsym, so the curve added no new undefined name
+and raised nothing above that floor, and the flatpak bundle Bitwig 6.1.4 ships can still load
+this build. The warning set is the tree's own rather than a new one: the hidden processBlock (double&)
+overload, the two -Wsign-conversion notes at PlaybackEngine.cpp:104 and :112 against the stuck-key
+guard's bitset, the unused song parameter of arpCommand at PlaybackEngine.cpp:300 and the -Wshadow pair
+in PluginEditor.cpp - the vibrato added no warning of its own. A shot's dump reads the tab back as
+OUTSIDE PARENT lines that are the hidden ScrollBars and the disabled +/- buttons beside a slider rather
+than cards clipped out, so the laid-out count of a 25-macro tab is the 22 ComboBoxes at 116x22 plus the
+3 hidden at 0x0 rather than a shortfall of cards. UiTest has no coverage of the tracker's own claim of
+the V letter - kVibCmd appears nowhere in tests/UiTest.cpp - so that letter's typing is pinned by CoreTest
+at the model and by EditorShot at the paint rather than by a key press driven through the grid, which
+is why the README must not claim a UiTest check for it.
 Next Move
-Confirm in Reaper, the boundary's own cut having been asked and found free of any abrupt cut at the note
-the lower clip enters at its row 0, the rest of the shape that boundary sits inside: one pattern placed
-twice back to back but reached by a looped region rather than by an edit, so the wrap takes the releases
-away through allNotesOff rather than through that clip's own end and the release record was left out of
-that path on purpose, that wrap's own note-on still having the guard's opening ahead of it rather than
-none at all; a boundary entering a different pitch still cutting the pitch above it and starting the new
-one, a note change inside one clip still cutting at the row that named it, one pitch struck again at a
-row still re-articulating once rather than twice, a note entered at the very row a clip ends on still
-being released by that clip's own end at that same sample rather than left held under it, and a transport
-re-arm or a loop wrap still putting its channel-wide releases ahead of the note-on that lands at its own
-first sample rather than after it, the stuck-key guard still opening a pitch the state no longer holds
-on its own there; where a stop that host never delivered took the releases away, the moved-clip-from-
-time-0 scenario being one CoreTest names and no host has been asked of yet; and the same boundary of
-Bitwig, which honours an all-notes-off where that host's receivers ignore one, and of Carla, one fewer
-note-off of one pitch at one sample being what those receivers were handed before as well.
-Confirm in Reaper and Bitwig that the argument field answers the two letters this round gave it rather
-than passing the press to the host first, so an o typed beside a U, a D or a B is heard as the plug-in's
-OFF rather than nothing at all or a host action, an s typed beside one of the three is heard as the STP
-hold, and a letter neither of them claims - a q, a z - leaves the cell's value exactly as it was rather
-than landing a zero or a cleared cell; that an o typed in the note column still enters an E natural and
-an s still enters a C sharp there, the claim being only the argument half's; that an OFF spelled that way
-puts the wheel back at the centre as one message of 8192 rather than as a run of them, how many of the
-ramp's sub-row moves a host let through before it hears that message being what decides whether the
-release is heard as one jump from the point the ramp had reached or as the last position before it, and,
-over a column whose wheel sat at a point rather than climbing, whether a host hearing an OFF at a row
-whose centre message lands at the same sample as its note-off reads the two as one bend and one note-off
-or only one of them, the ordering being the host's; that an STP holds the wheel at the point its sub-rows
-had reached - 11946 in the tests, over a U 4 at the default grid - and sends nothing of its own there,
-so a host hearing that hold has to keep the pitch the rows above left it at rather than re-centre, and
-whether that host keeps the letter carried dim over the rows under the row that asked, since the rows
-under an STP answer nothing on their own only because the plug-in carried the letter there; that a 0
-typed beside a slide letter really lands that release rather than a slide over no rows at all, so the
-narrowest slide a host can enter takes one row and an empty argument still takes the default 8, and that
-the same 0 beside the bend letter's own row keeps naming the wheel's bottom 0 rather than that release,
-with only an o spelling the release there; that an A call on a column whose wheel a B row had left bent
-sends 8192 at its own row before the run's steps, the wheel having to be straight under a run rather than
-bent at whatever point the rows above left it at, and that the run's own notes below that row are measured
-from the pitch the wheel is at there rather than from the column's pitch in semitones, a host's own wheel
-hearing of the base being what says how far the re-triggered note of a release sits from the run's steps;
-that an A row under a carried call closing the run there is heard as the release of whatever the run's
-last step was holding at that row plus nothing else, that note not being sounded again under the ramp the
-slide arms below it, while a slide written in another tracker channel of the same MIDI channel leaves that
-run stepping on, the two commands cooperating through one MIDI channel rather than one switching the other
-off, so a host has to keep hearing a run's steps bent by the wheel the other channel's ramp is moving;
-that a release re-triggers the note the run measured from at its own row, an A 0 and an A OFF both sounding
-that base again rather than only cutting the sound, that base's note-on landing at the same sample as the
-release of the note the run was left holding and, where the row also named a note of its own, as that note's
-own, so a host has to hear the three at one sample in some order it picks and the column going back to
-sounding its own note under the release until a note-off below or the clip's end owns it - that re-struck
-note also carrying the guard's extra note-off of the pitch it re-articles, one more than a bare release has;
-and whether a host reads the saved form's argument of 128 or 129 the way this build does, so a project saved
-by an older build whose an argument beside a call sat at either of those numbers now reads OFF and re-triggers
-or answers nothing rather than calling one of the ids that encoding ignored.
-Confirm in Reaper and Bitwig that the letter U and the letter D claim the Command column's number field
-as 145 and 146 and leave the default span of 8 rows beside them, so a row naming only one of the two letters
-takes its extreme over 8 rows rather than over none at all; that the row which named a slide leaves the wheel
-where it already was and sends nothing of its own, so the note that row strikes plays straight while the wheel
-first moves on a sub-row of that same row rather than a row below it and the sub-rows under it move it along
-the grid the Settings row "Subticks per row" names - six moves a row at the default - rather than jumping to
-one new point per row, and land on the extreme exactly over the span's own last row, a slide of 4 rows asking
-a host for 25 wheel messages rather than the 5 it had before this round; that the hearing
-of a ramp is what this round changed, so that a host really gives those sub-row moves through rather than
-collapsing them into one move of the wheel, and where a host's own pitch-bend receiver maps the wheel's top
-16383 and its bottom 0 to a sounding pitch, since a slide's whole hearing is that ramp rather than one jump
-at an extreme; that an argument typed over the one the letter left - 2 in the tests, the wheel climbing over
-its twelve sub-rows - names that slide's own span, and that an argument-only row under the carried letter stays
-implicit, re-arms a ramp of its own from wherever the sub-rows had got to inside the row above it and so retargets
-a slide while it runs, one re-armed over a wheel already at the extreme moving nothing; that a note-off below
-the row that named a slide ends it partway down its steps, the wheel already having moved on the sub-rows of the
-row that named the note-off, so nothing keeps climbing under that note-off and the wheel is taken back from a
-point of that line rather than from one of the row's own; that a slide wider than the clip that named it has
-its ramp put away at that clip's end without a message of its own when its wheel never left the centre, only 23 of
-its 48 steps having been heard above that end; that a save and a reload keep both letters and their row counts
-while an older project's macro calls at 128-143 still land on the letter A rather than turning into a bend or
-a slide; that typing 146 into the number field still gives the highest CC rather than inventing either letter
-while the D typed at the note column keeps entering a D natural there; and what the Settings row "Subticks per
-row" is worth to a host's hearing of a slide, since the tests only read it at its default of 6 and only the hosts
-can say how many moves a row they let through.
-Confirm in Reaper and Bitwig that a step an arpeggiator macro was entered as the note column's own
-note-off key - the backtick, or its shifted tilde, the pair the note entry answers alike - opens what
-the run was holding at that step's subtick rather than sounding a step of its own, so a macro of
-+0, OFF, +4, OFF heard over a note the column named cuts its octave at that subtick and puts a note
-back a step later rather than holding one pitch across both openings; that the opening releases only
-the note that run entered, so a step of OFF at a run's head cuts nothing of its own while the note-off
-the row itself holds still takes the column's note away for the rows under it, and a step of OFF never
-cuts a note another call, another clip or the column itself was holding; that the note an opening cut
-is not sounded again until a later step names a note, so the run keeps going where it was rather than
-restarting, and a looped cycle whose cycle boundary opens what the cycle left holding sounds its first
-step again a subtick after that release rather than leaving a gap; that the Macros tab draws that step
-as the word OFF in the jumps' own orange rather than as a number or a dash, that entering it spends
-one point of the undo line for the one press and leaves the step cursor on the step it opened so the
-next press lands beside it rather than past it, that Ctrl+Z takes the step back to the one that sounds
-nothing and Ctrl+Y puts the opening again, and that Delete and Backspace still clear it at a point of
-their own; that a step entered as OFF survives a save and a reload as the same opening while a project
-saved before this round keeps its jumps, its steps that sound nothing and their absence, the steps
-having been saved one byte wide there rather than two; and that the row's own `A 0` release, the clip
-end closing a run that was still looping and a note-off taking the column's note away are unchanged
-beside a step of OFF, since none of the three moved.
-Confirm in Reaper and Bitwig that entering only an argument in the command column, with the
-command number left empty under a command the column already carries, moves the dim argument
-drawn on the rows under it to the newest one entered there rather than leaving it the one the
-letter above called with, beside the letter still carried there, and beside the row's own bright
-new argument; that an argument of 0 entered that way under a carried arpeggiator call reads
-`OFF` on its own row beside the carried letter and leaves the rows under it drawing neither the
-letter nor an argument, the run being released rather than restarted; that the row itself keeps
-its cell implicit, the command number staying empty rather than becoming an explicit call, so
-the undo line the editor's Ctrl+Z and Ctrl+Y walk is unchanged; and that a row that named a
-command of its own still answers with that row's own argument, a bare letter keeping nothing
-drawn beside it rather than picking an argument up from above.
-Confirm in Reaper and Bitwig that the values have one decimal spelling and nothing else to
-offer: that the Settings tab opens at "Ignore mid-row start" with the row that used to switch
-the spelling gone rather than greyed and one row fewer in the tab beside it, and that no host
-keyboard spelling swallows a row that is not there; that a CC 10 and a CC 11 are typed 10 and
-11 in the command number and that typing 144 there still gives the highest CC rather than a
-letter; that a letter typed last of a run of digits claims that field on its own and drops the
-number it was interrupting rather than reading it as a command, the letters themselves being
-the only route to a command kind; that the volume, pan and the command pair take the three
-decimal digits they now do and the empty fields still draw --- rather than a shorter dash; that
-the instrument column shows its -0 to -15 and the tools panel's remap dropdowns name those
-same labels, so a remap choice reads as the column it acts on; that the command cell still fits
-the argument's three glyphs - the release's OFF, a macro id of 100 and a bend's point above 99
-all keeping their last glyph - without the number's half being cut beside it, the two halves
-keeping their own pads; that the row gutter still counts its rows in decimal three digits wide;
-and that undoing is as it was, the Settings tab's Snap to grid row taking one point of the line
-back and putting it again as the undoable action the tests spend there.
-Confirm in Reaper and Bitwig that a row holding the column's note-off and a call beside
-it plays that call rather than nothing, its first step measured from the note that row was
-releasing, and that the release and that step reach the host in that order at one sample
-rather than as a note-off and a note-on of the same pitch the host doubles, reorders or
-drops; that the rows under such a note-off still sound nothing of that run until a note
-enters the column again; that a row naming only an argument under an `A 0` release sounds
-nothing there rather than switching or restarting anything, while one under a real call
-still switches as it did; that the tracker draws no orange letter and no argument over the
-rows under a release and still draws the letter and the argument dim over the rows under a
-call that named one; that the release's own argument reads `OFF` rather
-than its `0`, that a macro id of 100 and a bend's point above 99 keep all three digits of the
-one decimal spelling rather than losing their last one, and that a plain CC's argument pads in
-that same three; and that the Macros tab's step strip changes shade every six steps at the default
-"Subticks per row" rather than every sixteen cells, a macro longer than its row reading as
-spans - the bands following that row where a host sets it to another value.
-Confirm in Reaper and Bitwig that a column entering one note and calling two macros down it
-plays both of them off that one note rather than the second one off wherever the first had
-walked to - the reported symptom being that a new call took its octave off the note the run
-above was left sounding, so heard again the two calls should sit over the same base and only
-their own step offsets should differ; that the note the run above left holding is released at
-the row that switched rather than kept on under the new macro's first subticks, which is what
-an empty first step, or a macro nothing has entered into, makes audible as a cut there rather
-than as a note held under the new run; that the release and the new run's first step reach the
-host in that order at one sample when the call's row names a note of its own, so nothing is
-heard doubled or cut short at the switch; that a call in a column that named no note, or whose
-note a note-off took away, sounds nothing at all rather than stepping off whatever note the
-channel happened to be holding from another clip, and that entering a note below it gives the
-carried call a base again; that a note entering further down a column still re-bases a run
-that is still going there rather than leaving it on the note above; and that a row naming a
-note and a call in one cell still has that note as the run's first step, the run picking up
-at the next one.
-Confirm in Reaper and Bitwig that the Macros tab has no description memo over its cards any more,
-only its title and the one label row naming MACRO, LENGTH, LOOPED and STEPS, so a list scrolled to
-its foot is read against the cards rather than under a memo; that a macro the + Add macro button
-just defined shows eight -- rather than a ramp, plays the note its column named when a row
-calls it before anything was entered, and gains nothing at its tail when its LENGTH field is
-dragged up; that a step's number can be more than one digit and can be negative - a sign, then two
-or three digits, then Enter landing one value on one step rather than only its last figure, the cell
-the cursor sits on drawing that number while it lasts so the digits can be read as they are entered,
-Escape dropping it rather than writing half of it, and a sign typed after the digits it belongs to
-leading them rather than trailing them; that - Remove selected clears the macro the step cursor sits
-on rather than the last one a row can call, so clicking one of a macro's drawn steps and then the
-button takes that macro back and leaves the ids above and below naming the same macros; and that the
-tab's vertical scrollbar can be dragged with the mouse rather than only turned with the wheel - a
-click in the strip's own column puts the drawn thumb under the pointer, holding and moving carries it
-to a chosen place, a drag started away from the strip picks a step cursor up instead of moving the
-list, and the wheel still works beside it.
-Confirm in the DAW that a row writing the letter B and an argument moves the wheel to where that
-argument is read in steps of 128, 64 bending nowhere and 96 sitting in the wheel's upper quarter,
-that the standard pitch bend pair reaches the MIDI channel that row's instrument names, and that it
-goes out ahead of the note that same row strikes so the note that row hits is already bent from its
-start rather than straight until the row below it; that the bend carries down the column the way a
-volume, a pan or an instrument does, so notes entered further down play bent until a note-off, the
-end of the clip whose rows asked, a transport re-arm or the editor's own all-notes-off takes the
-wheel back, and that a row naming only an argument under a carried B moves that same wheel to a new
-point rather than inventing a controller of its own; that the letter draws lilac and its argument
-is drawn in the view's one decimal spelling, that the B a row carries from above draws dim beside
-the bright argument a row below writes, that an 11 typed there still gives CC 11 rather than the
-letter, that typing 144 into the command number gives the highest CC rather than
-inventing a bend, and that the pool's grid preview paints that command's tick lilac too; that a
-Ctrl+Z or Alt+Z taken right after the letter's claim takes the command and the centre argument it
-wrote with it back for one point of the line and Ctrl+Y or Alt+Y puts both again; and that a wheel
-left bent by a clip whose rows only bent, with no note of that channel, is taken back at that clip's
-own end rather than bending the notes of the clip below it.
-Confirm in the DAW that a row writing the letter A and an argument starts a run at the note that
-row holds, one step at a time a sixth of a row apart with the Settings row "Subticks per row" at
-its default 6, and that the steps past the row that called them play on over the rows below rather
-than being cut at its end; that the letter and its macro id draw orange in the view's one
-decimal spelling, that the A a row carries from above draws dim beside the bright argument a
-row below writes, and that typing 0 into a command number still types CC 0 while a 10 types
-CC 10 rather than a call; that a row naming only the argument under a carried A
-restarts the run at the macro that id names at its first step, sends no controller of its own and
-sounds nothing at all when that id has no macro; that an A 0 call releases the note the run is
-holding the way a note-off does rather than sending an All Sound Off; that a step drawn -- sounds
-nothing and keeps the step before it held, and that a step of +100 off a C plays a note three
-octaves below where the step would land, snapped there by whole octaves rather than sounding
-nothing at all; that the Macros tab holds one card per macro that
-exists with its LENGTH field reaching 64 steps, its LOOPED tick and its drawn step strip 16 to a
-line, that a drag on the length bar keeps the steps already entered where they were and pads the
-grown part with steps that sound nothing rather than with the base note, that + Add macro names the
-lowest id that has none and arrives empty rather than with a ramp, and that - Remove selected takes
-the macro the step cursor sits on back leaving the ids above and below naming the same macros, that
-the arrows
-and a click on the drawn strip move the step cursor and a typed sign and digits land on that step;
-that a Ctrl+Z or Alt+Z taken right after a length drag, a click of the tick or a typed step takes
-that one action back, the macro's steps with it, and that Ctrl+Y or Alt+Y puts it again; that a
-looped macro keeps cycling while the clip that owns the call runs and closes its last held note at
-the clip end rather than at the row that called it, while an unlooped one leaves its last step
-held; and, in a project saved before this round, that its older macro calls land on the letter A
-keeping the argument they had, that nothing about their sound survives and that re-entering the
-macro the call now names is what brings it back.
-start plays in full on every repeat rather than being skipped outright, that a note whose row
-sits exactly at a manual transport start or at a seek plays in full rather than being cut
-shortly, that notes still close at clip ends and nothing stacks up on a seek so Reaper's
-stuck-note answer is intact, that a note a row or more past a start still plays normally on a
-fresh start and on a wrap, and whether a mid-row start reached by a forward seek should also
-play the row, since the current build keeps that case honouring the Settings row rather than
-re-arming it the way a wrap does.
-Confirm in the DAW that Alt+X cuts what the tracker holds selected in Bitwig and Reaper,
-heard straight after a menu action or a pool drop and at every tab rather than only over
-the grid, one press doing it once: the data the selection held going onto the cell
-clipboard, exactly those cells coming back empty while the painted selection and the
-cursor stay where they were, a following Alt+V moving the cut cells to the cursor rather
-than repeating them there, and an Alt+Shift x or the Ctrl x spelling leaving the cells
-alone while Ctrl+X is no longer answered by the plug-in at all, the slice having moved to
-`Alt+S`. Still to confirm there for the cell menu too: that its "Cut selection" item
-reaches the same step as the key and greys out while nothing is selected.
-Confirm in Bitwig and Reaper that `Alt+S` slices the clip under the plug-in playhead at it
-straight after a menu action or a pool drop and at every tab rather than only over the
-grid, one press doing it once, the clip coming back as two over two patterns holding its
-halves, its own cell types no C sharp at the cursor for that held s, the lowercase spelling
-arrives as that one too, a press still makes one point of the undo line however far the host
-routed it, and `Alt+Shift+S` and `Ctrl+S` leave the clips alone since both belong to the host;
-the same re-test should show `Ctrl+X`, `Ctrl+Shift+C` and `Ctrl+Shift+V` changing nothing about
-the plug-in while `Ctrl+C` and `Ctrl+V` keep its cell clipboard. For the cell menu, confirm that
-the "Paste" submenu opens as two sibling submenus, "Paste" and "Paste (Additive)", each showing
-the same seven leaves Everything / Note / Instrument / Volume / Pan / Command / Command Value,
-that a leaf of "Paste (Additive)" lands only the fields the buffer really carries so the target
-keeps its own values under the empty ones while the matching leaf of the plain "Paste" submenu
-clears them, that both submenus grey out whole while the cell clipboard is empty, that a paste
-of an all-empty cell changes nothing and leaves the undo line alone additively while the plain
-spelling still writes it, and that the one-field leaves of both submenus filter as before,
-"Command" moving the number the column carries and "Command Value" its argument; and in the
-Settings tab that the row naming the pattern paste's default is simply gone rather than still
-shown, with a song saved before the drop reloading without it and with no trace of the property
-left in the state the undo line and the host's blocks save.
-Re-test in Reaper: moving a pattern from time 0 (the stuck-note scenario) is now guarded by the engine and covered by CoreTest, but not yet confirmed in Reaper itself.
-Confirm in the DAW that a timeline click (left and right button) parks the playhead where a paste lands, that the parked playhead survives while the host is stopped, and that the follow resumes once the host transport moves.
-Confirm interactively that the right-click menus now open beside the cursor in the timeline, pool and tracker views.
-Verify pool drag-drop preview and context-menu paste/slice flows interactively in Carla; confirm Reaper compatibility of the MIDI effect (instrument fallback IS_SYNTH build compiles locally but is untested in Reaper).
-Further command kinds: dedicated pitch bend CC105/CC106 pair command, tempo and song position commands.
-Grid preview currently always starts at row 0 (no preview scrolling yet).
-Confirmed in Bitwig and Reaper that Alt+C copies what the tracker holds selected and Alt+V pastes it at the cursor with everything, heard straight after a menu paste, a clear or a slice-pattern and straight after a pattern was dragged out of the pool and dropped onto the timeline with no click in between, at every tab rather than only over the grid, with one press doing it once rather than twice. Still to confirm in the DAW for the cell clipboard: that the cell menu's own "Copy selection" and "Paste" items reach the same pair, that the "Paste" submenu's items filter to one field (and that "Command" moves the number the column carries while "Command Value" moves its argument), that a paste at the last channel or near the pattern's end drops what does not fit rather than growing the pattern, that Ctrl+C and Ctrl+V still reach the plug-in's own clipboard in a host that does forward
-them rather than the host's, and that the pattern clipboard, now without any keyboard
-spelling of its own, only moves through the timeline's and the pool's menus.
-Confirm in the DAW that the tracker menu now shows Clear / Copy selection / Paste at its top level, that the Clear submenu's leaves are Selection / Cell / Channel / Pattern and do what the old four items did, and that a hidden field's chip now reads as a filled plate with the letter cut out of it while a shown one keeps its dark plate, so the state of every chip is readable at a glance.
-Confirmed in Bitwig and Reaper (the user's re-test against the refreshed bundle) that
-the keyboard is heard again on its own: a note typed, a cursor moved or a field
-cleared straight after a menu paste, a clear, a slice-pattern, a greyed item picked,
-a menu closed with Escape or a pattern dragged out of the pool and dropped onto the
-timeline lands where it was meant to with no click in between, and `Alt+Z` / `Alt+Y`
-walk one point per press on each of those paths, with the Alt+Shift family refused
-rather than spent on a redo alias — which is what says the focus hand-back rather than
-the per-panel answer is what the hosts needed. Still to confirm in the DAW: that
-`Alt+Z` takes back the last thing the plug-in changed for an action that never went
-through a menu (a cell written, a clip dropped or sliced, a pattern resized, a
-setting moved) and that `Alt+Y` puts it again, that the timeline pattern move still
-undoes as normal, that the tracker menu's Undo / Redo pair walks the same line and
-greys out at its ends, that the Settings tab's Undo steps row caps how far the walk
-reaches and that 0 turns undoing off, that undoing while the transport runs changes
-what the rows ahead of the playhead play while what was already sent to the host stays,
-that undoing a note at or behind the playhead only shows when the transport runs over
-that row again, and that the cursor, the selection, the clipboards and the playheads
-stay where they were across an undo.
-Confirm in the DAW that the volume column now emits CC7 (CC10 for pan), that a note-off row (`===`) with an explicit volume/pan still applies both controllers, that the Settings tab's Volume column CC / Pan column CC sliders repoint them, and that a channel's column chips hide only that channel's field.
-Confirm interactively that dragging a pattern from the pool floats only that item (its grid preview when expanded, semi-transparent) under the pointer, that the grabbed spot stays under the cursor, and that the clip still lands at the drop position.
-Confirm in the DAW that Remap moves only the instrument named in the source dropdown, that the dim carried rows follow it, and that All in the source box covers every instrument in the scope.
-Confirm in the DAW that closing a floating Re.Trektor window and opening it again reopens it at the size it had before, and that a size dragged to the window's corner is what comes back.
-Confirm in the DAW that the timeline ruler now shows only bar numbers, with the playback state, song position and bpm coming from the top bar's position label.
-Confirm in the DAW that a command argument entered with the command number empty plays the command number carried down that column (the row shows the carried number dim next to the bright argument), that a column nothing was ever entered in still needs the explicit 0, and that a value below a macro call does nothing.
-Confirm in the DAW that interpolation ramps only the blanks between the values that already exist inside the selected cells, that a cell left out of the selection ends the ramp there so a selection with a hole in it fills in pieces, and that Transpose and Remap still need the scope dropdown widened while nothing is selected.
-Confirm in the DAW that a plain click selects the one cell under the cursor, that a Shift-drag unions another rectangle and a Ctrl-drag subtracts one, that the tint paints one channel column of a row rather than a band over the pattern, and that transpose, remap and interpolation then touch only the selected cells.
-Confirm that the pinned bundle loads in Bitwig Studio 6.1.4, whose Flatpak root ships glibc 2.42, and that Reaper still loads it.
-Confirm in the DAW that typing a number into the transpose amount field and clicking only a direction button moves the notes by that many semitones, that an amount past an octave still behaves, and that the two direction buttons draw as up and down arrows rather than boxes in Bitwig and Reaper.
+Commit this round's source and its docs as two commits rather than one, the source one being 579e210 and
+the docs one naming that hash in the Session block's new Completed entry and its new Decisions entry, and
+never push: the tree stays ahead of origin/master at whatever it has accumulated so the user's own push is
+the one that spends these, and a round that pushes spends a decision that was never asked for.
+Then ask for the next feature rather than inventing one: the Command column's five kinds, the vibrato macros
+and the wobbles they run, the two macro tabs, the undo and redo pair, the Alt clipboard steps, the cut and
+the slice are all landed, and what remains of the vibrato belongs to what a host hears rather than to code
+this build still has to write, so the next round's shape is the user's rather than a gap noticed here.
+Ask the hosts the four questions a wobble cannot answer at this layer, since the engine only says what it
+sends: how wide a swing one hears at a knob reading 0.75 of full pitchbend, since the amplitude is a share
+of the plug-in's own 14-bit wheel rather than of a host's range and a host is what turns that into semitones;
+how many CC105/CC106 pairs in a row a host lets through before it hears the swing as one pitch rather than
+as a shape, the plug-in sending one per point of a cycle that changes the wheel's position and no more, that
+being one every sub-row step at a cycle 8 subticks or wider and never more than 8 over a cycle narrower than
+that; what a swing armed by a clip that a scrub or a seek jumped into sounds from, since the points are
+counted from the arming row in transport position rather than carried round from the point before; and what
+a host makes of a swing whose clip ended under it, this build taking the wheel back at that clip's own end
+rather than leaving the swing over the clips below.
+Keep the pinned bundle's host checks alive rather than dropping them because a round added a feature rather
+than changing the plug-in's identity: the installed .so and the built one being the same bytes at
+046b3e93927f0fe8319bf95efce70a4dbecb56c63bf7b00e5a1b6abd89cb1cfc and moduleinfo.json unchanged at
+b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee is what says Bitwig Studio 6.1.4, whose
+Flatpak root ships glibc 2.38, still loads this build rather than a new floor having been raised.
+Keep the round's ritual for whatever comes next: implement, build with cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+and cmake --build build -j"$(nproc)", run CoreTest, UiTest and Smoke against the built bundle path given
+explicitly rather than the harness's own default, take the EditorShot screens the new layer needs and read
+their dumps rather than their pixels, reconcile the README's live sections against what the files hold,
+refresh the installed bundle by rsync -a --checksum over its whole directory rather than its single .so,
+and commit source and docs separately without pushing.
 Relevant Files
 /media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
 /media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate taking a std::function<bool (int row, int ch)> mask so the selection can be any shape and a cell outside the mask ends the anchor run), and the cell clipboard (CellClipboard holding one {row, ch, Cell} entry per copied cell with its offset inside the copied rectangle, the kPasteNote/kPasteInst/kPasteVol/kPastePan/kPasteCmd/kPasteCmdVal bits and kPasteAll naming which fields reach plus kPasteAdditive = 64 as a mode bit added to a filter rather than one more field, Pattern::pasteCells writing them at an anchor and, when that bit is set, masking each copied cell's own non-empty fields under the working mask so an empty field of the buffer leaves the target's value in place and a cell carrying nothing at all writes nothing, still skipping a target past length or channels so a paste never grows the pattern), and the Undo steps setting (Settings::undoSteps, default 50 with kMaxUndoSteps = 200 as the cap, written and read back clamped with the rest of the SETTINGS block so the depth a host reloads belongs to the song, the same block having lost the pattern paste's default property on both the write and the read back along with its Settings member, which leaves a song saved before the drop reloading with nothing to read there, this block also losing the hex display's property on both the write and the read back with its Settings member and the Settings tab's row for it gone, which is what lets an older state that still spells that choice reload with nothing to read it into and leaves every value the model holds the one decimal spelling valueString and instString draw it in, a shorter number padded with spaces so its digits land in the same columns as a longer one's), and the arpeggiator macros (ArpMacro holding signed semitone steps off the base note, kArpCmd = 128 as the command value the letter A enters and kMaxArpMacros = 127 naming the id cap with id 0 the release call, kMaxArpSteps = 64, kArpEmptyStep = -128 as the step that sounds nothing and, this round, as the value every step of a newly defined macro holds and every step growing one adds, the steps being one std::int16_t each now that a step spells the note column's own note-off as the new kArpNoteOffStep = -129 below the new kArpTopStep = 127 a typed jump is clamped to so the two spellings below -128 are the only values a step can hold that are not jumps, kArpDefaultSteps = 8 naming only how many of them a macro starts with while kArpDefaultJump was deleted outright since nothing builds a shape any more, Song::arps one grow-only table indexed by id - 1 beside the pattern rows and channels the build already treats that way so clearing a macro keeps the room its steps took and defining it again restores them, findArp growing it while peekArp reads it without growing it so the UI, the engine and the writer never invent a macro, arpDefined / arpLooped / firstUndefArpId / lastDefArpId / defineArp / clearArp / setArpLength clamped 1..64 and padded with kArpEmptyStep rather than with the base note, so a macro's shape is only ever where it was entered / setArpStep, which this round keeps the two spellings below -128 as sentinels and clamps only a jump to ±kArpTopStep so the opening passes through it and the octave snap untouched on either side / setArpLooped naming it, the ARPS section writing a macro's id, loop flag, length and its steps as one base64 block rather than one property per step - this round two bytes a step little endian, since the opening sits below what one byte can name, and the read telling the two spellings apart by the length the block declares rather than by what it finds, since a one-byte block is exactly as long as half a wide one's, so an older state's steps widen sign extended with their jumps, their steps that sound nothing and their absence intact, an older state's MACROS section dropped outright on the read since those kinds are gone, an older row's command in the 128-143 range landing on kArpCmd while the argument it holds stays the argument
@@ -3461,8 +3384,44 @@ staying 127, so a typed number and a climbing command number can neither of them
 can write; cmdVal was already saved as a juce::int16 and is read back with no clamp, so both spellings survive
 the saved form unchanged while the read sends an older state's 128 or 129 beside a call to whatever they now
 mean to the call letter that number lands on; the Cell::cmdVal comment naming them beside the macro id, the
-point on the wheel and a slide's span of rows, and the value field's own doc paragraph now saying that two of
+point on the wheel, a slide's span of rows and a vibrato macro id, and the value field's own doc paragraph now saying that two of
 its spellings name the wheel's state rather than a number).
+The same model grew the vibrato macros the letter `V` calls: a `VibMacro { bool present; int type; int amplitude; int frequency }`
+in a grow-only `std::vector<VibMacro> vibs` whose `present` flag is what says a macro exists rather than any of
+its three settings being nothing of its own - a card exists whether or not a knob is turned, so a macro whose
+amplitude is at off is still a macro rather than no macro at all, and clearing one says it has none rather than
+erasing the shape, the amplitude and the cycle its knobs had, which is what re-defining it then starts over from
+and what makes a wobble whose macro was taken away answer by being ended rather than by swinging at nothing;
+`kVibCmd = 147` as the command value the letter enters - above `kOlderCmdTop = 143` and `kCcTop = 127`, so no
+older row and no typed digit run can already be one - and `kMaxVibMacros = 127` as the ids a row can name while
+the id 0 call stays the release rather than becoming an id, `kVibTypeTop = 5` over the six shapes spelled `kVibTypeSin`
+/ `kVibTypeSinUp` / `kVibTypeSinDown` / `kVibTypeTri` / `kVibTypeTriUp` / `kVibTypeTriDown` so the model's own
+names say which half of a cycle is folded rather than the tab's spellings having to be read back, `kVibAmpTop = 100`
+as hundredths of full pitchbend, `kVibFreqTop = 127` as the widest cycle a macro can ask for and `kVibDefaultAmp
+= 50` / `kVibDefaultFreq = 8` subticks as what a freshly defined macro starts at - the amplitude being a share
+of the wheel's own half height rather than a number of its own, which is what makes a knob at full reach the
+wheel's own extremes from a swing sitting at the centre and the tab spell it as that share rather than as the
+hundredth the model keeps, and the cycle counted in whole subticks on the same grid an arpeggiator's steps and
+a slide's ramp use rather than over the rows, so neither of the two knobs is a number a row's own argument can name;
+`vibDefined` / `vibType` / `vibAmplitude` / `vibFrequency` answering nothing while a macro is absent or an id is
+out of room so the three setters refuse an id nothing entered rather than answering with a shape, an amplitude
+or a cycle of their own, `setVibType` / `setVibAmplitude` / `setVibFrequency` clamping at their own tops rather
+than wrapping - the cycle clamping up to one subtick rather than down to nothing, which is what a wobble whose cycle
+knob was dragged to off swings on and what keeps a cycle's width from being nothing at all it would have to divide
+by - `defineVib` and `clearVib` being the tab's two actions, `firstUndefVibId` / `lastDefVibId` naming the gap a
+fresh macro takes and the id `- Remove selected` falls back to while nothing is picked out, `findVib` growing the
+table only to name an id and `peekVib` reading it without growing it, and `reset ()` defining vibrato id 1 the way
+it defines arp id 1 so the VIB MACRO tab has a card the way the ARP MACRO tab has steps; the saved form growing a
+`VIBS` section of one `VIB` child per macro that is present with `id` / `type` / `amp` / `freq` props beside the
+`ARPS` one rather than one entry per id the table has room for, and both sections emptied ahead of the read - the
+`VIBS` read emptying `present` over the whole table ahead of filling it the way the `ARPS` read already did, since
+that section names every macro that exists, which is what hands an undo an earlier state's own absence rather than
+the settings its knobs had behind the state's added - the read clamping a saved state's own three values through
+the same limits the knobs use so a state cannot reach a shape, an amplitude or a cycle outside what the tab can ask
+for, naming a macro rather than leaving it an entry and, when the state named no vibrato at all, defining
+the one default macro the way a fresh song does - which is what an older state reads in with rather than
+with an empty tab and what a state that still had another macro defined leaves at its own ids rather than
+having the read put the default one back.
 /media/data2/GameDev/Plugins/ReTrektor/Source/PlaybackEngine.h / PlaybackEngine.cpp: host-synced MIDI generation, carry/duplicate logic, explicit note-off panic, volume/pan driven by the Settings CC numbers, a value-only row using the command number carried in the column, and the transport re-arm: its
 channel-wide releases are ordered ahead of everything queued at that same sample (all-notes-off
 at order -2 and all-sound-off at -1, against the note-offs' 0, the note-ons' 1 and the volume and
@@ -3595,8 +3554,81 @@ being opened at once. allNotesOff's own per-channel note-offs are deliberately n
 being the one the transport hands over while it is stopped and so possibly never delivered at all, which
 is why a re-arm still asks the guard for its own opening there, and reset() takes the three back with its
 own c = ChannelState ().
+The vibrato the letter `V` runs wobbles the pitch wheel rather than moving it to one new point: `kVibCyclePoints
+= 8` as the number of points a cycle is never drawn with fewer of, so the grid one cycle takes is `vibPoints
+= jmax (cycle, kVibCyclePoints)` counted subticks rather than the row's own `subticksPerRow` steps - a cycle 6
+subticks wide being exactly one row wide at the default Settings, one 12 two rows wide and drawn with 12 points
+of it rather than the 8 it is asked for at least so its curve is cut at the twelfths of a cycle rather than at
+the eighths, and one a single subtick wide still drawn with 8 points so the wheel moves 8 times inside that grid
+rather than once over it and 6 cycles of it land inside one row - with the phase counted from the arming row's
+`vibOrigin` in transport position and `vibCount` incremented for every point considered rather than for only
+the ones that send, the way a run's steps and a ramp's are counted rather than read off the rows or carried round
+from the point before, which is what a transport jump that makes this block play a row again leaves on the same
+point of the cycle instead of advancing it twice and what keeps a swing that cycled many times over many blocks
+exact rather than drifted by its own fractions; `ChannelState`'s `vibOn` / `vibId` / `vibClip` / `vibOrigin` /
+`vibCount` / `vibRowEnd` / `vibBase` / `vibCycle` / `vibPoints` / `vibHeight` fields beside the slide's and
+the bend's own,
+`endVib` and `vibRunning` beside the slide's `endRamp` and `rampRunning`, and `vibClip` naming the clip whose
+rows armed the swing rather than the clip a column's note sits in, which is what lets a row that armed a wobble
+without striking a note be put away at that clip's own end at all; `flushVib` sitting with `flushArp` and `flushSlide`
+after the rows a block processed and flushing up to the end of the row the engine last owned rather than moving
+the wheel inside either letter's branch, which is what leaves a row's own sub-row points waiting for the block
+that reaches them the way a run's steps and a ramp's do and ends a swing whose next point sits more than a row
+behind where this block starts - a scrub or a jump leaving the swing ended at where it had got to rather than one
+swinging late at that point - and re-reading the macro's shape, amplitude and cycle at every point of its cycle
+rather than once at the arming row, so a shape, an amplitude or a cycle turned on the tab while a wobble was swinging
+changes that wobble from where it is, and a macro taken away ends the swing at its next point rather than at the
+row that took it, says nothing of its own and leaves the wheel at whatever point of its own the swing had got to,
+a release row below being still what puts that away; `vibCommand` as the letter's own answer, an `STP` row returning
+before it touches anything since a wobble has no move of the wheel to stop and the swing above keeps holding over
+the rows below it, a release row - spelled by the id `0` a row names beside the letter or by the `OFF` the entry
+writes for an `o`, both reading the same way an arpeggiator call's release does - putting the wobble away and taking
+the wheel it had left swinging back to the centre at that row rather than at the note-off below it, so the rows
+under a release sit under a straight pitch rather than at whatever point of the swing they would have got to, closing
+the arpeggiator run that column happened to be in rather than keeping it, and leaving the column calling nothing
+rather than calling id `0` so a further row naming only an argument arms nothing while a row under a carried `V`
+naming another macro's id re-arms the cycle from that row and measures the new stretch from wherever the previous
+one's last point had got the wheel rather than jumping to the new macro's own base; the swing's base being `c.lastBendPos`
+rather than `kBendCentrePos` so a bend row's own point, a slide's extreme and the centre can all be the base a
+wobble swings from, its `vibHeight` being `amplitude * kBendCentrePos / kVibAmpTop` so an amplitude of 100 is the
+wheel's own half of 8192 and its points clamped to `[kBendBottomPos, kBendTopPos]` where the base has no room above
+or below it for the full swing - the peak above landing one position past the top 16383 and clamping to it while
+a trough below lands exactly on the bottom 0 - its position counted in whole wheel positions rather than in the
+argument's steps of `kBendStep = 128`, which is what leaves nothing rounded where the swing's own curve crosses
+the centre, and only a point that changes the position saying anything, so the arming row's own point, sitting
+on the base, sends nothing of its own and a row that armed a wobble under a bend row leaves that row's point ahead
+of the swing's first; one static `vibShape` over the six curves rather than a table, the sinusoidal one being
+`std::sin (phase * two pi)` and the triangle one ramping through `q = phase * 4` so its corners sit on the cycle's
+quarters rather than bunched at its ends, the `Up` kinds negating the shape once `phase >= 0.5` and the `Down`
+kinds while `phase < 0.5`, which at full amplitude has the sinusoidal `Up` landing on the wheel's top twice a
+cycle with nothing below the base to go to and the sinusoidal `Down` landing on its bottom twice and never rising
+above it, the fold being the half the plain shape swung to the far side in, the whole thing sending the standard
+CC105/CC106 pitch bend pair to the MIDI channel that row's instrument names like every other command row rather
+than a message of its own; and the loop that closes a column whose clip was deleted or is no longer under the
+playhead learning to name a run's or a swing's own clip rather than only `c.activeClip`, which a command-only row
+never sets, so when `song.findClip (c.activeClip)` names nothing the loop falls back to `song.findClip (c.arpClip)`
+when that column is in a run and then to `song.findClip (c.vibClip)` while one is running - without that fallback
+the gone clip named nothing for such a column at all, that loop's `else` branch ending the swing with `endVib ()`
+and leaving the wheel it had left off the centre never taken back, so the 16 bends two cycles of eight points
+hold over a two-row clip's two rows came back as an empty run rather than as the swing's own points - and the
+`c.vibClip == clip->uid` test in that loop is what returns the wheel such a swing had left swinging back to the
+centre at that gone clip's own sample rather than leaving it bent over the clips that are still under the playhead,
+while a column naming neither clip is left alone. The per-clip end above needed nothing of its own: its
+`clipWobbledIt = c.vibClip == clip.uid && c.vibRunning ()` already named a swing the clip had armed and put
+it away at that clip's end, so only the loop for a clip that is gone had to learn to name one.
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginProcessor.h / .cpp: processor, transport snapshot, state, lock, the size of the last GUI shown, and the undo line (undoStates holding the saved song XML with undoCursor and undoBytes counted in UTF-8 bytes, pushUndoPoint appending what a model change reached and skipping one that changed nothing, undo() / redo() stepping and refreshing the snapshot, resetUndoHistory anchoring a fresh line for a state the host hands back, getUndoDepth / getUndoRedoCount naming what is left to walk, trimUndoLine dropping the oldest states against the Settings depth and a 32 MB budget while never dropping the state the model is in or one ahead of the cursor, and stepUndoHistory keeping the pattern clipboard, the edit playhead and the mirrored transport position a saved state does not carry).
 /media/data2/GameDev/Plugins/ReTrektor/Source/PluginEditor.h / .cpp: main window layout, tabs, shortcuts, bottom bar, starting a new editor at the remembered window size, wiring the tools panel's isCellSelected hook to the tracker's selection, and the shortcuts where Ctrl+C/V name the cell clipboard (copySelectionToClipboard / pasteClipboardAtCursor) while the pattern clipboard's Ctrl+Shift+C / Ctrl+Shift+V pair is refused rather than answered, its two doCopy() / doPaste (bool forceUnique) members and its Ctrl+X slice branch gone altogether with that pair, the undo funnel commitEdit() (record the point the model reached, then refresh, so every component's onModelChanged ends in it while the bottom bar's OCT / STEP / CHANNELS handlers and selectPattern() record their own), performUndo / performRedo stepping the plug-in's line and refreshing the Settings panel as well because its rows hold their own values, and the Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z shortcuts with the Alt+Z / Alt+Y spellings the hosts leave free answering the same two steps, one each since the whole Alt+Shift family is refused rather than spent on a redo alias the hosts swallow, the Alt branches matching the letter over the key code and the printed character, all of them reaching the editor while every panel answers the Alt pair as well through one wireUndoRedo lambda that injects performUndo / performRedo into the tracker, timeline, pool, settings, tools and macros panels, so whichever panel the host routed the press to walks one point of the same line rather than one the panel owns, and one wireFocusRescue lambda injecting the same shape's focusRescue member into the tracker, timeline and pool so the panel that closed a menu, an alert or a drag hands keyboard focus back to the tracker (and to itself where the tracker is hidden), which is what makes the whole keyboard heard again rather than only the editor's own shortcuts, and one wireClipboard lambda injecting the cell clipboard's Alt steps as copyStep / pasteStep / cutStep members into all six panels with the tracker's own copySelectionToClipboard, pasteClipboardAtCursor (kPasteAll) and cutSelectionToClipboard, and one wireSlice lambda injecting the editor's own doSlice as a sliceStep member into all six of them beside those clipboard steps, so an Alt+C / Alt+V / Alt+X reaches one cell clipboard and an Alt+S reaches one clip slice at one snapped beat whichever panel the host routed the press to, and one press of either leaves one point of the undo line rather than two, the editor's own keyPressed answering those steps through the shared matchClipboardKey and answerSliceKey next to a Ctrl+C / Ctrl+V pair that refuses Shift so the hosts keep their own Ctrl+Shift+C / Ctrl+Shift+V meaning and no Ctrl+X branch left to it at all, and its first lines including the renamed header so no panel and the editor can disagree about what the Alt letters name.
+The same editor grew the vibrato tab beside the arp one: the `Tab` enum growing `vibs` beside the tracker, macros and
+settings,
+the four tab buttons now reading `TRACKER` / `ARP MACRO` / `VIB MACRO` / `SETTINGS` rather than the one `MACROS`
+the vibrato card had to be reached through before it had a tab of its own, the two macro tabs' buttons 10 px
+wider than the plain ones so their two-word names are spelled rather than shrunk below the other tabs' letters,
+and `vibTab.onClick` landing on that tab the way the other three do; the `VibMacrosPanel` constructed beside the
+other panels and given the plug-in's undo and redo, its cell clipboard and its clip slice, so all seven panels
+walk one point per press against the plug-in's own line rather than only the editor, and its `onModelChanged`
+being the editor's `commitEdit ()` like every other panel's, which is what makes a macro's setting turned at the
+tab record its point of the undo line and repaint the whole view through the one funnel rather than through a
+line of its own.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom, ruler (bar numbers only, no transport readout), and the Alt pair of undo and redo answered in its keyPressed, which is where a press aimed at undo has to be heard while the timeline's own clip menu is open or while a pattern is being dropped onto it, and a focusRescue member it calls at the end of both context menus and ahead of the playback guard in its drop, since both the popup and the dragged item are parentless desktop windows that take the keyboard focus with them when they close, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, chained through the 4-argument answerClipboardKey so an Alt+C / Alt+V / Alt+X pressed while this panel routes the press reaches the tracker's cell clipboard rather than the host's, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape, so an Alt+S heard while this panel holds the press splits the clip under the playhead that the timeline's own "Slice at playhead" menu item reaches rather than leaving the Ctrl+X spelling the host already spent on its own cut.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber), cell selection (selBits one bit per (row, channel) in kSelWords = 2 uint64 words per row, applyCellRect unioning/subtracting/replacing word masks, gestureOp reading the held modifiers, channelAtX and channelBoundsFor naming a cell, per-cell painting and a hidden chip inverting its plate (theme::text plate, letter cut out in theme::panelLight) instead of dimming) and the cell clipboard (cellClipboard of CellClipboard type, copySelectionToClipboard putting the selected cells on it with their offsets inside the copied rectangle counted from the top-left selected cell and doing nothing while nothing is selected, pasteClipboardAtCursor writing at the cursor and only marking the model changed when it wrote something, cutSelectionToClipboard taking that copy and then emptying exactly the cells it took through the clearSelectedCells loop the cell menu's Clear / Selection calls as well so the two do not drift apart, marking the model changed for the wipe alone since the copy changes nothing in the saved song, hasCellClipboard greying out both of the menu's pastes, and the cell menu's four top-level items - a "Clear" submenu whose leaves keep the old ids so the callback still answers them by id (4 Selection / 1 Cell / 2 Channel / 3 Pattern), "Copy selection" (id 5), "Cut selection" (id 6 right after the copy, greyed while nothing is selected and answered by the same cutSelectionToClipboard the Alt+X key reaches), and two sibling paste submenus carrying the same seven leaves, Everything / Note / Instrument / Volume / Pan / Command / Command Value, the plain "Paste" one at ids 7..13 and the "Paste (Additive)" one at ids 17..23, both greyed by hasCellClipboard and both answered through one static pasteMasks the callback hoists above its if-chain so the field and the mode compose rather than a leaf owning the mode, pasteClipboardAtCursor (pasteMasks[result - 7]) and pasteClipboardAtCursor (pasteMasks[result - 17] | kPasteAdditive), 16 left unused between the two runs and the undo pair's 14/15 still last), and the undo pair (undoStep / redoStep std::function members the editor injects so the menu's Undo and Redo, ids 14 and 15 after the paste submenu's leaves and greyed out by the plug-in's own counts, walk the same line Ctrl+Z and Ctrl+Y walk and refresh every panel rather than only the grid, and cancelPendingEdit reporting whether a numeric buffer was half typed and closing it the way Esc does, which the Ctrl+Z and Alt+Z branches and the menu's Undo consult before stepping so one press is one effect, and its keyPressed now answering the Alt pair itself through answerUndoRedoKey, with cancelPendingEdit as the closing hook so a half-typed number still closes on that press rather than being walked over, while any other letter held with Alt is still handed up rather than typed as a note at the cursor), and a focusRescue member it calls at the end of the cell menu's callback, whether the press picked an item, a greyed one or dismissed the popup with Escape, and the Alt clipboard steps answered through the 4-argument answerClipboardKey with copyStep / pasteStep / cutStep members of the same shape the editor injects, placed ahead of the hand-up that keeps other Alt letters out of the tracker's own key entry, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor next to copying, pasting or cutting, and the Alt+S slice answered the same way through answerSliceKey with a sliceStep member of the same shape the editor injects, this very letter being the note entry's C sharp, so the slice is claimed before the key entry can leave a C sharp at the cursor whether or not there was a clip to split, and the command letters: the A and the B branch sitting in the path that owns a value field's first character, so either letter claims the command number as its own command value while a number that merely has an a or a b in it keeps its own spelling and the CC 10 and CC 11 a column asks for are typed as their own 10 and 11, a letter typed after a run of digits claiming the field and dropping that number rather than reading it, the pair painted in theme::cmdMacro with every value drawn in the view's one decimal spelling, the A a row carries from above drawn dim through carriedCommandNumber beside the bright argument a row below writes, and clampValue's command number capped at kCcTop rather than at the call, both letters' claim writing the command value it names straight into the cell rather than as a number that gets clamped there, so a typed digit run and an interpolation ramp can only reach a plain CC and typing 144 into the field gives the highest CC rather than inventing a letter - the letters being the only route to a command kind - beside each letter leaving its own argument behind, a call at the release id 0 and a bend at the wheel's centre kBendCentreVal so a row naming only the letter bends nowhere rather than locking the wheel to its bottom, and the bend pair painted in the lilac theme::cmdOther that was going unused with that argument drawn in the view's one decimal spelling like every other value and that letter carried down a column drawn dim like the call's is beside the bright argument a row below writes, the command cell now splitting its two halves by their own glyph counts rather than halving the whole cell and each half taking its own pad, with fieldGlyphs giving the number's half three glyphs and the argument's half three more in the view's one decimal spelling so a macro id of 100, a bend's point above 99 and an arpeggiator release's OFF all keep their last glyph while the instrument's half keeps room for its dash and two digits, and maxDigitsFor taking the three decimal digits at the keyboard everywhere so no letter can be invented by a number's spelling, valueString and instString drawing every value decimal with no setting and no row offering another spelling, the display's carry table and the two reads walking the command column together through one file-local stepCommandCarry so they cannot disagree - a row that named a command of its own leaves that one and its own argument, the value cell answering such a row with that row's own argument so a letter that had none draws nothing beside it rather than picking an argument up from above, and a row that named only an argument keeps the letter carried above it and leaves the argument it named itself carried for the rows below rather than the one that letter called with, an argument of 0 under a carried call clearing both since that argument is the release the engine's arpCommand already answers there; drawRows fills a row's entry from what the column carries into that row before that row steps it, which is what an argument-only release still reads its letter on its own row and draws neither letter nor argument over the ones under it, and carriedCommandNumber walks the column down from its top over the rows above rather than up from the row, since what a row leaves in force also depends on the arguments the rows above it entered, beside a new public carriedCommandValue reading the argument the same walk leaves so a test reads the carry rather than a pixel, while the letter A with the argument 0 still releases and leaves the column under it carrying neither a letter nor an argument and the value cell spells that release OFF rather than a bare 0, and this round's argument field beside it:
 a file-local commandArgumentReleases (cmd, cmdVal) naming an OFF of any kind and a 0 read under a call or under a
@@ -3611,16 +3643,91 @@ kind, an s or an S landing kArgStp beside a wheel kind only, a claimed write doi
 (1, stepSkip)) and repaint () the way a committed number does, and a letter neither of those two claims owns falling
 through to return false so the cell keeps the value it had and no note is typed in the note column beside it; drawRows
 reading OFF for an arpeggiator release, for a kArgOff and for a 0 read under a slide letter, reading STP for a kArgStp,
-and keeping the colours it had, the three wheel kinds still sharing the one lilac theme::cmdOther beside the orange
+and keeping the colours it had, the four wheel kinds still sharing the one lilac theme::cmdOther beside the orange
 of the call pair, with maxDigitsFor and fieldGlyphs still naming three glyphs for that field so the release's OFF and
 a hold's STP keep their last glyph and the comment naming them rather than only the release.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source (the drag image is the item's cell), grid preview, rename, and the Alt pair answered in its keyPressed, which is what a press aimed at undo needs while the pool's own drag is still held by the DragAndDropContainer and has made that drag modal, and a focusRescue member it calls at the end of its own menu and of the rename alert, plus on the release of a drag, which ends whether or not the item ever landed on a target, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, since the same reason that made the undo pair unreachable gives the clipboard's steps to the host's own clipboard and cut as well, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects, so an Alt+S is heard even while the pool's drag is still modal and the editor is never offered the press at all, and its grid preview's command tick now painted lilac for all three wheel kinds - the pitch bend's letter beside the two slide letters - beside the teal a plain CC and the orange an arpeggiator call keeps.
+The tracker grew the vibrato letter: the command number field claiming `V` as `kVibCmd = 147` beside the `A`, `B`, `U`
+and `D` it already claimed, the claim being only the command number field's so the same letter typed where the
+note column is asked for still types an F natural - the way the slide letter `D` still types a D natural - and
+only `cmdNum` claims the letter while `v` stays a note key rather than the letter being spent twice; a row naming
+only the letter leaving the argument as the release id `0` rather than a default macro, so it draws `V OFF` rather
+than running the macro a fresh song defines, the `o` spelling landing the same `OFF` the entry writes and the `0`
+a row names beside a named or a carried `V` landing that vibrato's own release there rather than a call of macro
+`0`, since id `0` calls nothing, both spellings drawing `OFF` and both leaving the column under it carrying neither
+the letter nor an argument; `commandArgumentReleases` refusing the `s` spelling beside the vibrato letter rather
+than writing it, since a wobble has no move of the wheel to stop and such a row leaves the swing above still swinging
+over the rows below it, so an `STP` beside a `V` is a number a saved state or a shot's own flag leaves there rather
+than something the editor offers, and `commandKindAt` naming the fifth kind the column holds beside `carriedCommandNumber`
+/ `carriedCommandValue` so a cell's own argument is refused or taken per kind rather than per number, a bare-argument
+row under a carried `V` keeping the swing above rather than ending it; the `V` pair painted in the lilac `theme::cmdOther`
+the bend and the two slide letters already shared rather than a fourth colour being brought in, since a vibrato
+is a wheel move, with the release's `OFF` and a hold's `STP` still keeping their last glyph in the three glyphs
+the widest spelling already needed and every value still drawn in the one decimal spelling.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/PoolComponent.h / .cpp: pattern pool, drag source (the drag image is the item's cell), grid preview, rename, and the Alt pair answered in its keyPressed, which is what a press aimed at undo needs while the pool's own drag is still held by the DragAndDropContainer and has made that drag modal, and a focusRescue member it calls at the end of its own menu and of the rename alert, plus on the release of a drag, which ends whether or not the item ever landed on a target, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, since the same reason that made the undo pair unreachable gives the clipboard's steps to the host's own clipboard and cut as well, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects, so an Alt+S is heard even while the pool's drag is still modal and the editor is never offered the press at all, and its grid preview's command tick now painted lilac for all four wheel kinds - the pitch bend's letter, the two slide letters and the vibrato letter's pair - beside the teal a plain CC and the orange an arpeggiator call keeps.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/ToolsPanel.h / .cpp: transpose as one semitone amount field (IncDecButtons slider with an editable text box, whole semitones 1-48 opening at 12) plus arrow direction buttons whose labels arrowUpGlyph/arrowDownGlyph build as explicit UTF-8, remap (source dropdown All/-0..-15 -> target dropdown -0..-15, the labels being the decimal ones the tracker's instrument column writes them in), cell scope (cellInScope answers whether a cell is in reach and applyToCells walks the cells, so the wider scopes name whole patterns and only the "Selection only" scope consults the tracker through the isCellSelected hook), interpolation with its single field dropdown (Note/Instrument/Volume/Pan/CC number/CC value, ids following the InterpField enumerators, the mask being the selection so there is no channel dropdown any more), the getCursorChannel hook still wired but unread, the scope box defaulting to "Selection only", and the Alt pair of undo and redo answered in its keyPressed, as is the Alt clipboard steps through copyStep / pasteStep / cutStep members the editor injects, so an Alt+C / Alt+V / Alt+X aimed at the cells is heard while a menu belongs to this panel, and so is the Alt+S slice, answered last of all through answerSliceKey with a sliceStep member of the same shape the editor injects.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/SettingsPanel.h / .cpp: settings controls, the row that used to switch the values between hex and decimal having been dropped outright along with its toggle member, its setting and its saved property, so every value the tab moves is decimal and its refresh guard now starts at the mid-row toggle, including the Volume column CC and Pan column CC sliders and the Undo steps row (undoStepsSlider, 0-200 defaulting to 50, sitting with the input prefs ahead of the CC pair and pushed back by refresh() so an undo that moved the depth shows in the row), and the Alt pair answered in its keyPressed so a press aimed at undo is heard while a menu belongs to this panel, as is the Alt clipboard steps through the same copyStep / pasteStep / cutStep members the editor injects, and the Alt+S slice through a sliceStep member of the same shape answered by answerSliceKey, since a popup opened over this panel is what routes the press here rather than the editor, and the "Paste as unique pattern by default" row dropped along with the Settings member it read and the property it saved, which leaves the panel counting one row fewer and its refresh re-reading the rest in their order.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/MacrosPanel.h / .cpp: the arpeggiator macros the Command column's letter A calls, rewritten from the old name/kind/two-parameter editor: one card per macro that exists, named by the call a row writes (A 1) in orange, the tab painting nothing above the cards but its title and the one MACRO / LENGTH / LOOPED / STEPS label row at y 48 rather than the four dim caption lines that used to sit between the title and the cards, kContentTop taking them up from 92 to 70, since what the rules are belongs to the Commands map and to the README rather than to something a scrolled list has to be read under; each card's control line holding a LENGTH field, the plug-in's usual IncDecButtons Slider over 1..kMaxArpSteps with an editable text box, and a LOOPED ToggleButton, and the macro's own steps drawn beneath it 16 to a line as their signed semitones off the base note, the panel's own public stepLabel (int step) drawing -- for kArpEmptyStep, OFF for the new kArpNoteOffStep - the note column's own spelling, since === is a release and not a step, and the reason the label had to leave the file-local lambda the panel used to keep, so the strip's paint and the tests read one spelling rather than two - +N for a positive one and 0 for the base note, -- being the step that sounds nothing and sustains the one before and OFF being the step that opens what the run was holding rather than sounding one of its own, and a newly defined macro arriving with eight of them that all sound nothing rather than with the ramp kArpDefaultJump used to name; the step cursor (stepId / stepIndex) the arrows and a click on a drawn step move is what enters a step at the keyboard, and a step's number now living only in stepText until commitStepText lands it rather than being written by every press, so a sign and up to three digits accumulate into one value, the cell the cursor sits on draws that number while it lasts rather than the step's own value, commitStepText fires from keyPressed only when the incoming press is neither a further character of that number nor Escape, which is what lets setStepCursor, the arrows and a click of another card close it as well, one leading sign being kept with a repeat of it changing nothing, the other sign moving the number rather than trailing it and one typed after the digits it belongs to leading them, a number that is nothing but a sign meaning the base note, the value landing clamped to ±127 as one point of the undo line rather than one per keystroke and Escape dropping it altogether rather than leaving half of it behind, commitStepText handing the raw value to the setter rather than clamping it a second time at the panel since the setter owns that clamp and one rule cannot be stated twice; the note column's own note-off key spelling a step the same way it spells a release there - the backtick and its shifted tilde, the pair the note entry answers alike, writing kArpNoteOffStep at the step the cursor sits on rather than writing a number into it, claiming the press so no letter of the note table is typed beside it, firing onModelChanged once for it and leaving the cursor on the step it opened rather than stepping past it the way Delete and Backspace leave the cursor they cleared, which is why the next press lands beside the opening rather than running the macro past the release the user meant to hear there; the bottom of the panel holding + Add macro (defineArp at firstUndefArpId) and - Remove selected rather than - Remove last, that one clearing the macro the step cursor sits on, falling back to lastDefArpId while there is no cursor yet and taking the cursor off the macro it cleared before rebuild parks it on another one, its bounds widened to 132 so the longer label fits, so the ids above and below a cleared macro keep naming the same macros; the vertical scrollbar the tab draws on its right edge having its geometry in one set of helpers, scrollbarX at getWidth() - 10, thumbHeight, thumbTop and scrollToPointer, so paint and the drag cannot drift apart and the thumb a drag centres on is the one that is visible, with mouseDown answering a pointer in that column ahead of the card hit-test loop, keeping the grab in draggingThumb through mouseDrag while mouseUp clears it - JUCE spelling that callback mouseDrag rather than the mouseDragged the panel first declared, an override of which does not compile - and mouseWheelMove still turning the list beside it, which is what the mouse alone needs where a host gives the plug-in no wheel, and a public getScrollY () so a test can read the scroll back rather than only see it painted, beside a public stepBand (which) naming a step's group as its index over the Settings row "Subticks per row" - six at the default - named the same way rather than by the 16 cells a drawn line wraps at, the strip's paint shading every second group at 0.58 alpha of whatever colour that step's own state asks for, theme::cmdMacro for a step the macro holds or the cursor pending, else theme::noteOff, which is what makes a macro longer than the row that called it read as row spans rather than as one run of numbers and is what the accessor is public for, so UiTest reads the boundary at steps 0, 5, 6 and 12 rather than a pixel; rebuild / syncValues / cardHeight / blockTop / contentHeight / clampScroll laying the cards out against the scrollY that wheel and the drawn thumb move, and every change the panel makes answering through onModelChanged so the undo line holds a point for a drag of a length field, a click of the looped tick, a typed step and a cleared one as it does for the two buttons, which is what lets Ctrl+Z and Alt+Z take each of them back rather than stepping over them in silence; both Alt pairs answered in its keyPressed, the undo one and the clipboard one through copyStep / pasteStep / cutStep members of the same shape answered by the 4-argument answerClipboardKey, since the macros panel's own context menu is what routes a press to it rather than to the editor, and the Alt+S slice answered after the clipboard one through answerSliceKey with a sliceStep member of the same shape.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/VibMacrosPanel.h / .cpp: the VIB MACRO tab the Command column's
+letter `V` calls, added to and removed from exactly as the arpeggiator macros are. One card per macro that
+is `present`, each holding the three settings a wobble runs on one 22 px line plus a 4 px gap: the shape as
+a `juce::ComboBox` over the six spellings `Sin`, `Sin Up`, `Sin Down`, `Triangle`, `Triangle Up` and `Triangle
+Down` — one file-local `kShapes[]` holding the spellings beside the model's own `kVibType..` values, so the
+spelling lives in this panel's own table once, the dropdown's item ids being one above the model's values,
+and `vibShapeLabel` reading a shape back for a test as the same text the tab draws rather than a second copy
+being invented there — then the plug-in's usual number widgets for the amplitude, a `juce::Slider` over 0..1
+at an interval of 0.01 spelled by `vibAmplitudeLabel` as the share of full pitchbend rather than as the hundredth
+the model keeps, and for the cycle, a second `juce::Slider` over 1..`kVibFreqTop` at an interval of 1 whole
+subticks one sin or triangle cycle takes, the two knobs told apart by the span they walk rather than by the
+order they were added in, so a check about one of them is about that one however the card was built, and a
+slider's own `getInterval()` naming its step since `juce::Range<double>` has none of its own; the three controls
+sitting at `kShapeX = 104`, `kAmpX = 232` and `kCycleX = 360` under the tab's title and its one label row —
+`MACRO`, `SHAPE`, `AMPLITUDE (of full bend)` and `CYCLE (subticks per swing)` at y 48, `kContentTop = 70`
+taking the first card below it and `kBottom = 40` the strip holding the two buttons — and nothing painted above
+the cards but the tab's title and that label row, since the rules belong to the Commands map and the README
+rather than to a memo the cards would have to be read under; a card named by the call a row writes (`V 1`) in
+the lilac the wheel's own commands are read in rather than in an arpeggiator call's orange, which is what makes
+the two macro tabs tell the two letters apart at a glance, and marked by a cursor rule drawn left of that name
+rather than over one of its settings, so a click on the card's own name is what picks a macro out for the remove
+button and the arrows while a pointer over one of the three settings lands on the control sitting there instead;
+`contentHeight()` / `cardTop()` / `clampScroll()` / `scrollY` carrying a list longer than the panel rather than
+growing it without bound, and the drawn scrollbar asked for in one place — `scrollbarX()` 10 px in from that
+tab's right edge, its thumb as tall as the share of the track the cards that fit take so it reads as the window
+that is showing, feeding `thumbHeight()` / `thumbTop()` / `scrollToPointer()` — so paint and the mouse cannot
+drift apart, `mouseWheelMove` turning it forty px to a full unit of the wheel's own deltaY as well as a `mouseDown`
+/ `mouseDrag` / `mouseUp` grab putting the thumb's middle under the pointer and holding it there for as long as
+the button is held, which is what the mouse alone does where a host gives the plug-in no wheel, and the tab
+answering a pointer in that strip's column ahead of its card hit-tests, which is why a grab of the strip never
+reads as a click on the card behind it; the add button defining `firstUndefVibId()` at the shape, amplitude and
+cycle the model gives a fresh one — the plain sinusoidal wobble at half full pitchbend over a cycle of eight
+subticks, so the card shows a wobble rather than an empty line — and disabled while the table has no id left
+that has none, and the remove button clearing `selectedId` or `lastDefVibId()` while nothing is picked out and
+leaving the ids below the macro it put away naming the same macros, its cursor dropped rather than left pointing
+at the card that just went, and clearing saying a macro has none rather than erasing the settings its knobs had,
+which is what re-defining it then starts over from; the arrows, `Tab`, `PageUp` and `PageDown` moving that macro
+cursor from card to card and to the list's own ends — `PageUp` to the lowest macro that is defined and `PageDown`
+to the highest, one press going to an end rather than one card — with no cursor yet picking one out starting at
+the highest that is defined above and the lowest below, and `prevDefVibId` / `nextDefVibId` naming the nearest
+defined macro on either side since the gaps a cleared macro leaves are what a cleared list is made of; each of the three settings, a define and a remove being one action of its own, so
+a card whose three settings were all touched and that was then defined and removed leaves five points of the
+undo line rather than one, and `refresh()` / `rebuild()` / `syncValues()` laying the cards out again against what
+the song holds while `onModelChanged` closes a tab that is not the one showing and refreshes the one that is;
+the undo, redo, clipboard and slice `std::function`s the editor injects so the Alt pairs and the Alt+S slice are
+answered at this tab as well as at the editor and all seven panels walk one point per press against the plug-in's
+own line rather than only the editor walking it.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/AltShortcutKeys.h: the shared body every panel answers the Alt pairs the hosts leave free with, renamed from UndoRedoKeys.h once it grew the second pair (the references to that name above are this header under its old name). matchUndoRedoKey / answerUndoRedoKey as before (reading Alt+Z / Alt+Y over both the key code and the printed character and refusing Command, Ctrl and Shift so the whole Alt+Shift family stays the host's, claiming the press only when that panel holds the step, and closePending naming the half-typed numeric buffer the tracker closes on the press before stepping); matchClipboardKey / answerClipboardKey the new steps added to it (a ClipboardKey of none, copy, paste or cut, the letters read the same two ways, Alt+C copying what the tracker holds selected, Alt+V pasting at the cursor with everything and Alt+X cutting, which is that copy followed by emptying exactly the cells it took so the paste after it moves them, and the answer claiming the press whenever that panel holds the step rather than only when the step did something, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor, next to copying, and a paste answered twice would walk the undo line twice); matchSliceKey / answerSliceKey the clip slice at the playhead added beside them, the s read the same two ways over the key code and the printed character, an Alt+Shift or Ctrl spelling refused so the whole Alt+Shift family and the host's own save stay the host's, and the press claimed whenever the panel holds the slice rather than only when the slice did something, since s is one of the note-entry letters and an Alt held s that fell through would type a C sharp at the cursor beside splitting a clip, while there is no Ctrl spelling of the slice left for a host and the plug-in to disagree about; matchSliceKey / answerSliceKey the clip slice at the playhead added beside them, the s read the same two ways over the key code and the printed character, Alt+Shift and Ctrl refused so the whole Alt+Shift family and the host's own save stay its, and the press claimed whenever the panel holds the slice rather than only when the slice did something, since s is one of the note-entry letters and an Alt held s that fell through would type a C sharp at the cursor beside splitting a clip, and there is no Ctrl spelling of the slice left in any panel for a host and the plug-in to disagree about.
-/media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel, unchanged this round: the Command column's four kinds already had the three colours its entry gives them, the teal of theme::cmdCC beside the orange of theme::cmdMacro beside the lilac of theme::cmdOther, that lilac having first been used by the pitch bend's letter, its decimal argument and its carried spelling, and the two slide letters and their decimal row counts joining it rather than bringing a fourth colour in, so the Command column now has three colours for four kinds rather than four.
-/media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp: the sqrtf and atan2f defined inside the plug-in so its libm requirement stays portable, aliased hidden in assembly and built without LTO.
+/media/data2/GameDev/Plugins/ReTrektor/Source/ui/Theme.h: colors, fonts, LookAndFeel, unchanged this round: the
+Command column's five kinds already had the three colours its entry gives them, the teal of a plain CC, the orange
+of an arpeggiator call's pair and the one lilac theme::cmdOther the bend, the two slide letters and the vibrato
+letter's pair all share rather than a fourth colour being brought in for a wheel move, which is what makes the
+VIB MACRO tab's own lilac `V 1` card names and the tracker's lilac `V` pair tell a wheel move from a run at a
+glance rather than by their letters, and the pool's grid preview painting that same lilac for all four wheel kinds.
+/media/data2/GameDev/Plugins/ReTrektor/Source/Portability.cpp: the sqrtf and atan2f defined inside the plug-in
+so its libm requirement stays portable, aliased hidden in assembly and built without LTO, re-checked this round
+against the same floor rather than assumed: the built .so still needs at most GLIBC_2.38 and GLIBCXX_3.4.32, the
+four names the new curve leans on - sin, sincos, sinf and sincosf, all at GLIBC_2.2.5 - already being in the
+older build-instrument artefact's own dynsym rather than being new to this build, so the float calls raised
+no floor above what the pinned Bitwig 6.1.4 Flatpak root ships and sqrtf and atan2f are still not asked for
+by name.
 /media/data2/GameDev/Plugins/ReTrektor/tests/CMakeLists.txt: smoke/core/editor-shot test targets.
 /media/data2/GameDev/Plugins/ReTrektor/tests/CoreTest.cpp, UiTest.cpp, SmokeTest.cpp, EditorShot.cpp: automated verification harnesses (CoreTest drives the interpolation predicate directly with rectangle masks and a holed mask, names one clip boundary of one pattern used twice back to back as one release of that pitch ahead of the note the lower clip enters at its row 0 rather than two - that clip's own end being the only thing queued there ahead of that note-on, and nothing of that pitch closing it again over the rows below - and pastes a cell clipboard built the way the tracker builds it, UiTest drives the selection gestures and the cell clipboard through juce::ModifierKeys-carrying mouse events and the editor's keyPressed for Ctrl+C, Ctrl+V and the Shift pair, and drives every panel's own keyPressed for the Alt+C / Alt+V / Alt+X steps, so each of the six panels is shown copying, cutting and pasting the tracker's selection at a fresh anchor with the cut leaving exactly the cells it took empty, the selection still painted and the cursor unmoved so the paste after it moves the cut cells to the anchor, and each of them refusing an Alt+Shift spelling and the Ctrl spellings instead; its fixture now puts the data into the selected cells through the clipboard and a paste rather than a silent write, since a cut that returns the model to the state the undo cursor already sits on is deduped and would leave no point for the checks to count; CoreTest drives the additive spelling of the same mask over the same clipboard, so the entries that carry something land their own fields on top of what the target carried while the fields the cell left empty keep the target's value, a one-field additive paste counts only the entry that really carries that field, and an all-empty clipboard cell reports nothing written where the plain spelling still writes it, UiTest drives that submenu pair's whole-buffer and one-field additive leaves through the same paste calls their callback makes at a clicked cursor, kPasteAll | kPasteAdditive and kPasteVol | kPasteAdditive, the one-field one showing a copied cell that does not carry that field skipped whole so the target keeps its value there while the copied cell that does carry one lands at its offset below the anchor and writes nothing else of its own, gives every panel the editor's sliceStep and splits one fresh clip of a fresh pattern for every Alt+S press at its own middle row so one press turns one clip into two over two new patterns and leaves exactly one point of the line, reads the cell the cursor sits on back again to show the Alt held s typed no C sharp, takes the lowercase Alt+s X11 hands over, refuses an Alt+Shift s and a Ctrl s and the editor's Ctrl+X and dropped Ctrl+Shift pair while the pattern clipboard and the clip count stay put, and still claims the slice while the transport runs without splitting, its fixture putting the rows the additive paste filled back to empty once it is done with them, since hidden rows survive a shortening only while they hold data and the shortening checks below read that, and its additive one-field paste staying over the cursor the block above left rather than moving the cursor up the pattern, since moving it lets ensureCursorVisible scroll the view and the blocks below map their clicks through it; EditorShot can hold a selection with --select=r0,c0,r1,c1 and paste it at a cursor with --paste-at=row,ch, and can walk the undo line with --undo=N / --redo=N before it renders, so a shot shows what an earlier action left behind retracted; CoreTest names the arpeggiator at the layer below a host, the grow-only table's defaults arriving as eight steps that sound nothing and the firstUndefArpId / lastDefArpId pair, the steps growing adds sounding nothing rather than a ramp the model no longer has, a run whose row's own note is its first step with its eight seeded steps landing a sixth of a row apart in order and spilling past the row that called them — six of its playback fixtures now say for themselves which offsets they are listening for through a file-scope seedSteps (Song&, int id, int jump) helper rather than trusting a ramp the model no longer builds — a looped run cycling past that row with its cycle boundaries exact, a finished unlooped run leaving its last step's note held, a row naming only the argument under a carried call switching to the macro that id names and restarting at its first step while an undefined id sounds nothing but still stops the run above it, the switched macro stepping its own offsets off the note the column named rather than off the note the run was left sounding with its two named offsets moved to the two only that base can reach, the note the run above left holding reaching the host as a note-off ordered ahead of any of the new run's note-ons, a call under a note-off in a column that names no note having nothing to step from while the same call carried onto a note entering below it steps from that one, an A 0 call releasing as a plain note-off with only the stuck-key guard's own extras around it and no All Sound Off, a call written in the note-off's own row being answered there rather than
 dropped with the note, its steps measured off the note that row was releasing while its note-ons
@@ -3744,6 +3851,147 @@ at --slide=6 --slide-arg=128 showing the lilac U OFF painted at that row with th
 and c1fc0fa130b2d570389be930639820e04f1655f1c1126be872751fda952a19bd at --slide-down=10 --slide-arg=129 showing the bright
 D STP named there with the letter and that spelling carried dim over the four rows under it, both read back off crops of
 the tracker band rather than off the whole-window pictures.
+That harness grew this round's vibrato: CoreTest went 319 -> 379 checks PASS with 0 failures, its six new
+sections naming the model - the grow-only table's one default macro at the plain sinusoidal shape at half full
+pitchbend over a cycle of eight subticks, so the VIB MACRO tab has a card the way the ARP MACRO tab has steps,
+its `firstUndefVibId` / `lastDefVibId` pair naming the same gap, naming the top id growing the grow-only table
+to the id limit while id 0 stays the release call and there is no entry above the limit, naming an id extending
+it with absent entries rather than moving the ones already in it so a fresh macro still takes the lowest gap,
+clearing one leaving its room and the shape, amplitude and cycle its knobs had while the entry answers for nothing
+of its own - which is what makes the engine stop a wobble whose macro was taken away rather than swing it at
+nothing - and defining it again starting over from the defaults rather than from what the cleared one had still
+held; the setters refusing an absent macro, so an id nothing entered never answers with a shape, an amplitude
+or a cycle of its own, and the three settings clamping at their own tops rather than wrapping, which is what leaves
+the cycle never at zero subticks - it clamps up to one - and the amplitude never past full pitchbend; the vibrato
+letter's command value sitting above both the highest value an older build could write and the highest plain CC
+the number field can spell, so no older row and no typed digit run can already be a vibrato, the letter and its
+`OFF` and `STP` spellings surviving the saved form as the argument's own numbers above the field's top and a macro's
+three settings arriving as their own properties, which is what a saved state brings the knob positions back at,
+the saved form writing one entry per macro that is present rather than one per id the table has room for so a round
+trip with a gap between two defined macros brings the two back at the ids they were at and leaves the gap a gap,
+a state that had the default macro taken away reads back without it - which is what an undo that removed a vibrato
+leaves it removed rather than the reset putting one back - and an older state's arriving as no section at all
+leaves the read with the one default macro a fresh song defines rather than an empty tab; a wobble's grid, amplitude
+and cycle - a cycle 6 subticks wide being exactly one row wide at the default Settings, so each of the three rows
+a note is held over draws one cycle of eight points and the note-off below the last of them takes the wheel back
+to the centre, and the full amplitude reaching the wheel's own extremes rather than one of them leaned against
+further than it is: the height from the centre is the centre's own value, so the peak above would land one position
+past the top and is clamped to it while the trough below lands exactly on the bottom - the amplitude being a share
+of the wheel's own half height rather than a number of its own, so a knob at half swings half as far each way and
+keeps the wheel's own centre as the point its cycle passes through, and a knob turned down to off moves the wheel
+nowhere at all, the arming row's first point already sitting on the base and every point of the cycle sitting on
+it too, which is what makes such a macro still a macro rather than no macro at all; the default macro's cycle of
+eight subticks being one point per sub-row step and four thirds of a row wide so its cycle crosses the rows it
+sits in rather than starting on each of them, a cycle 12 subticks wide being two rows wide and drawn with 12 points
+of it rather than the 8 it is asked for at least, so its curve is cut at the twelfths of a cycle, and a cycle one
+subtick wide still drawn with the 8 a cycle is never drawn with fewer of, so the wheel moves 8 times inside the
+sub-row grid rather than once over it, 6 cycles of it land inside one row, each of them repeating the same 8 points,
+and its last point leaves the wheel at 6744 rather than back at the base, which is what makes the 48th message the
+note-off row below taking that point back to the centre rather than one more point of the cycle; the six shapes
+and their Up and Down spellings drawing their cycle as the points of it the amplitude names, the sinusoidal one
+curving and the triangle one ramping, the Up spellings having the cycle's second half inverted so the wobble never
+reaches below its base and stays on one side of the pitch it swings about and the Down spellings having its first
+half inverted so it never rises above it, the other half being the one the plain shape swung to the far side in -
+at full amplitude those lean on the wheel's ends, the sinusoidal Up climbing to the wheel's top twice a cycle with
+nothing below the base to go to, the fold landing on the peak the plain shape's second half would have reached below,
+and the sinusoidal Down landing on the wheel's bottom twice a cycle and never rising above the base, that spelling
+being the plain shape's cycle read through the base instead; the point a wobble swings about being wherever the
+wheel already is rather than the centre, so one armed a row under a bend row swings about the point that row left
+the wheel at, its peak clamped at the wheel's own top where the base has no room above it for the full swing, that
+row above sending the point it named ahead of the swing's own first point and the two being one pitch rather than
+a jump since the row bent the wheel at the same sample as the note it struck there, and a bend row under a running
+wobble moving the point the swing measures about to the pitch it asks for rather than ending the swing or starting
+a new one, the row's own point and the wobble's being one pitch and the points below reaching over the new base,
+that bend row neither striking a note nor releasing the one the row above it held so the swing carries on across
+it; a release row taking the wobble and the wheel it had left swinging away on its own row - the last point of
+the cycle having moved the wheel to 2399 just above the bottom and the row's own message naming the centre rather
+than a point of the cycle, so no pitchbent wheel is left over the rows below the release - while the note the row
+above struck is still held to the note-off below, the release being about the wheel rather than about the note,
+that centre arriving at the row that released rather than being saved for the note-off below; the `OFF` the entry
+writes for an `o` doing what a `0` beside the letter does, the argument field's own top being one below what the
+spelling needs, and a row naming only an argument below that release arming nothing, the release having left the
+column calling nothing rather than calling id 0 the way a run's and a slide's release leave nothing below them;
+an `STP` argument row asking for nothing and leaving the swing swinging over the rows below it, the row under that
+naming another macro id re-arming the swing over that macro, its cycle counting again from that row rather than from
+where the first stretch had got in its cycle, and that re-armed swing measuring its quieter cycle from the point
+the first stretch's last point had got the wheel to rather than from where that stretch was armed, which is what
+keeps the retarget from jumping to the quieter macro's own base; a row naming the letter itself and an `STP` argument
+ending that row's own swing rather than re-arming one, a wobble having no move of the wheel to hold, and leaving
+the wheel sitting at the point its last point had got to until the note-off below takes it back, that letter's own
+row leaving the column calling it so a bare argument one row below re-arms the swing from the point the ended one
+had left the wheel at - its fuller amplitude reaching over the base by more than the base has room for, the points
+of it that would land below the wheel's own bottom all sitting on it rather than going past it - and that re-armed
+swing saying nothing at its own arming row, whose first point sits on that base, which is what makes the first message
+it sends one part way up its cycle rather than a jump to one of its extremes; a macro taken away while its wobble
+swings ending the swing at its next point rather than at the row that took it and saying nothing of its own, the wheel
+keeping whatever point of its own the swing had got to, whose last point sits above the base so the wheel is left
+bent rather than one already at its centre, and a release row below is what puts that wheel away, the note-off
+taking the point the swing had left back to its centre; and the clip those rows live in running out under a wobble
+that armed no note of its own, a swing that clip's single cell armed having no rows below the clip left to keep
+swinging over so its cycle stops at the clip's end and the wheel it had left swinging comes back to its centre there
+- 16 bends of the two cycles of eight points it holds over the clip's two rows going out, the wobble armed with
+no note of its own having nothing to release so the wheel being all that is left to put away, and the only all-notes-offs
+there the ones the transport's own start asks for, one per channel, which is what leaves the clip's end sending
+only the wheel's take-back rather than releasing anything of its own; the fixtures naming the wheel's own values
+rather than the shapes that made them, the sinusoidal cycle at full amplitude over the default 6 subticks swinging
+13985/16383/13985/8192/2399/0/2399/8192 per cycle - the peak one position past the wheel's top and clamped to
+16383 while the trough lands exactly on 0 - a quarter of full pitchbend over a cycle one subtick wide repeating
+9640/10240/9640/8192/6744/6144/6744/8192 six times inside one row so its last point sits at 6744 rather than back
+at the base and the 48th message is the note-off row below taking it back, and a swing armed a row under a bend row
+reaching over the new base by more than that base has room for, its wheel values clamped at 16383 above and 0 below
+and a re-armed swing's first point sitting on the base its own row says rather than jumping to one of its extremes.
+UiTest went 676 -> 734 checks PASS with 0 failures, its tab lookups renamed from the one `MACROS` button to `ARP
+MACRO`, the VIB MACRO panel added to the pair-on, copy-pair-on and slice-one-on walks so all seven panels walk one
+point per press against the plug-in's line rather than six, and its own VIB MACRO section driving the `ComboBox`
+through `setSelectedItemIndex (…, juce::sendNotificationSync)` rather than a keyboard nudge - there is no UiTest
+coverage of the tracker's own claim of the `V` letter, so that typing is pinned at the model by CoreTest and at the
+paint by EditorShot rather than by a press driven through the grid - reading the dropdown's items back through the
+panel's own `vibShapeLabel` and the amplitude through `vibAmplitudeLabel (25)` == `0.25` rather than through a second
+copy of what the tab draws, the two knobs told apart by the span they walk rather than by the order they were added
+in, the amplitude turning off to full pitchbend in hundredths - the same hundredths the model keeps - and the cycle
+counting whole subticks one cycle takes from one to the limit a row's argument can name, the card opening at the
+amplitude and the cycle a newly defined macro starts at, that macro getting its own dropdown and its two knobs,
+the dropdown's own ids being one above the model's own, the dropdown's own change writing the shape to the macro -
+which is what a row already calling that id swings by from there - and spending one point of the undo line of its
+own, a knob turned writing its own setting, the card's three settings being three separate actions so once the line
+is full one of them drops out of it at the far end, which is why those depth checks read the line back as `juce::jmin
+(before + n, song.settings.undoSteps)` rather than one more than it can hold, `+ Add macro` taking the lowest id
+that has none yet and moving the gap below it down the way the ARP MACRO tab adds one, the fresh macro arriving at
+the shape, amplitude and cycle the model gives a newly defined one rather than at what the card below it had, and
+`- Remove selected` putting away the macro the last gesture picked out and leaving the ids naming the same macros
+below it, the same pairing the ARP MACRO tab uses, the macro that was never picked out keeping the settings the knobs
+had left it at - the card being about which macro there is rather than about what it holds - and a macro defined
+and a macro taken away being one action each; Smoke stayed at 13 checks PASS with the serialised state grown from
+2392 to 2463 bytes since the `VIBS` section is saved state rather than the engine's three numbers. EditorShot gained
+`--vib-shape=`, `--vib-amp=` (the hundredths of full pitchbend the model keeps, so 25 is the knob spelled 0.25),
+`--vib-cycle=` (the subticks one sin or triangle cycle takes on the same grid an arpeggiator's steps and a slide's
+ramp are measured over), `--vib-macros=N` (having the song define N of them, ids 1..N all of them fresh, which is
+what makes such a shot long enough that the cards do not all fit and the tab has to draw its scrollbar and thumb),
+`--vib-call=ROW` (naming a vibrato call in tracker channel 0 at that row, which paints the command column's lilac
+`V` and its decimal macro id and leaves that letter and that argument carried dim over the rows under it in that
+channel only) and `--vib-call-id=VAL` (naming the id that call writes, so `0` makes it the release, whose argument
+is drawn `OFF` rather than as a `0` and which leaves the rows below it carrying no letter and no argument at all),
+kept its short tab aliases (`--tab=macros` naming the ARP MACRO tab the older shots asked for and `--tab=vibs` naming
+the VIB MACRO one) since the tab buttons now spell those two-word names out, and its usage header says so; its dumps
+read the panel back at `VibMacrosPanel` 176,38 908x688, and five 1240x760 shots pinned this round: /tmp/opencode/arptab.png
+991fffe6c52af501f45c55dd2e708b72a0b07bfaedf06737ac06fcbc0bbf6443 with the tab button now reading ARP MACRO, /tmp/opencode/vibmac.png
+21a9117c19c6e2c6741cba068b82bf3f109d1b75e319b28025c19b6973720534 at --tab=vibs --vib-macros=8 --vib-shape=Triangle-Up
+--vib-amp=75 --vib-cycle=12 so a card shows a shape picked out and two knobs turned rather than a fresh macro's own,
+/tmp/opencode/vibmany.png at --vib-macros=25 --vib-shape=Sin-Down --vib-amp=40 --vib-cycle=3 whose dump reads 25
+ComboBoxes and 50 sliders of which 22 are laid out at 116x22 and 3 hidden at 0x0 rather than drawn past the window -
+the OUTSIDE PARENT lines there being the hidden ScrollBars and the disabled +/- buttons beside a slider rather than
+cards clipped out - with the strip's thumb at the far end of its track and `V 25`'s own card clipped at the bottom
+edge, and /tmp/opencode/vibletter.png 82f2b95c2f7f539e2cbbb987e57a64fe38e221a64121401b8cbc036d67dc6de3 at --vib-call=6
+against /tmp/opencode/viboff.png 7580fec80bf3b70b5fe3720a2762b51e4e6595367b3b5bbf1f560384d79de305 at --vib-call=10
+--vib-call-id=0, the first reading the tracker's lilac `V 1` carried dim over the rows under it and the second the
+same row spelled `V OFF` with neither letter nor argument drawn under it; the baseline /tmp/opencode/vibnone.png taken
+with no vibrato flags holds zero pixels of that exact lilac 0xffd8b4e8 while vibletter holds one - the middle of
+one glyph of the `V 1` at full opacity, the rest of the glyph sitting over the dark background and blending - and
+viboff holds eight, being the release's three-glyph `OFF` drawn in the same lilac, so the lilac those pictures
+hold is drawn by the vibrato's own letters rather than by anything the demo's other rows already had. Neither harness
+touches `kVibCmd` through the tracker's own key entry, so that letter's typing is pinned at the model by CoreTest
+and at the paint by EditorShot rather than by a press driven through the grid, and the shot's own flags rather than
+a typed `s` are what put an `STP` argument beside a vibrato letter, since the editor refuses that spelling there.
 /media/data2/GameDev/Plugins/ReTrektor/JUCE: vendored framework.
 Important Context
 Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) (build dir currently configured and passing).
