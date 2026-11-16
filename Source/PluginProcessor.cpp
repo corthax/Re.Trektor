@@ -277,14 +277,93 @@ void ReTrektorAudioProcessor::pushUndoPoint()
         && undoStates[(size_t) undoCursor].xml == xml)
         return;
 
+    // the events after a drag's first change move the point that change made
+    // along rather than appending more of their own, which is what keeps the
+    // whole drag one Ctrl+Z step instead of leaving the number part-way along
+    // it when the user walks the drag back
+    if (dragBeingHeard && dragPointMade)
+    {
+        replaceUndoPoint();
+        return;
+    }
+
     // the action being recorded forgets everything the cursor had walked back
     // over, which is what keeps Ctrl+Y able to retrace only the undone steps
     undoStates.resize ((size_t) (undoCursor + 1));
     undoStates.push_back ({ xml, xml.getNumBytesAsUTF8() });
     ++undoCursor;
     trimUndoLine();
+
+    // a drag being heard is now holding its one point, so the events after this
+    // change move that point along rather than appending more of their own
+    dragPointMade = dragBeingHeard;
 }
 
+//==============================================================================
+// A drag along a knob's row is heard as one notification per movement of the
+// pointer rather than as one action: a Slider answers every mouse event its
+// host moves along its own row with a value notification, and each of those
+// reaches the panel's handler and, through it, the editor's change of the model.
+// Appending a point for each of them made a drag over eight numbers eight undo
+// steps, so one Ctrl+Z press left the row still three numbers along the drag
+// rather than off it. The drag's first change appends the point pushUndoPoint
+// makes, its later changes move that point along, and closing the drag drops
+// that point when the drag ended on the number it began at, which is what a
+// knob taken out and back leaves nothing to undo. The drag's ends are what each
+// knob's own onDragStart and onDragEnd hand over.
+void ReTrektorAudioProcessor::beginKnobDrag()
+{
+    const juce::ScopedLock sl (modelLock);
+
+    dragBeingHeard = true;
+    dragPointMade = false;
+}
+
+void ReTrektorAudioProcessor::endKnobDrag()
+{
+    const juce::ScopedLock sl (modelLock);
+
+    if (dragPointMade)
+        popUndoPoint();
+
+    dragBeingHeard = false;
+    dragPointMade = false;
+}
+
+//==============================================================================
+// the two moves of the gesture's own point, taken with the model lock by
+// whoever asks for them
+void ReTrektorAudioProcessor::replaceUndoPoint()
+{
+    // the cursor rests on the state the model was in before the change being
+    // recorded, which is the drag's own point: it is moved to what the model is
+    // in now rather than a further point being appended
+    const auto xml = serialiseSong();
+
+    if (xml.isEmpty())
+        return;
+
+    undoStates[(size_t) undoCursor].xml = xml;
+    undoStates[(size_t) undoCursor].bytes = xml.getNumBytesAsUTF8();
+    recountUndoBytes();
+    trimUndoLine();
+}
+
+void ReTrektorAudioProcessor::popUndoPoint()
+{
+    // a drag ending on the number it began at changed nothing, so the point it
+    // had been moving along is dropped and the cursor goes back to the state
+    // below it, which is the one the model is in
+    if (undoCursor > 0
+        && undoStates[(size_t) undoCursor].xml == undoStates[(size_t) (undoCursor - 1)].xml)
+    {
+        undoStates.erase (undoStates.begin() + undoCursor);
+        --undoCursor;
+        recountUndoBytes();
+    }
+}
+
+//==============================================================================
 void ReTrektorAudioProcessor::trimUndoLine()
 {
     const int steps = song.settings.undoSteps;

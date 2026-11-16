@@ -103,6 +103,11 @@ void MacrosPanel::rebuild()
             // an Enter that confirms a value typed into this card's length box
             // cannot step the knob of whichever card the pointer left last
             r.len->setWantsKeyboardFocus (true);
+
+            // the same reason as the Settings rows' knobs: a drag along the card's
+            // own row belongs to the length, which the +/- pair only answered with
+            // clicks until the drag was asked for
+            r.len->setIncDecButtonsMode (juce::Slider::incDecButtonsDraggable_Horizontal);
             r.len->setRange (1.0, (double) kMaxArpSteps, 1.0);
             r.len->setTextBoxStyle (juce::Slider::TextBoxLeft, false, 44, 18);
             r.len->setColour (juce::Slider::textBoxTextColourId, theme::text);
@@ -123,6 +128,20 @@ void MacrosPanel::rebuild()
             addAndMakeVisible (*r.loop);
 
             const int index = id;
+
+            // the drag along the card's own length row is one action of the undo
+            // line rather than one point per notification: the Slider answers every
+            // mouse event its host moves along that row with its own value
+            // notification, and each of those reaches this handler and, through
+            // it, the editor's change of the model, so a drag that stepped over
+            // eight steps used to earn eight undo points and one Ctrl+Z left the
+            // length still seven steps along the drag rather than off it. The
+            // undo line hears the drag's two ends here, keeps the one point the
+            // drag's first change made, moves it along for the changes after it,
+            // and drops it when the drag ends on the number it began at
+            auto* lenKnob = r.len.get();
+            lenKnob->onDragStart = [this] { proc.beginKnobDrag(); };
+            lenKnob->onDragEnd = [this] { proc.endKnobDrag(); };
 
             r.len->onValueChange = [this, index]
             {

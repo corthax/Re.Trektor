@@ -136,6 +136,10 @@ void VibMacrosPanel::rebuild()
             // Enter that only confirms a typed value closes the number instead of
             // nudging whichever knob the pointer last touched
             r.amp->setWantsKeyboardFocus (true);
+            // the same reason as every other knob here: until the drag is asked
+            // for, the +/- pair the Slider builds answers clicks only and a
+            // sideways drag over the card leaves the amplitude where it was
+            r.amp->setIncDecButtonsMode (juce::Slider::incDecButtonsDraggable_Horizontal);
             // the amplitude is a share of full pitchbend rather than a number of
             // its own, which is what makes the knob read as the wheel's own half
             // height rather than as hundredths of it
@@ -153,6 +157,9 @@ void VibMacrosPanel::rebuild()
             // the same reason as the amplitude knob's: the Enter belongs to the
             // number being typed, not to a knob's own +/- buttons
             r.cycle->setWantsKeyboardFocus (true);
+            // the same reason as the amplitude knob's: the pair this Slider builds
+            // for it answers a click only, so the drag has to be asked for
+            r.cycle->setIncDecButtonsMode (juce::Slider::incDecButtonsDraggable_Horizontal);
             // the cycle is counted in subticks, the same grid an arpeggiator's
             // steps and a slide's ramp are measured over, so a cycle of one of
             // them is one subtick wide rather than one row wide
@@ -166,6 +173,26 @@ void VibMacrosPanel::rebuild()
             addAndMakeVisible (*r.cycle);
 
             const int index = id;
+
+            // a drag over either of the card's two knobs is one action of the undo
+            // line rather than one point per notification: the Slider answers every
+            // mouse event its host moves along its own row with a value
+            // notification, and each of those reaches the handler under it and,
+            // through it, the editor's change of the model, so a drag that
+            // stepped over eight hundredths of the wheel used to earn eight undo
+            // points and one Ctrl+Z left the amplitude still seven of them along
+            // the drag rather than off it. The undo line hears the drag's two
+            // ends here, keeps the one point that drag's first change made,
+            // moves it along for the changes after it, and drops it when the
+            // drag ends on the number it began at, which is what a knob
+            // carried out and back leaves nothing to undo
+            auto* ampKnob = r.amp.get();
+            ampKnob->onDragStart = [this] { proc.beginKnobDrag(); };
+            ampKnob->onDragEnd = [this] { proc.endKnobDrag(); };
+
+            auto* cycleKnob = r.cycle.get();
+            cycleKnob->onDragStart = [this] { proc.beginKnobDrag(); };
+            cycleKnob->onDragEnd = [this] { proc.endKnobDrag(); };
 
             // the dropdown answers a drag or a keyboard nudge of its own: its
             // shape is a setting of the model rather than a drawing, so the

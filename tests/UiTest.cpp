@@ -20,6 +20,10 @@
         model changes append, the Settings tab's Undo steps row caps how far
         back they go, and the walk covers note entry, a cell paste, a clip
         placed from the pool, a settings change and the bottom bar
+      - a knob dragged along its own row: a drag over the +/- pair a Slider
+        builds beside its text box moves the number that row shows and reaches
+        the model, so the Settings tab's Undo steps row can be asked for by
+        dragging it, and its +/- pair still cost one step each
       - timeline drag-and-drop from the pool
       - pool double-click placement with snapping
       - settings toggles
@@ -2525,6 +2529,142 @@ int main()
             else
             {
                 check (false, "the settings tab has too few sliders to find the undo row");
+            }
+        }
+
+        //== a knob dragged along its own row ==============================
+        {
+            // a Slider in the inc/dec buttons style has no thumb to grab: the whole
+            // area beside its text box is the pair of +/- buttons it asks the look
+            // and feel for, and those buttons answer a click only until the drag
+            // mode is asked for, which is what made a sideways drag over the row do
+            // nothing at all and left the number on whatever the last click had
+            // stepped it to, so the row never reached the undo line at all
+            std::vector<juce::Slider*> rows;
+            collectSliders (*settings, rows);
+
+            if (rows.size() < 9)
+            {
+                check (false, "the settings tab has too few sliders to find the undo row");
+            }
+            else
+            {
+                // the row is grabbed the way a host grabs it, which needs the tab
+                // showing, a panel that is not keeping the undo row at zero size
+                if (auto* tab = findButton (*editor, "SETTINGS"))
+                    tab->onClick();
+
+                auto* depthRow = rows[rows.size() - 3];
+                const int stepsBefore = song.settings.undoSteps;
+                const int depthBefore = proc.getUndoDepth();
+
+                const auto now = juce::Time::getCurrentTime();
+                const auto source = juce::Desktop::getInstance().getMainMouseSource();
+
+                // the drag is grabbed over the pair of +/- buttons, the row's whole
+                // knob, and runs along the row: the style's own ten-pixel dead zone
+                // is crossed by the first of several drag events, the rest of the
+                // pointer's path being read from the point that event lands on
+                auto dragAlongRow = [&] (juce::Slider* knob, float fromX, float toX)
+                {
+                    const auto y = (float) (knob->getHeight() / 2);
+                    const float step = toX > fromX ? 12.0f : -12.0f;
+
+                    knob->mouseDown (juce::MouseEvent (source, { fromX, y }, juce::ModifierKeys(),
+                                                       1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                                       knob, knob, now, { fromX, y }, now, 1, false));
+
+                    for (float x = fromX + step; (toX > fromX ? x < toX : x > toX); x += step)
+                        knob->mouseDrag (juce::MouseEvent (source, { x, y }, juce::ModifierKeys(),
+                                                           1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                                           knob, knob, now, { fromX, y }, now, 1, true));
+
+                    knob->mouseDrag (juce::MouseEvent (source, { toX, y }, juce::ModifierKeys(),
+                                                       1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                                       knob, knob, now, { fromX, y }, now, 1, true));
+                    knob->mouseUp (juce::MouseEvent (source, { toX, y }, juce::ModifierKeys(),
+                                                     1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                                     knob, knob, now, { fromX, y }, now, 1, true));
+                };
+
+                dragAlongRow (depthRow, 60.0f, 120.0f);
+                check (song.settings.undoSteps > stepsBefore
+                           && song.settings.undoSteps == juce::roundToInt (depthRow->getValue()),
+                       "a drag along the row moves the number the row shows and feeds the undo depth it asks for");
+
+                check (proc.getUndoDepth() == juce::jmin (depthBefore + 1, song.settings.undoSteps),
+                       "and the drag is one undoable action of its own");
+
+                pressUndo();
+                check (song.settings.undoSteps == stepsBefore
+                           && juce::roundToInt (depthRow->getValue()) == stepsBefore,
+                       "a Ctrl+Z takes the row back to the number it had before the drag");
+
+                dragAlongRow (depthRow, 100.0f, 60.0f);
+                check (song.settings.undoSteps < stepsBefore
+                           && song.settings.undoSteps > 0,
+                       "the other way along the row takes the depth down the same way");
+
+                pressUndo();
+                check (song.settings.undoSteps == stepsBefore
+                           && juce::roundToInt (depthRow->getValue()) == stepsBefore,
+                       "and undoing that one brings the row and the depth back together");
+
+                std::vector<juce::Button*> pair;
+                collectButtons (*depthRow, pair);
+
+                if (auto inc = std::find_if (pair.begin(), pair.end(),
+                                             [&] (juce::Button* b) { return b->getButtonText() == "+"; });
+                    inc != pair.end())
+                {
+                    (*inc)->onClick();
+                    check (song.settings.undoSteps == stepsBefore + 1,
+                           "and a click of the row's own + button still costs one step of its own, the drag being a way in rather than the only one");
+
+                    pressUndo();
+                    check (song.settings.undoSteps == stepsBefore,
+                           "and the row leaves the depth where the round's other checks read it, the click having been walked back");
+                }
+                else
+                {
+                    check (false, "the undo row's knob holds no + button to click");
+                }
+
+                // the two directions of the row are two gestures and each one is a
+                // single action of the line: the events the host hears along a
+                // drag move the point the drag's first change made rather than
+                // appending one per event, so the pair costs two Ctrl+Z presses
+                // rather than the dozens a walk over the row used to cost
+                const int depthBeforeRoundTrip = proc.getUndoDepth();
+
+                dragAlongRow (depthRow, 60.0f, 120.0f);
+                const int outValue = song.settings.undoSteps;
+
+                check (proc.getUndoDepth() == depthBeforeRoundTrip + 1
+                           && outValue > stepsBefore,
+                       "one drag along the row is one point of the undo line, however many events walked it there");
+
+                dragAlongRow (depthRow, 120.0f, 60.0f);
+
+                check (proc.getUndoDepth() == depthBeforeRoundTrip + 2
+                           && song.settings.undoSteps == stepsBefore
+                           && juce::roundToInt (depthRow->getValue()) == stepsBefore,
+                       "the way back is a second action of its own and leaves the number where the round trip began");
+
+                pressUndo();
+                check (song.settings.undoSteps == outValue
+                           && juce::roundToInt (depthRow->getValue()) == outValue
+                           && proc.getUndoDepth() == depthBeforeRoundTrip + 1,
+                       "one Ctrl+Z walks one drag of the pair back, to the number the first of them made");
+
+                pressUndo();
+                check (song.settings.undoSteps == stepsBefore
+                           && proc.getUndoDepth() == depthBeforeRoundTrip,
+                       "and the second press takes the other drag, and the depth the row asks for, back as well");
+
+                // the tab the sections after this one click through is the tracker's
+                if (auto* tab = findButton (*editor, "TRACKER"))
+                    tab->onClick();
             }
         }
 

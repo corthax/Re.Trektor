@@ -309,6 +309,12 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
         // Enter confirming a typed value closes the number instead of stepping
         // this knob again, which is what the bottom bar's three knobs are for
         s.setWantsKeyboardFocus (true);
+
+        // the same reason as the panels' knobs: this style of Slider has no thumb
+        // to grab, only the +/- pair it asks the look and feel for, and that pair
+        // answers a click alone until the drag is asked for, which is what left
+        // the bottom bar's OCT / STEP / CHANNELS knobs reading clicks only
+        s.setIncDecButtonsMode (juce::Slider::incDecButtonsDraggable_Horizontal);
         s.setSliderStyle (juce::Slider::IncDecButtons);
         s.setRange (min, max, 1.0);
         s.setValue (value, juce::dontSendNotification);
@@ -317,6 +323,17 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
         s.setColour (juce::Slider::textBoxBackgroundColourId, theme::panelLight);
         s.setColour (juce::Slider::textBoxOutlineColourId, theme::outline);
         addAndMakeVisible (s);
+
+        // the same reason as the panels' knobs: a drag along one of the bottom
+        // bar's rows is heard as one value notification per movement of the
+        // pointer, and these three knobs reach the model through the change
+        // recorded below rather than through a panel's own handler, so each of
+        // those notifications used to append a point of the undo line of its
+        // own and one Ctrl+Z left the row part-way along the drag rather than
+        // off it. The line hears the drag's two ends here too and keeps one
+        // point of its own for the whole gesture
+        s.onDragStart = [this] { proc.beginKnobDrag(); };
+        s.onDragEnd = [this] { proc.endKnobDrag(); };
     };
 
     setupBottomSlider (octaveSlider, octaveLabel, "OCT", 0.0, 9.0, (double) song.settings.recordOctave);

@@ -61,6 +61,16 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
     // knob; the panel keeps no focus of its own, since it stays on screen on every
     // tab and focus resting here would leave the tracker deaf
     transposeAmount.setWantsKeyboardFocus (true);
+    // the same reason as the knobs everywhere else in the editor: a Slider in this
+    // style has no thumb, so until the drag is asked for the arrows' own amount
+    // field can only be stepped by clicking its +/- pair and a sideways drag over
+    // it leaves the semitones where they were
+    transposeAmount.setIncDecButtonsMode (juce::Slider::incDecButtonsDraggable_Horizontal);
+    // this row is the one place a knob is asked for a drag but not for the undo
+    // line's two ends of it: the number belongs to the arrows rather than to the
+    // model, since a drag here writes the amount the next arrow reads rather than
+    // a state of the song, so the drag leaves no point of the undo line to keep
+    // as one action and there is nothing for beginKnobDrag and endKnobDrag to do
     transposeAmount.setRange (1.0, 48.0, 1.0); // whole semitones, up to four octaves
     transposeAmount.setValue (12.0, juce::dontSendNotification);
     transposeAmount.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 46, 18);

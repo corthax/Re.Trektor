@@ -100,6 +100,20 @@ public:
         of them instead of the plug-in growing without bound. */
     void pushUndoPoint();
 
+    /** Opens and closes one drag along a knob's row, which is what lets the
+        line keep that drag as one action. A Slider in the inc/dec buttons
+        style answers every mouse event its host moves along the row with its
+        own value notification, and each of those reaches the editor as a
+        change of the model, so a drag that stepped over eight numbers used to
+        earn eight points and one Ctrl+Z left the row three numbers along the
+        drag rather than off it. While a drag is open the first change of the
+        model appends the point it produced and any later one moves that point
+        along, keeping the whole drag a single step of the line; closing it
+        drops that point when the drag ended on the number it started from,
+        which is what a knob taken out and back leaves nothing to undo. */
+    void beginKnobDrag();
+    void endKnobDrag();
+
     /** Steps the model back one point of the undo line (Ctrl+Z) and refreshes
         the playback snapshot, the way a cell edit does: the engine keeps its
         note and command state, so rows past the playhead play the restored
@@ -159,6 +173,15 @@ private:
 
     void trimUndoLine();
     bool stepUndoHistory (int delta);
+    void replaceUndoPoint(); // moves the cursor's state along, called with the lock
+    void popUndoPoint(); // drops the cursor's state when it repeats the one below
+
+    // a drag along a knob's row is heard as one notification per movement of
+    // the pointer rather than as one action, so the line keeps the gesture's
+    // one point: which drag is being heard now, and whether it has recorded its
+    // point yet
+    bool dragBeingHeard = false;
+    bool dragPointMade = false;
     juce::String serialiseSong() const;
     void recountUndoBytes();
     void anchorUndoLine(); // the line's single state, taken with the model lock

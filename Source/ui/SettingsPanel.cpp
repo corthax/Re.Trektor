@@ -159,6 +159,16 @@ juce::Slider* SettingsPanel::addSlider (const juce::String& label, const juce::S
     // the Return key while it holds the focus, so the Enter that confirms a typed
     // value would otherwise move the knob the pointer left last
     slider->setWantsKeyboardFocus (true);
+
+    // a Slider in this style has no thumb to grab: the area beside its text box is
+    // the pair of +/- buttons it asks the look and feel for, and those buttons
+    // answer a click only until the drag is asked for, which leaves a sideways
+    // drag over the row doing nothing at all, the value staying on whatever the
+    // last click left it at. Asking for the horizontal drag puts a drag on that
+    // pair, and on the row's own width, onto the value: the number moves with the
+    // pointer, the button the drag runs towards lights up, and a click still costs
+    // one step of the interval, so the row keeps both ways of moving it
+    slider->setIncDecButtonsMode (juce::Slider::incDecButtonsDraggable_Horizontal);
     slider->setRange (min, max, interval);
     slider->setValue (value, juce::dontSendNotification);
     slider->setTextBoxStyle (juce::Slider::TextBoxLeft, false, 52, 20);
@@ -169,6 +179,18 @@ juce::Slider* SettingsPanel::addSlider (const juce::String& label, const juce::S
 
     auto* raw = slider.get();
     raw->onValueChange = [raw, cb = std::move (onChange)] { cb (raw->getValue()); };
+
+    // the drag along the row is one action of the undo line rather than one
+    // point per notification: the Slider answers every mouse event its host
+    // moves along the row with its own value notification, and each of those
+    // reaches this row and, through it, the editor's change of the model, so a
+    // drag that stepped over eight numbers used to earn eight undo points and
+    // one Ctrl+Z left the number still three numbers along the drag rather
+    // than off it. The undo line hears the drag's two ends here and keeps one
+    // point of its own for the whole gesture, which is what the row's own undo
+    // steps then cap the reach of
+    raw->onDragStart = [this] { proc.beginKnobDrag(); };
+    raw->onDragEnd = [this] { proc.endKnobDrag(); };
 
     addAndMakeVisible (*raw);
     owned.push_back (std::move (slider));
