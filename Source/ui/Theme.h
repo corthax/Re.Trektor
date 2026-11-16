@@ -80,6 +80,20 @@ public:
         setColour (juce::TextButton::textColourOnId, juce::Colours::white);
         setColour (juce::ScrollBar::thumbColourId, outline.brighter (0.2f));
     }
+
+    /** A Slider drawn in the "inc/dec buttons" style makes its own +/- buttons,
+        and nothing outside the Slider can reach them: the Slider builds them
+        through the look and feel, so this is the one place their keyboard focus
+        can be taken away. A Button wants that focus by default and answers the
+        Return key, which is what an Enter pressed to confirm a value typed into
+        a slider's own text box would otherwise spend on whichever knob's button
+        the pointer left last. */
+    juce::Button* createSliderButton (juce::Slider& slider, bool isIncrement) override
+    {
+        auto* b = juce::LookAndFeel_V2::createSliderButton (slider, isIncrement);
+        b->setWantsKeyboardFocus (false);
+        return b;
+    }
 };
 
 } // namespace rtr::theme

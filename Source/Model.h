@@ -414,12 +414,17 @@ struct Clip
     A step holding kArpEmptyStep sounds nothing and sustains the step before it,
     and a step whose note falls outside the keyboard snaps back by whole octaves,
     so the pitch keeps the step's shape. A step holding kArpNoteOffStep is the
-    note column's own note-off: at its subtick it releases the note the run last
-    entered and sounds nothing, so the run keeps stepping while the note the
-    column struck stays owned by whatever ends it further down the column. A jump
-    is clamped to kArpTopStep away from the base note, which is what keeps both
-    sentinels free of the jumps a step can name and makes the note-off the value
-    below the empty one rather than another byte. The steps are held wide, two
+    note column's own note-off: at its subtick it releases whatever the run is
+    holding there, the note it last entered when it has already sounded one and
+    the note the column had entered above the call when it has not, and sounds
+    nothing, so a leading note-off step is a rest over the note the rows above had
+    left held while the column keeps naming it and the steps under the rest measure
+    from it again. The note entered at the row that calls a macro is that run's first
+    step, sounded at the pitch the first step moved it to rather than as it was
+    typed, which is what makes the first of the steps affect a note the call row
+    named. A jump is clamped to kArpTopStep away from the base note, which is what
+    keeps both sentinels free of the jumps a step can name and makes the note-off
+    the value below the empty one rather than another byte. The steps are held wide, two
     bytes saved per step, so a note-off sits below the range a single byte could
     name and a state older than this still reads: its one-byte block widens step
     by step unchanged. A macro that is looped starts over at its first step

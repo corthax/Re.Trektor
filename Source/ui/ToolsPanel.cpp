@@ -12,6 +12,13 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
 
     auto styleButton = [] (juce::TextButton& b)
     {
+        // the same reason as the tabs' and the checkboxes': these answer the
+        // Return key while they hold the keyboard focus, so an Enter meant to
+        // confirm a typed value would otherwise transpose or remap again. The
+        // panel keeps no focus of its own, since it stays on screen on every tab
+        // and focus resting here would leave the tracker deaf
+        b.setWantsKeyboardFocus (false);
+
         b.setColour (juce::TextButton::buttonColourId, theme::panelLight);
         b.setColour (juce::TextButton::textColourOnId, theme::text);
         b.setColour (juce::TextButton::textColourOffId, theme::text);
@@ -49,6 +56,11 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
     // so the panel offers one value and one click instead of four fixed steps:
     // the drag buttons step by a single semitone, and typing into the text box
     // sets the amount directly. The default is an octave, the commonest move
+    // the knob holds the keyboard focus rather than its +/- buttons, so an Enter
+    // that only confirms a typed value closes the number instead of stepping this
+    // knob; the panel keeps no focus of its own, since it stays on screen on every
+    // tab and focus resting here would leave the tracker deaf
+    transposeAmount.setWantsKeyboardFocus (true);
     transposeAmount.setRange (1.0, 48.0, 1.0); // whole semitones, up to four octaves
     transposeAmount.setValue (12.0, juce::dontSendNotification);
     transposeAmount.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 46, 18);

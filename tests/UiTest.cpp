@@ -23,6 +23,10 @@
       - timeline drag-and-drop from the pool
       - pool double-click placement with snapping
       - settings toggles
+      - the keyboard focus: no Button in the editor's tree takes it, so an Enter
+        pressed to confirm a value typed into a field cannot fire the control the
+        pointer left last, and the knobs and the panels whose own text box that
+        value goes into want it instead
       - MIDI output reflecting editor edits
 */
 
@@ -37,6 +41,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
@@ -159,6 +164,21 @@ void collectComboBoxes (juce::Component& root, std::vector<juce::ComboBox*>& out
             out.push_back (combo);
 
         collectComboBoxes (*child, out);
+    }
+}
+
+// every button in the component tree, which is also where a knob's own +/-
+// buttons live: the Slider asks its look and feel for them and adds them to
+// itself, so they are read back the same way as the tabs' names and the cards'
+// ticks rather than only being seen to paint
+void collectButtons (juce::Component& root, std::vector<juce::Button*>& out)
+{
+    for (auto* child : root.getChildren())
+    {
+        if (auto* button = dynamic_cast<juce::Button*> (child))
+            out.push_back (button);
+
+        collectButtons (*child, out);
     }
 }
 
@@ -3486,6 +3506,154 @@ int main()
                "a macro defined and a macro taken away are one action each, the card's three settings being three more above them");
 
         // the tab the sections after this one click through is the tracker's
+        if (auto* tab = findButton (*editor, "TRACKER"))
+            tab->onClick();
+    }
+
+    //== Enter confirming a typed value ==================================
+    {
+        // a Button takes the keyboard focus by default and answers the Return key
+        // while it holds it, so an Enter pressed only to confirm what was typed
+        // into a field went to whichever control the pointer had touched last and
+        // kept doing so for every further press: the tab names switched the tab
+        // back, the macro pair added or cleared a macro, a Settings checkbox
+        // flipped itself and a knob's own +/- buttons stepped the knob. The
+        // editor now puts the focus on the panel or knob whose text box a value is
+        // typed into and takes it away from every Button, including the pair each
+        // knob builds inside itself
+        std::vector<juce::Button*> buttons;
+        collectButtons (*editor, buttons);
+
+        check (buttons.size() >= 30,
+               "the buttons a test can reach cover the tabs, the checkboxes, the cards' ticks, the tools and the pair of buttons each knob makes inside itself");
+
+        check (std::none_of (buttons.begin(), buttons.end(),
+                             [] (juce::Button* b) { return b->getWantsKeyboardFocus(); }),
+               "none of them takes the keyboard focus, so an Enter can never fire the control the pointer left last");
+
+        std::vector<juce::Slider*> knobs;
+        collectSliders (*editor, knobs);
+
+        check (! knobs.empty()
+                   && std::all_of (knobs.begin(), knobs.end(),
+                                   [] (juce::Slider* s) { return s->getWantsKeyboardFocus(); }),
+               "the knobs take the focus instead, being the controls whose own text box a value is typed into");
+
+        if (! knobs.empty())
+        {
+            std::vector<juce::Button*> knobButtons;
+            collectButtons (*knobs.back(), knobButtons);
+
+            check (knobButtons.size() == 2
+                   && std::none_of (knobButtons.begin(), knobButtons.end(),
+                                    [] (juce::Button* b) { return b->getWantsKeyboardFocus(); }),
+                   "and the +/- buttons a knob builds inside itself are there and hold no focus either, the editor's sweep taking it away from the ones the default look had made before its own was in force");
+        }
+
+        check (macros->getWantsKeyboardFocus() && vibs->getWantsKeyboardFocus()
+               && settings->getWantsKeyboardFocus() && tracker->getWantsKeyboardFocus(),
+               "the panels that own typed fields want the keyboard focus, which is what walks a press to their fields rather than to a control");
+
+        auto openTab = [&] (const char* name)
+        {
+            if (auto* tab = findButton (*editor, name))
+                tab->onClick();
+        };
+
+        // what a panel holds of its own is read back once that tab is showing,
+        // which is also when the editor sweeps its buttons: a card is rebuilt as
+        // its macros are added to and taken away, bringing fresh buttons and a
+        // knob's fresh pair with it
+        auto checkNoButtonFocus = [&] (juce::Component& panel, const juce::String& what)
+        {
+            std::vector<juce::Button*> inside;
+            collectButtons (panel, inside);
+
+            check (! inside.empty()
+                       && std::none_of (inside.begin(), inside.end(),
+                                        [] (juce::Button* b) { return b->getWantsKeyboardFocus(); }),
+                   what);
+        };
+
+        const auto countArp = [&]
+        {
+            int n = 0;
+
+            for (int id = 1; id <= rtr::kMaxArpMacros; ++id)
+                if (song.arpDefined (id))
+                    ++n;
+
+            return n;
+        };
+
+        const auto countVib = [&]
+        {
+            int n = 0;
+
+            for (int id = 1; id <= rtr::kMaxVibMacros; ++id)
+                if (song.vibDefined (id))
+                    ++n;
+
+            return n;
+        };
+
+        const int depthBeforeEnter = proc.getUndoDepth();
+        const int arpsBefore = countArp();
+        const int vibsBefore = countVib();
+
+        openTab ("SETTINGS");
+
+        checkNoButtonFocus (*settings,
+                            "opening the Settings tab leaves its checkboxes and the pair inside each of its knobs holding no focus, that panel's knobs being made before the look and feel was put in force");
+
+        check (settings->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0)),
+               "the Settings tab spends an Enter rather than handing it up, its own fields having answered it already");
+
+        check (findToggle (*settings, "Ignore mid-row start") != nullptr
+               && findToggle (*settings, "Snap to grid") != nullptr
+               && findToggle (*settings, "Adaptive grid") != nullptr,
+               "the Settings tab's checkboxes are reachable to be read back");
+
+        if (auto* snap = findToggle (*settings, "Snap to grid"))
+        {
+            const bool snapState = snap->getToggleState();
+
+            for (int i = 0; i < 3; ++i)
+                settings->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+
+            check (snap->getToggleState() == snapState && proc.getUndoDepth() == depthBeforeEnter,
+                   "and repeating the Enter changes no checkbox and adds no undo point, the press having fired the checkbox beside the pointer before");
+        }
+
+        openTab ("ARP MACRO");
+
+        checkNoButtonFocus (*macros,
+                            "and so for the arpeggiator tab, whose cards' Add, Remove and LOOPED buttons and knob pairs are rebuilt rather than made once");
+
+        check (macros->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0)),
+               "and the arpeggiator tab spends an Enter the same way, the half typed step number having been landed by the press already");
+
+        for (int i = 0; i < 3; ++i)
+            macros->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+
+        check (countArp() == arpsBefore && proc.getUndoDepth() == depthBeforeEnter,
+               "and repeating the Enter adds or clears no macro and leaves the undo line alone, the press having fired the tab's Add and Remove buttons before");
+
+        openTab ("VIB MACRO");
+
+        checkNoButtonFocus (*vibs,
+                            "and for the vibrato tab, whose cards bring a dropdown, two knobs and their pair of buttons each");
+
+        check (vibs->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0)),
+               "the vibrato tab spends an Enter too, the dropdown and the two knobs answering their own");
+
+        for (int i = 0; i < 3; ++i)
+            vibs->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+
+        check (countVib() == vibsBefore && proc.getUndoDepth() == depthBeforeEnter,
+               "and repeating it adds or clears no macro, the press having fired the tab's Add and Remove buttons before");
+
+        // the tab the last sections of this file click through is the tracker's
         if (auto* tab = findButton (*editor, "TRACKER"))
             tab->onClick();
     }

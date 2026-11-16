@@ -4,6 +4,39 @@
 using namespace rtr;
 
 //==============================================================================
+/** Takes the keyboard focus away from every Button in a component tree.
+
+    A Button wants that focus by default and answers the Return key while it
+    holds it, so once the pointer had clicked a control once, every later Enter
+    fired that control again rather than closing the value it was typed into:
+    a tab's name switched the tab back, a Settings row's checkbox flipped
+    itself, the tools' pair transposed a second time, a knob's own +/- buttons
+    stepped the knob. The focus now rests on the control whose text box a value
+    is typed into, and this takes it away from everything else.
+
+    The sweep is what covers the controls the editor builds while its panels are
+    being constructed, before the constructor's body has put the look and feel
+    in force; the theme's own createSliderButton does the same for the +/- pair
+    a Slider builds later, while that look is in force. Alert windows are not
+    reached: an AlertWindow is a window of its own with no parent component, and
+    its buttons answer a Return on their own, which is what closing one by
+    keyboard needs.
+*/
+static void clearButtonKeyboardFocus (juce::Component& comp)
+{
+    for (auto* child : comp.getChildren())
+    {
+        if (child == nullptr)
+            continue;
+
+        if (auto* button = dynamic_cast<juce::Button*> (child))
+            button->setWantsKeyboardFocus (false);
+
+        clearButtonKeyboardFocus (*child);
+    }
+}
+
+//==============================================================================
 ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProcessor& p)
     : AudioProcessorEditor (&p),
       proc (p),
@@ -38,6 +71,14 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     for (auto* b : { &trackerTab, &macrosTab, &vibTab, &settingsTab })
     {
         b->setClickingTogglesState (false);
+
+        // a Button wants the keyboard focus and answers the Return key, so an
+        // Enter pressed to confirm what was typed into a field would otherwise
+        // go to whichever button the pointer last touched rather than to the
+        // field, switching the tab the press was never meant for; these take the
+        // focus away, which is also what keeps a Tab from walking onto them
+        b->setWantsKeyboardFocus (false);
+
         b->setColour (juce::TextButton::buttonColourId, theme::panel);
         b->setColour (juce::TextButton::buttonOnColourId, theme::selection);
         addAndMakeVisible (*b);
@@ -51,6 +92,11 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
     //== grid controls ========================================================
     snapButton.setColour (juce::ToggleButton::textColourId, theme::text);
     snapButton.setColour (juce::ToggleButton::tickColourId, theme::accent);
+
+    // the same reason as the tabs: a Button answers the Return key, so an Enter
+    // confirming a typed value would otherwise flip the checkbox the pointer
+    // left last rather than close the field it was typed into
+    snapButton.setWantsKeyboardFocus (false);
     snapButton.onClick = [this]
     {
         if (syncingUi)
@@ -91,6 +137,12 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
 
     zoomOutButton.onClick = [this] { timeline.zoomBy (1.0 / 1.3, song.editPlayheadBeats); };
     zoomInButton.onClick = [this] { timeline.zoomBy (1.3, song.editPlayheadBeats); };
+
+    // the tabs' and the snap checkbox' reason as well: these answer the Return
+    // key while they hold the keyboard focus, so an Enter that was meant to
+    // confirm a typed value would otherwise zoom the timeline in or out
+    zoomOutButton.setWantsKeyboardFocus (false);
+    zoomInButton.setWantsKeyboardFocus (false);
     addAndMakeVisible (zoomOutButton);
     addAndMakeVisible (zoomInButton);
 
@@ -253,6 +305,10 @@ ReTrektorAudioProcessorEditor::ReTrektorAudioProcessorEditor (ReTrektorAudioProc
         label.setJustificationType (juce::Justification::centredRight);
         addAndMakeVisible (label);
 
+        // the knob rather than its +/- buttons holds the keyboard focus, so an
+        // Enter confirming a typed value closes the number instead of stepping
+        // this knob again, which is what the bottom bar's three knobs are for
+        s.setWantsKeyboardFocus (true);
         s.setSliderStyle (juce::Slider::IncDecButtons);
         s.setRange (min, max, 1.0);
         s.setValue (value, juce::dontSendNotification);
@@ -490,8 +546,25 @@ void ReTrektorAudioProcessorEditor::setTab (Tab tab)
     resized();
     repaint();
 
+    // the cards a tab holds are rebuilt as its macros are added to and taken
+    // away, and each card brings its own buttons and its knob's pair with it, so
+    // the focus is taken away again rather than only at construction
+    clearButtonKeyboardFocus (*this);
+
+    // the tab's own panel is what has to hear the keys typed into it, so it takes
+    // the keyboard focus the way the tracker does. The panels no longer leave it
+    // on one of their buttons: a Button wants that focus and answers the Return
+    // key, so a press that only confirms what was typed into a field would
+    // otherwise fire whichever control the pointer left last, well after the
+    // field it was meant for was done with
     if (tab == Tab::tracker)
         tracker.grabKeyboardFocus();
+    else if (tab == Tab::macros)
+        macros.grabKeyboardFocus();
+    else if (tab == Tab::vibs)
+        vibs.grabKeyboardFocus();
+    else if (tab == Tab::settings)
+        settings.grabKeyboardFocus();
 }
 
 void ReTrektorAudioProcessorEditor::refreshAll()

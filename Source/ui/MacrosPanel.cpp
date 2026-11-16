@@ -22,6 +22,14 @@ MacrosPanel::MacrosPanel (ReTrektorAudioProcessor& processor)
 {
     setOpaque (true);
 
+    // the steps are entered by keyboard into the panel's own drawn cells, so the
+    // panel wants the keyboard focus and the editor hands it over on this tab. It
+    // used to sit on one of the panel's buttons, which hold it by default and
+    // answer the Return key: an Enter pressed to confirm a typed step then fired
+    // whichever control the pointer left last rather than closing the value, and
+    // carried on doing so for every further press
+    setWantsKeyboardFocus (true);
+
     addButton.onClick = [this]
     {
         // defining takes the lowest id that has none yet, so the ids a row can
@@ -66,6 +74,11 @@ MacrosPanel::MacrosPanel (ReTrektorAudioProcessor& processor)
 
     for (auto* b : { &addButton, &removeButton })
     {
+        // a Button takes the keyboard focus and answers the Return key, which is
+        // what an Enter confirming a typed step would otherwise spend on the
+        // macro this button adds or clears, so these take the focus away
+        b->setWantsKeyboardFocus (false);
+
         b->setColour (juce::TextButton::buttonColourId, theme::panelLight);
         b->setColour (juce::TextButton::textColourOffId, theme::text);
         addAndMakeVisible (*b);
@@ -85,6 +98,11 @@ void MacrosPanel::rebuild()
         if (used && r.len == nullptr)
         {
             r.len = std::make_unique<juce::Slider> (juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft);
+
+            // the knob rather than its +/- buttons holds the keyboard focus, so
+            // an Enter that confirms a value typed into this card's length box
+            // cannot step the knob of whichever card the pointer left last
+            r.len->setWantsKeyboardFocus (true);
             r.len->setRange (1.0, (double) kMaxArpSteps, 1.0);
             r.len->setTextBoxStyle (juce::Slider::TextBoxLeft, false, 44, 18);
             r.len->setColour (juce::Slider::textBoxTextColourId, theme::text);
@@ -95,6 +113,10 @@ void MacrosPanel::rebuild()
             addAndMakeVisible (*r.len);
 
             r.loop = std::make_unique<juce::ToggleButton> ("LOOPED");
+
+            // the same reason as the card's buttons: while it holds the keyboard
+            // focus an Enter confirming a typed step re-flips this loop switch
+            r.loop->setWantsKeyboardFocus (false);
             r.loop->setColour (juce::ToggleButton::textColourId, theme::text);
             r.loop->setColour (juce::ToggleButton::tickColourId, theme::accent);
             r.loop->setColour (juce::ToggleButton::tickDisabledColourId, theme::textDim);
@@ -437,6 +459,16 @@ bool MacrosPanel::keyPressed (const juce::KeyPress& key)
         typingStep = false;
         stepText.clear();
         repaint();
+        return true;
+    }
+
+    if (code == juce::KeyPress::returnKey)
+    {
+        // an Enter only closes what was half typed, which the top of this handler
+        // already did, and is then spent here rather than handed up: the press
+        // walked to the panel because the panel holds the keyboard focus, so
+        // handing the Enter on would let whatever sits above it answer a press
+        // that was only meant to confirm the step's value
         return true;
     }
 

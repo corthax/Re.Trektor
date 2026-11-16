@@ -756,7 +756,11 @@ int main()
                 off72 = i;
         }
 
-        check (ons.size() == 3, "a note-off step sounds nothing while the stepped steps do, got " + juce::String ((int) ons.size()));
+        check (ons.size() == 3, "a note-off step sounds nothing while the stepped steps do, the note entered at the call row being one of them, got " + juce::String ((int) ons.size()));
+        check (std::count (ons.begin(), ons.end(), 64) == 1 && std::count (ons.begin(), ons.end(), 60) == 0,
+               "the run's first step moves the note entered at the call row, so the 60 that row named is never sounded as typed and the run's first note-on is the 64 that step moved it to");
+        check (! h.notes.empty() && h.notes[0].on && h.notes[0].note == 64,
+               "the run's first step sounds at the call row itself rather than at the subtick below it, which is what makes a note entered on that row answer the macro right away");
         check (std::count (ons.begin(), ons.end(), 68) == 1 && std::count (ons.begin(), ons.end(), 72) == 1,
                "the steps either side of a note-off step land on their own pitches, so the run keeps its step count");
         check (on68 >= 0 && off68 > on68 && on72 > off68,
@@ -813,9 +817,13 @@ int main()
                 off64 = i;
         }
 
-        check (ons.size() == 2, "the head and tail note-off steps sound nothing, so only the note the column named and the stepped step sound, got " + juce::String ((int) ons.size()));
-        check (off60 >= 0 && on64 == off60 + 1, "a head note-off step opens nothing of its own, so the note the column named opens right ahead of the note the stepped step sounds");
-        check (on64 >= 0 && off64 > on64 && offs64 == 1 && offs60 == 1, "the tail note-off step opens the note its own step entered once, and the clip end has nothing left to release, got " + juce::String (offs64 + offs60));
+        check (ons.size() == 2, "the head and tail note-off steps sound nothing, so only the note the column named above the call and the stepped step sound, got " + juce::String ((int) ons.size()));
+        check (off60 >= 0 && on64 == off60 + 1,
+               "the head note-off step opens the note the column had entered above the call, even though the run has sounded no step of its own, and ahead of the note the stepped step sounds");
+        check (off60 >= 0 && on64 >= 0 && h.raw[(size_t) off60].offset != h.raw[(size_t) on64].offset,
+               "the head note-off step opens that note at its own subtick rather than leaving it held for the stepped step to re-articulate, which is what a run whose call sat at a row with no note of its own has to do to make a leading note-off work");
+        check (on64 >= 0 && off64 > on64 && offs64 == 1 && offs60 == 1,
+               "the tail note-off step opens the note its own step entered once, the head one having opened the column's note once, and the clip end has nothing left to release, got " + juce::String (offs64 + offs60));
     }
     {
         std::cout << "A looped cycle steps through its note-off steps\n";
@@ -866,10 +874,116 @@ int main()
                 nextOn = i;
         }
 
-        check (std::count (ons.begin(), ons.end(), 68) == 2 && std::count (ons.begin(), ons.end(), 64) == 1,
-               "the cycle passes its last step and back to its first, and a note-off step in the cycle opens what the cycle was holding there rather than ending the run, got " + juce::String ((int) ons.size()));
-        check (on64 >= 0 && off64 > on64 && offs64 == 1 && nextOn > off64,
-               "the note the second pass stepped to is opened at the note-off step inside that pass, and the cycle steps on again past it");
+        check (std::count (ons.begin(), ons.end(), 64) == 2 && std::count (ons.begin(), ons.end(), 68) == 2,
+               "the cycle passes its last step and back to its first, the note entered at the call row being that first step so the cycle steps back onto it and a note-off step inside the cycle opens what the cycle was holding there rather than ending the run, got " + juce::String ((int) ons.size()));
+        check (on64 >= 0 && off64 > on64 && offs64 == 3 && nextOn > off64,
+               "the call row's own note is opened at the note-off step right below it, and the cycle keeps stepping: the note the cycle was holding is opened once at each of its note-off steps and once more where a stepped step leaves it, and the cycle sounds its next note past the rest");
+    }
+    {
+        std::cout << "A note-off step at a run's second step opens the note entered at the call row\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (2); // the clip is two rows: 12000 samples
+
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+        p.cell (0, 0).cmd = kArpCmd; // the call sits beside the note it steps
+        p.cell (0, 0).cmdVal = 2;
+
+        h.song.defineArp (2);
+        h.song.setArpLength (2, 3);
+        h.song.setArpStep (2, 0, kArpEmptyStep); // nothing entered before the note-off step
+        h.song.setArpStep (2, 1, kArpNoteOffStep);
+        h.song.setArpStep (2, 2, 4);
+
+        h.runBlocks (24); // 12288 samples: the clip end at 12000 sits inside this run
+
+        std::vector<int> ons;
+        int offs60 = 0;
+        int offs64 = 0;
+        int off60 = -1;
+        int on64 = -1;
+
+        for (auto& n : h.notes)
+        {
+            if (n.on)
+                ons.push_back (n.note);
+            else if (n.note == 60)
+                ++offs60;
+            else if (n.note == 64)
+                ++offs64;
+        }
+
+        for (int i = 0; i < (int) h.raw.size(); ++i)
+        {
+            const auto& e = h.raw[i];
+
+            if (e.pitch == 60 && e.kind == 0 && off60 < 0)
+                off60 = i;
+            else if (e.pitch == 64 && e.kind == 1 && on64 < 0)
+                on64 = i;
+        }
+
+        check (ons.size() == 2 && std::count (ons.begin(), ons.end(), 60) == 1,
+               "an empty first step sounds the note entered at the call row as it was typed, and the note-off step that follows it sounds nothing, got " + juce::String ((int) ons.size()));
+        check (off60 >= 0 && on64 > off60 && h.raw[(size_t) off60].offset != h.raw[(size_t) on64].offset,
+               "the note-off step at the run's second step opens the note entered at the call row at its own subtick, ahead of the step under the rest and not as that step's re-articulation, which is what a note-off entered with nothing before it has to do");
+        check (offs60 == 1 && offs64 == 1,
+               "that rest's release is the run's own rather than the clip end's, and the note the step under it sounded is left held to the clip end, got " + juce::String (offs60 + offs64));
+    }
+    {
+        std::cout << "Empty steps and a note-off step under a call that row has no note for\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (2); // the clip is two rows: 12000 samples
+
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+        p.cell (1, 0).cmd = kArpCmd; // a call one row below, with no note of its own
+        p.cell (1, 0).cmdVal = 2;
+
+        h.song.defineArp (2);
+        h.song.setArpLength (2, 3);
+        h.song.setArpStep (2, 0, kArpEmptyStep); // an empty step at the call's own subtick
+        h.song.setArpStep (2, 1, kArpNoteOffStep); // a note-off step with only an empty one before it
+        h.song.setArpStep (2, 2, 4);
+
+        h.runBlocks (24); // 12288 samples: the clip end at 12000 sits inside this run
+
+        std::vector<int> ons;
+        int offs60 = 0;
+        int offs64 = 0;
+        int off60 = -1;
+        int on64 = -1;
+
+        for (auto& n : h.notes)
+        {
+            if (n.on)
+                ons.push_back (n.note);
+            else if (n.note == 60)
+                ++offs60;
+            else if (n.note == 64)
+                ++offs64;
+        }
+
+        for (int i = 0; i < (int) h.raw.size(); ++i)
+        {
+            const auto& e = h.raw[i];
+
+            if (e.pitch == 60 && e.kind == 0 && off60 < 0)
+                off60 = i;
+            else if (e.pitch == 64 && e.kind == 1 && on64 < 0)
+                on64 = i;
+        }
+
+        check (ons.size() == 2 && std::count (ons.begin(), ons.end(), 64) == 1,
+               "the empty step and the note-off step under a call that row has no note for sound nothing, so only the note the column entered above the call and the stepped step under them sound, got " + juce::String ((int) ons.size()));
+        check (off60 >= 0 && on64 > off60 && h.raw[(size_t) off60].offset != h.raw[(size_t) on64].offset,
+               "the note-off step opens the note the column had entered above the call even though only an empty step was entered before it and the run has sounded no step of its own, and does so at its own subtick rather than as the re-articulation of the step under it");
+        check (offs60 == 1 && offs64 == 1,
+               "that rest's release is the run's own rather than the clip end's, and the note the step under it sounded is left held to the clip end, got " + juce::String (offs60 + offs64));
     }
     {
         std::cout << "The clip end closes a looping run\n";

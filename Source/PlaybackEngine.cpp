@@ -165,16 +165,81 @@ void PlaybackEngine::endWheel (std::vector<PendingEvent>& events, int ch, int mi
 
 //==============================================================================
 /** The close of an arpeggiator run, which releases the note its last step
-    entered. Only a note the run itself entered may be released here: a note the
-    column struck is the run's base rather than one of its steps, and it belongs
-    to whatever ends it below, which is what a run whose steps all sound nothing
-    leaves the note above it alone. */
+    entered. The first step of a run whose call row named a note is that row's
+    own note, sounded at the pitch that step moved it to, so it is the run's own
+    and gets released here like any other step; a note the column entered at
+    another row, or one the run has only stepped away from without sounding, is
+    its base rather than one of its steps and belongs to whatever ends it below,
+    which is what a run whose steps all sound nothing leaves the note above it
+    alone. */
 void PlaybackEngine::closeArp (std::vector<PendingEvent>& events, int offset, int ch)
 {
     auto& c = channels[(size_t) ch];
 
     if (c.activeNote >= 0 && c.arpNote >= 0 && c.activeNote == c.arpNote)
         stopNote (events, offset, ch, c.activeMidiCh, c.activeNote);
+}
+
+//==============================================================================
+/** The pitch a step's jump lands on, snapped back into the keyboard by whole
+    octaves rather than being cut off at either end, which is what keeps the
+    step's shape a run is stepping through. Shared by a run's own steps below and
+    by the first of them above, the step a call row's note is sounded as. */
+static int arpSteppedNote (int note) noexcept
+{
+    while (note < 0)
+        note += 12;
+
+    while (note > 127)
+        note -= 12;
+
+    return note;
+}
+
+//==============================================================================
+/** The first step of the macro an arpeggiator call names, or the step that
+    sounds nothing when the call names an id that has no macro or no steps
+    behind it: the note handling above arpCommand reads it before the note
+    entered at a call row is triggered, since that note is this run's first
+    step rather than a note the run leaves alone - the step's jump moves the
+    note, its empty spelling leaves it where it was typed and its note-off
+    spelling sounds nothing here at all. */
+static int arpFirstStepOf (const Song& song, int id) noexcept
+{
+    const auto* macro = song.peekArp (id);
+
+    if (macro == nullptr || ! macro->defined())
+        return kArpEmptyStep;
+
+    return (int) macro->steps[0];
+}
+
+//==============================================================================
+/** The macro id the arpeggiator call written at this row arms, or 0 when the
+    row arms no run: the letter's own argument beside the letter, and the
+    argument a row names under a call that is already in force above it, whose
+    run is started over at that row. A release (the id 0 a row names or the OFF
+    spelling) and an STP one arm nothing, and neither does a bare note row
+    under a carried call, whose run is still stepping and only re-bases. The
+    note handling above arpCommand reads this beside arpFirstStepOf so the note
+    entered at a call row knows what the call about to be answered below is
+    going to do to it, and arpCommand itself arms the very same call. The letter
+    in force is passed rather than the whole channel, the row having already left
+    it there above the note handling. */
+static int arpCallArmedAtRow (const Cell& cell, int lastCmd) noexcept
+{
+    // a row naming a letter had already left it in force above the note handling,
+    // so the call this row makes is told by the letter in force and an argument,
+    // which is also how a row naming only an argument under a carried call reads
+    if (lastCmd != kArpCmd || cell.cmdVal == kEmpty)
+        return 0;
+
+    const int id = cell.cmdVal;
+
+    if (id <= 0 || id > kMaxArpMacros)
+        return 0; // id 0 and the two spellings above the id field's own top name the release and the STP rather than a macro
+
+    return id;
 }
 
 //==============================================================================
@@ -252,13 +317,16 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
 
             if (step == kArpNoteOffStep)
             {
-                // the note-off step: it opens whatever the channel was holding at
-                // its subtick rather than stepping anywhere, and only a note the
-                // run itself entered is its own to open: a note the column struck
-                // is the run's base rather than one of its steps, and it belongs
-                // to whatever ends it below, which is what a run whose head step
-                // is a note-off leaves that note alone
-                if (c.arpNote >= 0 && c.activeNote == c.arpNote)
+                // the note-off step: it opens whatever the channel is holding at
+                // its subtick rather than stepping anywhere, which is the note the
+                // run last entered when the run has already sounded one and the
+                // note the column entered above its call row when it has not - a
+                // run whose head step or whose leading empty steps end on a note-
+                // off step is a rest over that note, so the note the rows above had
+                // left held goes silent there rather than being held on to whatever
+                // ends it below. The column keeps naming that note either way, which
+                // is what lets the steps under the rest measure from it again
+                if (c.activeNote >= 0)
                     stopNote (events, offset, ch, c.activeMidiCh, c.activeNote);
 
                 // the run keeps stepping: what it was holding is gone, so the next
@@ -271,13 +339,7 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
                 // note entering further down the column re-bases while a run is
                 // still going, and a step landing off the keyboard snaps back by
                 // whole octaves so it keeps its shape
-                int note = base + (int) step;
-
-                while (note < 0)
-                    note += 12;
-
-                while (note > 127)
-                    note -= 12;
+                const int note = arpSteppedNote (base + (int) step);
 
                 startNote (events, offset, ch, midiCh, note, vel);
                 c.activeClip = c.arpClip;
@@ -288,7 +350,11 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
             // and the next step releases what the step before it left holding, so
             // a looped run's cycle keeps the note its last step entered sounding
             // until the next cycle's first step reaches its own subtick; a note-off
-            // step is the one that lets go of that note instead of holding it
+            // step is the one that lets go of that note instead of holding it. What
+            // is not stepped here is the run's first step when the row that called
+            // it named a note of its own: that note was already sounded at the row,
+            // as the pitch the first step moved it to, which is why the run picks up
+            // at the step below it
         }
 
         ++c.arpCount;
@@ -371,12 +437,17 @@ void PlaybackEngine::arpCommand (std::vector<PendingEvent>& events, int ch, int 
     // note where it named one, the note its rows above left named where it did
     // not - and the run keeps that note as its own answer for as long as the
     // column has none, which is what a call written beside a note-off walks the
-    // note that row released rather than sounding nothing at all
+    // note that row released rather than sounding nothing at all. The note entered
+    // at the call row is the pitch that note was sounded as, which processRow above
+    // had that row's own note sound as - the first step moved it there, left it where
+    // it was typed or made that step a rest and took the held note away - and that
+    // pitch is what arpNote was left naming there too, the run's own rather than the
+    // note as typed, which is what a note-off step at the row below it releases
     c.arpCallNote = c.columnNote;
     c.arpOrigin = rowPpq;
 
     if (noteOnRow)
-        c.arpCount = 1; // the row's own note was the first step, so the run picks up at the next one
+        c.arpCount = 1; // the row's own note was this run's first step, sounded at the row as that step moved it, so the run picks up at the next one
     else
         c.arpCount = 0;
 }
@@ -918,14 +989,51 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             // from here on
             state.columnNote = cell.note;
 
-            const std::pair<int, int> key { midiCh, cell.note };
+            // the call this row arms runs its first step here rather than one
+            // subtick below, so this row's note is that first step: the step's
+            // jump moves the note that gets triggered, the step that sounds
+            // nothing leaves it where it was typed, and the note-off step has
+            // nothing to trigger at all. Which call the row arms is read the way
+            // arpCommand below resolves it, so the two cannot disagree about what
+            // the note entered here is about to be measured against - the pitch
+            // as typed stays the note the column named and the run's own answer
+            // for its steps, whatever the first step did to the note it sounded
+            const int armedId = arpCallArmedAtRow (cell, state.lastCmd);
+            const int firstStep = armedId > 0 ? arpFirstStepOf (song, armedId) : kArpEmptyStep;
+            const bool firstStepRests = firstStep == kArpNoteOffStep;
 
-            if (notesThisRow.insert (key).second)
+            const int enterNote = firstStepRests || firstStep == kArpEmptyStep
+                                      ? cell.note
+                                      : arpSteppedNote (cell.note + firstStep);
+
+            const std::pair<int, int> key { midiCh, enterNote };
+
+            if (firstStepRests)
+            {
+                // the note entered here opens nothing of its own, so the note the
+                // channel was holding at this row goes silent here rather than
+                // being held on to whatever ends it below: the step that is a
+                // rest belongs to the run, the same way a note-off row belongs to
+                // the column, and the column still names the note entered above
+                // it, which is what lets the run's steps below the rest measure from
+                // it again
+                if (state.activeNote >= 0)
+                    stopNote (events, offset, ch, state.activeMidiCh, state.activeNote);
+
+                state.arpNote = -1;
+            }
+            else if (notesThisRow.insert (key).second)
             {
                 const int velocity = cell.vol != kEmpty ? cell.vol : juce::jlimit (1, 127, state.lastVol > 0 ? state.lastVol : 100);
-                startNote (events, offset, ch, midiCh, cell.note, velocity);
+                startNote (events, offset, ch, midiCh, enterNote, velocity);
                 state.activeClip = clip.uid;
             }
+
+            // the run's first step left that pitch held rather than the note as
+            // it was typed, so it is the run's own to release the way any other
+            // step's is, and a run whose first step was a rest has nothing held
+            if (armedId > 0)
+                state.arpNote = firstStepRests ? -1 : enterNote;
         }
 
         if (cell.cmd != kEmpty)

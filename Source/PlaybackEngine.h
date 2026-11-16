@@ -106,9 +106,16 @@ private:
             is answered too, against the note that row is releasing, and keeps it
             in arpCallNote for as long as the column has none of its own - a note
             entering further down the column re-bases the run by being that note,
-            and a further note-off below takes the answer away again. The notes a
-            run entered are tracked in arpNote so closing a run releases only
-            those, and a note-off step is what lets go of the one it sits at. */
+            and a further note-off below takes the answer away again. The first
+            step of a run whose call row named a note runs at that row rather than
+            one subtick below it, that note being sounded at the pitch the first
+            step moved it to rather than as it was typed and tracked in arpNote as
+            the run's own the way any other step's is, which is what closing a run
+            releases the steps it sounded including that first one while leaving a
+            note it only stepped away from to whatever ends it below; a note-off
+            step lets go of whatever the channel holds at its own subtick, the run's
+            last note when it has sounded one and the column's note when it has not,
+            and leaves the note it rests over named for the steps below it. */
         int arpId = 0;             // macro id in force (0 = no run)
         int arpCount = 0;          // steps of the run already played
         double arpOrigin = -1.0;   // where the run's first step sits, in transport beats

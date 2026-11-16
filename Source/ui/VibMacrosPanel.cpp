@@ -42,6 +42,12 @@ VibMacrosPanel::VibMacrosPanel (ReTrektorAudioProcessor& processor)
 {
     setOpaque (true);
 
+    // the panel takes the keyboard focus on its own tab, so a press walks here
+    // rather than onto whichever control the pointer touched last: a Button holds
+    // that focus by default and answers the Return key, which is what made an
+    // Enter that only confirms a typed value add or clear a macro instead
+    setWantsKeyboardFocus (true);
+
     addButton.onClick = [this]
     {
         // a fresh macro takes the lowest id that has none yet, so the ids a row
@@ -91,6 +97,10 @@ VibMacrosPanel::VibMacrosPanel (ReTrektorAudioProcessor& processor)
 
     for (auto* b : { &addButton, &removeButton })
     {
+        // the buttons take no keyboard focus, so an Enter cannot fire the one the
+        // pointer left last and an add or a clear only ever happens on a click
+        b->setWantsKeyboardFocus (false);
+
         b->setColour (juce::TextButton::buttonColourId, theme::panelLight);
         b->setColour (juce::TextButton::textColourOffId, theme::text);
         addAndMakeVisible (*b);
@@ -121,6 +131,11 @@ void VibMacrosPanel::rebuild()
             addAndMakeVisible (*r.shape);
 
             r.amp = std::make_unique<juce::Slider> (juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft);
+
+            // the knob holds the keyboard focus and its +/- buttons do not, so an
+            // Enter that only confirms a typed value closes the number instead of
+            // nudging whichever knob the pointer last touched
+            r.amp->setWantsKeyboardFocus (true);
             // the amplitude is a share of full pitchbend rather than a number of
             // its own, which is what makes the knob read as the wheel's own half
             // height rather than as hundredths of it
@@ -134,6 +149,10 @@ void VibMacrosPanel::rebuild()
             addAndMakeVisible (*r.amp);
 
             r.cycle = std::make_unique<juce::Slider> (juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft);
+
+            // the same reason as the amplitude knob's: the Enter belongs to the
+            // number being typed, not to a knob's own +/- buttons
+            r.cycle->setWantsKeyboardFocus (true);
             // the cycle is counted in subticks, the same grid an arpeggiator's
             // steps and a slide's ramp are measured over, so a cycle of one of
             // them is one subtick wide rather than one row wide
@@ -422,6 +441,16 @@ bool VibMacrosPanel::keyPressed (const juce::KeyPress& key)
     {
         selectedId = song.lastDefVibId();
         repaint();
+        return true;
+    }
+
+    if (code == juce::KeyPress::returnKey)
+    {
+        // the dropdown and the two knobs answer a press of their own, in the text
+        // box each of them holds, so the panel has nothing of its own to close: it
+        // spends the Enter here rather than handing it up, which is what keeps a
+        // press that only confirms a typed value from reaching a card's controls
+        // or the editor's shortcuts above
         return true;
     }
 

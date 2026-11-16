@@ -10,6 +10,12 @@ SettingsPanel::SettingsPanel (ReTrektorAudioProcessor& processor)
 {
     setOpaque (true);
 
+    // the panel takes the keyboard focus on its own tab, so a press walks here
+    // rather than onto whichever control the pointer touched last: a Button holds
+    // that focus by default and answers the Return key, which is what made an
+    // Enter that only confirms a typed value flip the checkbox near it
+    setWantsKeyboardFocus (true);
+
     auto refresh = [this]
     {
         if (onSettingsChanged)
@@ -121,6 +127,12 @@ juce::ToggleButton* SettingsPanel::addToggle (const juce::String& label, const j
                                              std::function<void (bool)> onChange)
 {
     auto toggle = std::make_unique<juce::ToggleButton> (label);
+
+    // a Button takes the keyboard focus and answers the Return key, so a row's
+    // checkbox would otherwise hold the focus the pointer left in it and an Enter
+    // confirming a value typed into a field would flip that row again; the
+    // checkbox keeps its click, it only stops being the thing a Return hits
+    toggle->setWantsKeyboardFocus (false);
     toggle->setToggleState (value, juce::dontSendNotification);
     toggle->setColour (juce::ToggleButton::textColourId, theme::text);
     toggle->setColour (juce::ToggleButton::tickColourId, theme::accent);
@@ -140,6 +152,13 @@ juce::Slider* SettingsPanel::addSlider (const juce::String& label, const juce::S
                                        std::function<void (double)> onChange)
 {
     auto slider = std::make_unique<juce::Slider> (juce::Slider::IncDecButtons, juce::Slider::TextBoxLeft);
+
+    // the knob keeps the keyboard focus rather than its own +/- buttons: the
+    // Slider is what holds the text box a value is typed into, and it asks its
+    // look and feel for the buttons, which take the focus away. A Button answers
+    // the Return key while it holds the focus, so the Enter that confirms a typed
+    // value would otherwise move the knob the pointer left last
+    slider->setWantsKeyboardFocus (true);
     slider->setRange (min, max, interval);
     slider->setValue (value, juce::dontSendNotification);
     slider->setTextBoxStyle (juce::Slider::TextBoxLeft, false, 52, 20);
@@ -178,7 +197,20 @@ bool SettingsPanel::keyPressed (const juce::KeyPress& key)
     // old Ctrl+X spelling was spent by the host's own cut rather than reaching
     // the plug-in: the Alt letter is claimed by this panel too, so a press during
     // one of its menus or a drag still finds the slice somewhere
-    return answerSliceKey (key, sliceStep);
+    if (answerSliceKey (key, sliceStep))
+        return true;
+
+    if (key.getKeyCode() == juce::KeyPress::returnKey)
+    {
+        // every field on this tab types into a text box of its own, which answers
+        // the Enter by committing the value it was building; the panel has nothing
+        // of its own to close, so it spends the press here rather than handing it
+        // up, which is what keeps a confirming Enter from reaching the editor's
+        // shortcuts and, above all, from firing a checkbox the pointer left last
+        return true;
+    }
+
+    return false;
 }
 
 void SettingsPanel::refresh()
