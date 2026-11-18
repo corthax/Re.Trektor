@@ -1,5 +1,7 @@
-# Build output
-build/
+# Build output: every CMake tree this project makes is named build-something
+# (build is the plug-in's own, build-msvc the Windows cross build), and its
+# artefacts are not the source's to keep
+build*/
 tests/build/
 
 # Editor / tooling artefacts
@@ -10,3 +12,4 @@ tests/build/
 .vscode/
 .idea/
 *.user
+cmake-build-debug/

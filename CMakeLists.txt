@@ -17,6 +17,19 @@ option(RETREKTOR_INSTRUMENT_FALLBACK
 set(RTR_PLUGIN_KIND IS_MIDI_EFFECT TRUE)
 set(RTR_VST3_CATEGORIES "Fx")
 
+# JUCE writes the VST3 bundle's moduleinfo.json by building a helper for the
+# target and running it, which only works when the target is the machine doing
+# the building. The Windows cross build (see the Windows build note in
+# README.md) asks for the manifest in its own build recipe instead, so this is
+# switched off when the two platforms differ: the manifest the Linux-tree
+# helper then writes is put into the Windows bundle by the build recipe.
+if (CMAKE_SYSTEM_NAME STREQUAL CMAKE_HOST_SYSTEM_NAME)
+    set(RTR_VST3_AUTO_MANIFEST TRUE)
+else()
+    message("Cross-building: the VST3 moduleinfo.json is written by the build recipe rather than by a helper the build runs")
+    set(RTR_VST3_AUTO_MANIFEST FALSE)
+endif()
+
 if (RETREKTOR_INSTRUMENT_FALLBACK)
     set(RTR_PLUGIN_KIND IS_SYNTH TRUE)
     set(RTR_VST3_CATEGORIES "Instrument")
@@ -33,6 +46,7 @@ juce_add_plugin(ReTrektor
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT TRUE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
+    VST3_AUTO_MANIFEST ${RTR_VST3_AUTO_MANIFEST}
     COPY_PLUGIN_AFTER_BUILD FALSE
     VST3_CATEGORIES "${RTR_VST3_CATEGORIES}"
 )
