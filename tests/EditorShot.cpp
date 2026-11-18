@@ -11,6 +11,7 @@
            [--slide=ROW] [--slide-down=ROW] [--slide-arg=VAL]
            [--vib-shape=SinUp] [--vib-amp=N] [--vib-cycle=N]
            [--vib-call=ROW] [--vib-call-id=VAL] [--vib-macros=N] [--macros=N] [--cmd-carry]
+           [--cut=ROW] [--cut-ticks=VAL]
 
     --arp= writes signed semitone steps into arpeggiator id 1, so a Macros-tab
     shot shows a step strip of its own length rather than one that is all empty;
@@ -65,6 +66,21 @@
     that call writes, so --vib-call-id=0 makes it the release, whose argument is
     drawn OFF rather than as a 0 and which leaves the rows below it carrying no
     command at all.
+
+    --cut=ROW names a cut in tracker channel 0 at that row, which paints the lilac
+    letter C, and --cut-ticks=VAL says how many subticks the note that row entered
+    is held for, so the argument is drawn in decimal beside the letter; with no
+    --cut-ticks the row cuts for the default 3 subticks its letter entry leaves. A
+    subtick is one part of a row over the Settings row "Subticks per row", so a cut
+    of 3 at the default of 6 holds the note for half a row and its note-off is sent
+    partway through that row rather than at its end. The cut is the one command that
+    keeps being carried down under the letter rather than answering the rows below it,
+    so the rows under a named one draw the letter and their carried length dim, which
+    is what says that the notes entering those rows are cut to the length the column
+    carries rather than left sustained - which is what lets one row's letter cut a
+    whole staccato passage. --cut-ticks=0 is the release the entry writes for an o,
+    drawn OFF rather than as a 0, which puts the gate away and leaves the rows under
+    it carrying no letter at all.
 
     --cmd-carry writes the command column's carried case in both channels: a row
     that names only an argument under the explicit CC the demo already has at row
@@ -294,6 +310,23 @@ int main (int argc, char** argv)
         if (args[i].startsWith ("--vib-call="))
         {
             vibCallRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    int cutRow = -1; // a row naming the cut letter in tracker channel 0
+    int cutTicks = rtr::kCutDefaultTicks; // how many subticks the note that row entered is
+    // held for, so a shot spells out the length the letter's own entry leaves
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--cut-ticks="))
+        {
+            cutTicks = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--cut="))
+        {
+            cutRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
             args.remove (i);
         }
 
@@ -558,6 +591,12 @@ int main (int argc, char** argv)
         {
             p.cell (vibCallRow, 0).cmd = rtr::kVibCmd;
             p.cell (vibCallRow, 0).cmdVal = vibCallId; // V 1: the letter command and its macro id
+        }
+
+        if (cutRow >= 0)
+        {
+            p.cell (cutRow, 0).cmd = rtr::kCutCmd;
+            p.cell (cutRow, 0).cmdVal = cutTicks; // C 3: the lilac letter and the length it cuts for
         }
 
         if (vibMacrosToDefine > 1)

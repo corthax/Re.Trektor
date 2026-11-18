@@ -2164,6 +2164,319 @@ int main()
                "the all-notes-offs that are there are the ones the transport's own start asks for, one per channel, which is what leaves the clip's end sending only the wheel's take-back rather than releasing anything of its own");
     }
 
+    //== Cut note lengths =====================================================
+    {
+        std::cout << "A cut holding the note its row entered for its own subticks\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kCutCmd;
+        p.cell (0, 0).cmdVal = 3;
+
+        // 30 blocks reach 15360 samples: the release 3 subticks of the Settings' 6 to
+        // the row sits at 3000 samples, the 440th sample of the block starting at 2560,
+        // well short of that row's own end at 6000 samples
+        h.runBlocks (30);
+
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[0].note == 60
+               && h.notes[1].on == false && h.notes[1].note == 60,
+               "the row naming the letter beside its note sends nothing of its own: the note entered there sounds at that row and one note-off is what closes it, the letter calling no macro and having no note of its own to release");
+        check (h.notes[0].offset == 0 && h.notes[1].offset == 440,
+               "the release sits at the subtick the length names past the row that entered the note rather than at that row's own end: 3 subticks of a 6 to the row is 3000 samples into the transport, which is 440 samples into the block that reaches it, so a block boundary landing inside one held note is what picks the release up there");
+        check (h.notes[0].channel == 1 && h.notes[1].channel == 1,
+               "the release answers to the instrument the note's own row named rather than to the tracker column showing it, which is what lets the gate hold a pitch on a channel");
+
+        // the same song with the row naming only the letter, its argument left empty
+        Harness spelled;
+        spelled.song.patterns[0].setLength (16);
+        spelled.song.patterns[0].cell (0, 0).note = 60;
+        spelled.song.patterns[0].cell (0, 0).inst = 0;
+        spelled.song.patterns[0].cell (0, 0).cmd = kCutCmd;
+        spelled.runBlocks (30);
+
+        check (spelled.notes.size() == 2 && spelled.notes[1].on == false
+               && spelled.notes[1].offset == h.notes[1].offset,
+               "a row naming only the cut letter cuts the note it entered for the default length the entry leaves rather than for no subticks at all, which is what keeps a bare letter from spelling the release instead of the cut it asks for");
+    }
+    {
+        std::cout << "A cut wider than the row's own subticks waiting for the block that reaches it\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kCutCmd;
+        p.cell (0, 0).cmdVal = 9;
+
+        // 25 blocks reach 12800 samples: the release 9 subticks of a 6 to the row sits at
+        // 9000 samples, a row and a half past the row that entered the note, at the 296th
+        // sample of the block starting at 8704
+        h.runBlocks (25);
+
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false
+               && h.notes[0].note == 60 && h.notes[1].note == 60 && h.notes[1].offset == 296,
+               "a length wider than the row's own 6 subticks holds the note over that row's end at 6000 samples and over the row below it: the release waits in the channel state for the block that reaches the subtick its argument names, counted from the row that entered the note, the way a run's steps, a ramp's steps and a wobble's points wait");
+        check (std::count_if (h.raw.begin(), h.raw.end(),
+                              [] (const RawEvent& e) { return e.kind == 0 && e.pitch == 60; }) == 1,
+               "the waiting release is spent once rather than once per block that passes it, which is what keeps a length from releasing the same pitch again further down the transport");
+    }
+    {
+        std::cout << "A cut of exactly the row's own subticks closing the note at the next row's sample\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kCutCmd;
+        p.cell (0, 0).cmdVal = 6; // one whole row of the Settings' grid
+
+        h.runBlocks (25); // 12800 samples: the row below at 6000 is reached, its end is not
+
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false
+               && h.notes[0].note == 60 && h.notes[1].note == 60 && h.notes[1].offset == 368,
+               "a length of a whole row of the grid reaches exactly the sample of the empty row below at 6000, which is the 368th sample of the block starting at 5632: the flush above that row leaves a limit sitting exactly on the release rather than past it, so the flush under it is what fires it there rather than a block later");
+        check (h.notes.end() == std::find_if (h.notes.begin(), h.notes.end(),
+                                             [] (const NoteEvent& n) { return n.offset == 0 && n.on == false; }),
+               "the row that armed the cut never closes its own note at the sample it entered it on, which is what keeps a length below the grid's narrowest one from being needed to spell the release, a 0 having that to say instead");
+    }
+    {
+        std::cout << "The gate carried down gating the notes of the rows under it\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kCutCmd;
+        p.cell (0, 0).cmdVal = 3;
+        p.cell (1, 0).note = 61; // a bare note row, naming no command and no argument
+        p.cell (2, 0).note = 62;
+
+        // 30 blocks reach 15360 samples, past the third note's release at 15000: the notes
+        // enter at 0, 6000 and 12000 samples (blocks 0, 11 and 23 at offsets 0, 368 and
+        // 224) and are released 3000, 6000 and 9000 samples later (blocks 5, 17 and 29 at
+        // offsets 440, 296 and 152)
+        h.runBlocks (30);
+
+        static const int staccatoOns[] = { 0, 368, 224 };
+        static const int staccatoOffs[] = { 440, 296, 152 };
+        int seen = 0;
+        bool onsMatch = true;
+
+        for (const auto& n : h.notes)
+        {
+            if (! n.on)
+                continue;
+
+            onsMatch = onsMatch && seen < 3 && n.offset == staccatoOns[seen];
+            ++seen;
+        }
+
+        seen = 0;
+        bool offsMatch = true;
+
+        for (const auto& n : h.notes)
+        {
+            if (n.on)
+                continue;
+
+            offsMatch = offsMatch && seen < 3 && n.offset == staccatoOffs[seen];
+            ++seen;
+        }
+
+        check (h.notes.size() == 6 && onsMatch && offsMatch,
+               "the rows under a named cut carry the letter and its length, so a row naming only a note under them is cut to the length the column carries rather than left sustained: one row's letter gates a whole staccato passage, every note entering it being held for 3 subticks of a 6 to the row past its own row rather than for whatever ends it below");
+        check (h.notes[1].note == 60 && h.notes[3].note == 61 && h.notes[5].note == 62,
+               "each release closes the pitch its own row entered, in the order the transport reaches them, which is what makes a gate carried down belong to the note entering each row rather than to whatever the column happens to be holding when its subtick comes around");
+    }
+    {
+        std::cout << "A length retargeted under a carried letter for the notes entered below it\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kCutCmd;
+        p.cell (0, 0).cmdVal = 3;
+        p.cell (2, 0).cmdVal = 9; // an argument only, under the letter the row above named
+        p.cell (3, 0).note = 62;
+
+        // 54 blocks reach 27648 samples: the note entered at row 3 sits at 18000 samples,
+        // the 80th of the block starting at 17920, and is released 9 subticks of a 6 to the
+        // row later at 27000 samples, the 376th of the block starting at 26624, while the
+        // note entered above keeps the length its own row armed and is released at 3000
+        h.runBlocks (54);
+
+        check (h.notes.size() == 4 && h.notes[0].on && h.notes[0].offset == 0
+               && h.notes[1].on == false && h.notes[1].offset == 440
+               && h.notes[2].on && h.notes[2].offset == 80
+               && h.notes[3].on == false && h.notes[3].offset == 376,
+               "a row naming only a number under a carried letter retargets the gate for the notes entering this row and the ones below it and reaches no further back than that: the note entered above is still released at the length its own row armed it for, since the row that retargeted entered no note of its own to re-arm a release at its own subticks");
+        check (h.notes[2].note == 62 && h.notes[3].note == 62,
+               "the retargeted length is the one the note entered below is held for, its release counted from that note's own row rather than from the row that named the number or from the letter above it");
+    }
+    {
+        std::cout << "A 0 under the carried letter putting the gate away and leaving the note below sustained\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kCutCmd;
+        p.cell (0, 0).cmdVal = 3;
+        p.cell (1, 0).note = 61;
+        p.cell (2, 0).cmdVal = 0; // the release, spelled by a number the argument field can type
+        p.cell (3, 0).note = 62;
+
+        // 60 blocks reach 30720 samples, well past the note entered under the release and
+        // short of this clip's end at 96000
+        h.runBlocks (60);
+
+        check (h.notes.size() == 5 && h.notes[4].on && h.notes[4].note == 62,
+               "a 0 beside or under the cut letter puts the gate away rather than holding a note for no subticks at all, so the note entering the row below that release is left to whatever ends it below and is still sounding when these blocks run out");
+        check (h.notes[1].offset == 440 && h.notes[3].offset == 296,
+               "the notes the gate was still holding above the release keep the length their own rows armed, which is what says the release belongs to the rows below it rather than reaching back into a note it had already closed");
+
+        // the same song with the release spelled the way the entry writes it for an o
+        Harness off;
+        off.song.patterns[0].setLength (16);
+        off.song.patterns[0].cell (0, 0).note = 60;
+        off.song.patterns[0].cell (0, 0).inst = 0;
+        off.song.patterns[0].cell (0, 0).cmd = kCutCmd;
+        off.song.patterns[0].cell (0, 0).cmdVal = 3;
+        off.song.patterns[0].cell (1, 0).note = 61;
+        off.song.patterns[0].cell (2, 0).cmdVal = kArgOff;
+        off.song.patterns[0].cell (3, 0).note = 62;
+        off.runBlocks (60);
+
+        check (off.notes.size() == h.notes.size (),
+               "the release spells itself two ways the way a call's, a slide's and a vibrato's do: the OFF the entry writes for an o puts the gate away exactly as the 0 the field can type does, which is why the drawing reads a 0 there as OFF rather than as a length below the grid's narrowest one");
+
+        // an STP argument, which asks for nothing since a cut makes no move of the wheel
+        Harness held;
+        held.song.patterns[0].setLength (16);
+        held.song.patterns[0].cell (0, 0).note = 60;
+        held.song.patterns[0].cell (0, 0).inst = 0;
+        held.song.patterns[0].cell (0, 0).cmd = kCutCmd;
+        held.song.patterns[0].cell (0, 0).cmdVal = 3;
+        held.song.patterns[0].cell (1, 0).note = 61;
+        held.song.patterns[0].cell (2, 0).cmdVal = kArgStp;
+        held.song.patterns[0].cell (2, 0).note = 62;
+        held.runBlocks (30); // 15360 samples: this row's note is released at 15000
+
+        check (held.notes.size() == 6 && held.notes[4].on && held.notes[4].note == 62
+               && held.notes[5].on == false && held.notes[5].offset == 152,
+               "an argument that names neither a length nor a release asks for nothing beside a cut letter, a cut having no move of the wheel to stop, and the note entered at that row is held for the length still being carried above it: its release sits at 15000 samples, the 152nd of the block starting at 14848");
+    }
+    {
+        std::cout << "A note-off row dropping the cut's waiting release\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kCutCmd;
+        p.cell (0, 0).cmdVal = 9; // waits at 9000 samples, past this row's own end at 6000
+        p.cell (1, 0).note = kNoteOff;
+
+        // 40 blocks reach 20480 samples, past the row that takes the note away at 6000 and
+        // past the subtick the release was waiting for, and short of this clip's end
+        h.runBlocks (40);
+
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false
+               && h.notes[0].note == 60 && h.notes[1].note == 60 && h.notes[1].offset == 368,
+               "the row that takes the note away is what releases it, at its own sample 6000 which is the 368th of the block starting at 5632, and the release the cut had still waiting for at 9000 samples goes with it rather than firing there");
+        check (std::count_if (h.raw.begin(), h.raw.end(),
+                              [] (const RawEvent& e) { return e.kind == 0 && e.pitch == 60; }) == 1,
+               "the note this row released is closed once, not twice: the waiting release only ever answers for the pitch its own row entered and only while this channel still holds it, which is what keeps a cut from closing whatever note the column happens to be holding at that subtick");
+    }
+    {
+        std::cout << "The clip its rows live in running out under a still-waiting cut\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (4); // the clip ends at 1 beat, 24000 samples
+        p.cell (3, 0).note = 60;
+        p.cell (3, 0).inst = 0;
+        p.cell (3, 0).cmd = kCutCmd;
+        p.cell (3, 0).cmdVal = 9; // waits at 18000 + 9000 = 27000 samples, past that end
+
+        // 70 blocks reach 35840 samples: the clip's end at 24000 sits inside block 46 and
+        // the subtick the release waits for, 27000, sits inside block 52 below it
+        h.runBlocks (70);
+
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false
+               && h.notes[0].note == 60 && h.notes[1].note == 60
+               && h.notes[0].offset == 80 && h.notes[1].offset == 448,
+               "a cut wider than the rows the clip has below it holds the note over the clip's end at 24000 samples, which is what makes the note entered at the clip's last row sound all the way to that end rather than for a length reaching past the clip: the note enters at 18000 samples, the 80th of the block starting at 17920, and the clip's own release answers there, at the 448th sample of the block starting at 23552");
+        check (h.notes.end() == std::find_if (h.notes.begin(), h.notes.end(),
+                                             [] (const NoteEvent& n) { return n.offset == 376 && n.on == false; }),
+               "the release the cut was still waiting for never reaches a sample of its own below the clip: the limit the flush works under stays at the end of the last row the engine owned, which is that clip's end, which is what leaves the clip's end as the only thing to close the note entered at its last row");
+    }
+    {
+        std::cout << "A transport seeking forward taking a still-waiting release away\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kCutCmd;
+        p.cell (0, 0).cmdVal = 9; // waits at 9000 samples
+        p.cell (12, 0).note = 64; // sits at 3 beats, the row a seek to 3.0 lands inside
+
+        h.runBlocks (10); // 5120 samples, short of the subtick the release waits for
+
+        check (h.notes.size() == 1 && h.notes[0].on && h.notes[0].note == 60,
+               "the note entered at the row above is still being held when the seek arrives, its release not having reached the subtick it waits for yet");
+
+        h.resetEvents();
+        h.ppq = 3.0;
+        h.runBlocks (1); // the seek's own block: its all-notes-offs and the row it landed inside
+
+        check (h.notes.size() == 2 && h.notes[0].on == false && h.notes[0].note == 60
+               && h.notes[0].offset == 0 && h.notes[1].on && h.notes[1].note == 64
+               && h.notes[1].offset == 0,
+               "the re-arm releases what the synth may still be holding from the position the transport left, which is the only thing that closes the note held above here, and the row the seek landed inside enters its own note at the same sample rather than having a second release of that pitch sit beside the note-on one sample later");
+
+        h.resetEvents();
+        h.runBlocks (18); // to 3.38 ppq: the length the letter carries reaches 9000 samples
+        // below the seek's own start, at the 296th sample of the 17th block below it
+
+        check (h.notes.size() == 1 && h.notes[0].on == false && h.notes[0].note == 64
+               && h.notes[0].offset == 296,
+               "the re-arm leaves the letter the column carries in force the way it leaves a carried volume or command number, so the note entering the row the seek landed inside is cut to the length still carried there: its release sits 9 subticks of a 6 to the row past that row, 9000 samples into the new pass, at the 296th sample of the block 17 below the seek's own");
+    }
+    {
+        std::cout << "A cut row ending an arpeggiator run this column was in\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kArpCmd;
+        p.cell (0, 0).cmdVal = 1;
+        seedSteps (h.song, 1, 4); // steps of 0, 4, 8 ... 28 semitones over the same grid
+        p.cell (2, 0).note = 70; // a pitch the run's own steps never reached
+        p.cell (2, 0).cmd = kCutCmd;
+        p.cell (2, 0).cmdVal = 3;
+
+        h.runBlocks (40); // 20480 samples, past this row's note and its release
+
+        std::vector<int> ons;
+
+        for (const auto& n : h.notes)
+            if (n.on)
+                ons.push_back (n.note);
+
+        check (ons.size() == 9 && std::count (ons.begin(), ons.end (), 88) == 1,
+               "the run above steps its own 8 notes over the sub-row grid and the cut row's note enters as a 9th, which is what says the run ends at this row rather than carrying its steps on under the gate below");
+        check (h.notes.back ().on == false && h.notes.back ().note == 70
+               && h.notes.back ().offset == 152,
+               "the note the cut row entered is held for the length named there and released at the subtick it names past it: 15000 samples into the transport, the 152nd of the block starting at 14848");
+        check (std::count_if (h.raw.begin(), h.raw.end (),
+                              [] (const RawEvent& e) { return e.kind == 0 && e.pitch == 88; }) == 1,
+               "the note the run's last step left held is closed exactly once, at the sample this row's own note enters on: this row struck a note, so the note-on above is what released it there and the row asks for no note-off of its own beside it");
+    }
     //== Grid snapping ========================================================
     {
         std::cout << "Grid snapping\n";

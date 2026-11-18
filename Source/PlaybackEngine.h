@@ -195,6 +195,63 @@ private:
         double vibRowEnd = -1.0;               // end of the row the engine last processed
         juce::Uuid vibClip;                    // clip whose rows armed the wobble
 
+        /** A note-length gate this channel's column has in force, and the note-off
+            a cut of that gate still has waiting: how many subticks the gate holds a
+            note entering this column for, 0 leaving none, counted on the same sub-row
+            grid an arpeggiator's steps, a slide's ramp and a wobble's points use, so
+            a cut of 3 at the Settings' 6 to the row holds the note for half a row and
+            one wider than the row waits for the block that reaches it. The gate keeps
+            being carried down under the letter, which is what lets one row's letter
+            gate the notes of the rows under it rather than cutting only the row that
+            named it. cutTime is where the release a cut armed for the note this
+            channel entered sits in absolute transport position rather than read off
+            the rows below, the way a run's steps, a ramp's steps and a wobble's points
+            are counted, cutNote and cutMidiCh name the pitch that release belongs to
+            and cutRowEnd is the end of the row the engine last processed, the bound the
+            flush below walks up to. The waiting release only ever closes the pitch the
+            row that armed it entered and this channel is still holding, which is what
+            makes it safe to leave a waiting cut in place while the gate above it is
+            retargeted or while the column's own note-off, a run's step or a clip's end
+            has already taken that note away, there being nothing left for it to close. */
+        int cutTicks = 0;                      // subticks a note entering this column is held for (0 = no gate)
+        double cutTime = -1.0;                 // where the waiting release sits, in transport beats (-1 = none)
+        int cutNote = -1;                      // the pitch that waiting release belongs to
+        int cutMidiCh = -1;                    // the MIDI output channel it was entered on
+        double cutRowEnd = -1.0;               // end of the row the engine last processed
+
+        /** Leaves no gate in force and no cut waiting: the column stopped having the
+            letter, so the length it held has nothing left to gate the notes below it,
+            and the release that gate had armed for a note entered above it has no gate
+            of its own left to cut it, which is how a run's and a ramp's waiting steps
+            go when the column supersedes them lower down - the note that row entered is
+            left to whatever ends it below, a further note entering the column having
+            already opened it at that row's own sample. */
+        void endCut() noexcept
+        {
+            cutTicks = 0;
+            cutWaiting ();
+        }
+
+        /** Leaves no cut waiting without putting the gate away: the note the release
+            belonged to has been taken away by something else, a note-off row, a run's
+            own step, a transport re-arm or a clip's end, or the release could no longer
+            be placed where it sits, so it has nothing to close and the letter the column
+            carries keeps gating the notes under it. */
+        void cutWaiting () noexcept
+        {
+            cutTime = -1.0;
+            cutNote = -1;
+            cutMidiCh = -1;
+        }
+
+        /** Whether the column still has a gate in force, which is what a note entering
+            a row that named no command of its own asks before it is cut, and what makes
+            the letter's carried spelling and the engine's own idea of the length agree. */
+        bool cutGating () const noexcept
+        {
+            return cutTicks > 0;
+        }
+
         /** Ends a run: an arpeggiator that no longer has steps or no longer has
             a clip to hold it leaves nothing to play. The note the column last
             named is not part of the run, so it stays: a call further down the
@@ -342,6 +399,25 @@ private:
                    double ppqLimit, double ppqPerSample, int numSamples,
                    const Song& song);
 
+    /** Closes the note a cut this channel had armed for, at the subtick that cut
+        named: the release sits at an absolute transport position the row that entered
+        the note counted out rather than being read off the rows below it, the way a
+        run's steps, a ramp's steps and a wobble's points wait, so a cut wider than one
+        row's own subticks waits for the block that reaches it and is emitted at its own
+        sample rather than bunched onto the row that named it. `ppqLimit` never passes
+        the end of the row the engine last owned, which is what leaves a waiting release
+        the column superseded below that row not being placed at a sample of its own
+        beyond it. The release is only ever sent for the pitch the row that armed it
+        entered and this channel is still holding, which is what makes it safe for
+        something else to have taken that note away already - the release is dropped
+        rather than closing whatever note the column happens to be holding there - and
+        a release that can no longer be placed where it sits, which is what a scrub or a
+        jump leaves behind, is dropped the way a run's, a ramp's and a wobble's waiting
+        steps are, the note being left to whatever ends it below. */
+    void flushCut (std::vector<PendingEvent>& events, int ch, double ppqStart,
+                   double ppqLimit, double ppqPerSample, int numSamples,
+                   const Song& song);
+
     /** A row naming the arpeggiator command: the release call, id 0 or the OFF
         argument the entry also writes for an o, releases what the run is holding,
         ends it and strikes the note the run measured from again at this row, so
@@ -443,6 +519,37 @@ private:
     void vibCommand (std::vector<PendingEvent>& events, int ch, int id, int offset,
                      double rowPpq, const juce::Uuid& clipUid, bool noteOnRow,
                      const Song& song);
+
+    /** Answers one row that named the cut letter, one that named only an argument
+        under a letter carried above it or a row that named neither and entered a note
+        under a letter carried above it: the argument says how many subticks the note
+        that row entered is held for rather than what any other row is asked to do, so
+        the row itself sends nothing and leaves the pitch sounding, the note-off it asks
+        for waiting for the block that reaches the subtick kCutDefaultTicks or the named
+        number of them past the row - a wider cut reaching past the row that named it and
+        past the clip that has it the way a run's, a ramp's and a wobble's steps do, the
+        clip's own end being what closes the note there. An empty argument under a letter
+        the row itself named takes the default length rather than no length at all, an
+        empty one under a carried letter keeps the length that letter is carrying, an OFF
+        or a 0 argument is the release rather than a cut of no subticks, so the note that
+        row entered is left sustained and the column carries no letter below it, and an
+        STP one asks for nothing, a cut having no move of the wheel to stop and leaving
+        the length above as it was; either way the note that row entered is held for
+        whatever length is in force there, which is what makes the letter gate the notes
+        of the rows under it rather than only the row that named it. Like a slide's and a
+        vibrato's rows, this row closes an arpeggiator run this column was in, since a run
+        and a gate cannot both be in force in one column. */
+    void cutCommand (std::vector<PendingEvent>& events, int ch, int offset,
+                     double rowPpq, int argument, bool rowNamedLetter, int enteredNote,
+                     bool noteOnRow, int midiCh, const Song& song);
+
+    /** Leaves the note this channel entered gated for as long as the gate in force
+        says: the waiting release is counted from the row that entered the note rather
+        than from the rows below it, which is what makes a row a transport jump makes
+        this block play again arm its own cut at that row rather than advancing one twice,
+        and what retargeting a length under a carried letter leaves a note that row entered
+        above it armed for at its own row's length instead of re-timing it there. */
+    void armCut (int ch, int enteredNote, int midiCh, double rowPpq, const Song& song);
 
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,
