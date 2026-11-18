@@ -68,19 +68,24 @@
     command at all.
 
     --cut=ROW names a cut in tracker channel 0 at that row, which paints the lilac
-    letter C, and --cut-ticks=VAL says how many subticks the note that row entered
-    is held for, so the argument is drawn in decimal beside the letter; with no
-    --cut-ticks the row cuts for the default 3 subticks its letter entry leaves. A
-    subtick is one part of a row over the Settings row "Subticks per row", so a cut
-    of 3 at the default of 6 holds the note for half a row and its note-off is sent
-    partway through that row rather than at its end. The cut is the one command that
-    keeps being carried down under the letter rather than answering the rows below it,
-    so the rows under a named one draw the letter and their carried length dim, which
-    is what says that the notes entering those rows are cut to the length the column
-    carries rather than left sustained - which is what lets one row's letter cut a
-    whole staccato passage. --cut-ticks=0 is the release the entry writes for an o,
-    drawn OFF rather than as a 0, which puts the gate away and leaves the rows under
-    it carrying no letter at all.
+    letter C, and --cut-ticks=VAL says how many subticks a note is held for, so the
+    argument is drawn in decimal beside the letter; with no --cut-ticks the row cuts
+    for the default 3 subticks its letter entry leaves. A subtick is one part of a row
+    over the Settings row "Subticks per row", so a cut of 3 at the default of 6 holds
+    the note for half a row and its note-off is sent partway through that row rather
+    than at its end. The note that length belongs to is the one that row entered, or,
+    where the row named no note of its own, the one that channel has still been holding
+    from the rows above, which is what lets the letter cut across the rows rather than
+    only the row that entered a note. A cut's argument reaches 999 subticks, three digits
+    deep, the two numbers just below that top, 128 and 129, being the OFF and STP spellings
+    rather than lengths. The cut is the one command that keeps being carried down under the
+    letter rather than answering the rows below it, so the rows under a named one draw the
+    letter and their carried length dim, which is what says that the notes entering those
+    rows are cut to the length the column carries rather than left sustained - which is
+    what lets one row's letter cut a whole staccato passage. --cut-ticks=0 is the note
+    column's own note-off spelled as an argument, drawn OFF rather than as a 0: the note
+    that channel has been holding is closed at that row, the gate is put away and the rows
+    under it carry no letter at all.
 
     --cmd-carry writes the command column's carried case in both channels: a row
     that names only an argument under the explicit CC the demo already has at row

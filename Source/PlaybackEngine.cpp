@@ -891,13 +891,14 @@ void PlaybackEngine::flushSlide (std::vector<PendingEvent>& events, int ch, doub
     cut named: a wider cut than the row's own subticks cannot be squeezed inside
     the block the row that entered the note falls in, so the release waits in the
     channel state with where it sits in absolute transport position, counted from
-    the row that entered the note over the same grid an arpeggiator's steps, a
+    the row that armed it over the same grid an arpeggiator's steps, a
     slide's ramp and a wobble's points use, and the block that reaches it emits it
     at its own sample. `ppqLimit` never passes the end of the row the engine last
     owned, which is what leaves a release the column superseded below that row
     unplaced rather than fired at a sample of its own beyond it. The release is
-    only ever sent for the pitch the row that armed it entered on that channel and
-    this channel is still holding, which is what makes it safe for something else
+    only ever sent for the pitch the row that armed it left this channel holding,
+    whether it entered one of its own there or has been holding it from the rows
+    above, and this channel is still holding, which is what makes it safe for something
     to have taken that note away already, a note-off row, one of a run's steps, a
     transport re-arm or a clip's end all having said so: the waiting release is
     dropped rather than closing whatever note the column happens to be holding at
@@ -934,11 +935,12 @@ void PlaybackEngine::flushCut (std::vector<PendingEvent>& events, int ch, double
                                          (int) std::llround ((c.cutTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
 
         if (c.activeNote == c.cutNote && c.activeMidiCh == c.cutMidiCh)
-            // the cut's own release, which closes the note the row that armed it
-            // entered: the note-off the row asked for is what the release point
-            // below would have sent there, so it does the same thing a row's own
-            // note-off does about the wheel this channel had left bent under that
-            // note, the row not having to name one of its own
+            // the cut's own release, which closes the note the row that armed it was
+            // holding there, whether it entered one of its own at that row or has
+            // been holding it from the rows above: the note-off that row asked for is
+            // what the release point below would have sent there, so it does the same
+            // thing a row's own note-off does about the wheel this channel had left
+            // bent under that note, the row not having to name one of its own
             stopNote (events, offset, ch, c.cutMidiCh, c.cutNote);
 
         // the release has reached its own subtick, so it is spent whatever came
@@ -949,21 +951,25 @@ void PlaybackEngine::flushCut (std::vector<PendingEvent>& events, int ch, double
 }
 
 //==============================================================================
-/** Arms the gate this channel's column has in force for the note it has just
-    entered: the release the cut asks for is counted from the row that entered the
-    note rather than from the rows below it, which is what makes the subtick it sits
-    on exact for whatever length was named, keeps a row a transport jump makes this
-    block play again arming its own cut at that row rather than advancing one twice,
-    and leaves a length retargeted by a further row from reaching back into the note
-    above it that had already been armed at its own row. */
-void PlaybackEngine::armCut (int ch, int enteredNote, int midiCh, double rowPpq, const Song& song)
+/** Arms the gate this channel's column has in force for the note it is left holding
+    at the row that armed it: the pitch that row entered when it entered one of its own,
+    otherwise the pitch the channel has still been holding from the rows above, which is
+    what lets the cut letter cut across the rows rather than only the row that entered a
+    note. The release the cut asks for is counted from that row rather than from the rows
+    below it, which is what makes the subtick it sits on exact for whatever length was
+    named, keeps a row a transport jump makes this block play again arming its own cut at
+    that row rather than advancing one twice, and leaves a length retargeted by a further
+    row from reaching back into a note above it that had already been armed at its own row.
+    A row that left the channel holding no note at all, or a column with no gate in force,
+    has nothing to hold open. */
+void PlaybackEngine::armCut (int ch, int heldNote, int midiCh, double rowPpq, const Song& song)
 {
     auto& c = channels[(size_t) ch];
 
-    if (enteredNote < 0 || enteredNote > 127 || c.cutTicks <= 0)
-        return; // the row entered no note of its own or the column has no gate in
-                // force, and a note-off row is what the note column itself already
-                // released, so either way there is nothing here to hold open
+    if (heldNote < 0 || heldNote > 127 || c.cutTicks <= 0)
+        return; // the row left this channel holding no note or the column has no gate
+                // in force: the cut has no length to hold anything open over, a row
+                // that took its note away being released by the note column itself
 
     const double rowsPerBeat = (double) juce::jmax (1, song.settings.rowsPerBeat);
     const int subticks = juce::jmax (1, song.settings.subticksPerRow);
@@ -972,31 +978,45 @@ void PlaybackEngine::armCut (int ch, int enteredNote, int midiCh, double rowPpq,
     // sum of step widths, so a cut reaching past this row and past the block that
     // holds it lands on the subtick the argument asked for rather than a hair off it
     c.cutTime = rowPpq + (double) c.cutTicks / (rowsPerBeat * (double) subticks);
-    c.cutNote = enteredNote;
+    c.cutNote = heldNote;
     c.cutMidiCh = midiCh;
 }
 
 //==============================================================================
 /** A row naming the cut letter, one naming only an argument under a letter carried
     above it or one naming neither of the two and entering a note under a letter the
-    column carries: the argument counts subticks the note that row entered is held
-    for, on the same sub-row grid an arpeggiator's steps, a slide's ramp and a wobble's
-    points use, so the row itself sends nothing and leaves the note it entered sounding
-    until the release below reaches the subtick the length names past it - a length wider
-    than the row's own subticks reaching past that row and waiting for the block that
-    gets there the way a run's steps, a ramp's steps and a wobble's points do. An empty
-    argument beside a letter the row itself named takes the default length rather than
-    no length at all, the number the entry writes so the cell spells the cut it asks for,
-    and an empty one under a carried letter keeps the length that letter is carrying, so
-    a bare note row is cut to whatever the column says. An OFF argument or a 0 is the
-    release rather than a cut of no subticks at all, the note that row entered being left
-    sustained and the column carrying no letter below it, and the STP spelling asks for
-    nothing, a cut having no move of the wheel to stop and leaving the length above as it
-    was; either way the note that row entered is held for whatever length is in force
-    there, which is what lets the letter gate the notes of the rows under it rather than
-    cutting only the row that named it. Like a slide's and a vibrato's rows, this row
-    closes an arpeggiator run this column was in, a run and a gate not being two things
-    one column can hold at once. */
+    column carries: the argument counts subticks a note is held for, on the same sub-row
+    grid an arpeggiator's steps, a slide's ramp and a wobble's points use, so the row
+    itself sends nothing of its own and leaves the note it is holding sounding until the
+    release below reaches the subtick the length names past it - a length wider than the
+    row's own subticks reaching past that row and waiting for the block that gets there
+    the way a run's steps, a ramp's steps and a wobble's points do, and reaching as far
+    past it as the entry's own top of kCutTopTicks subticks. The note the release belongs
+    to is the one this channel is left holding at that row: the letter beside a row that
+    named no note of its own cuts across the rows, taking the note the column has been
+    holding from above down to the length named there rather than leaving it to whatever
+    ends it below, which is what the letter entered beside a row that did strike a note
+    and a bare note row under a carried letter already do. An empty argument beside a
+    letter the row itself named takes the default length rather than no length at all,
+    the number the entry writes so the cell spells the cut it asks for, and an empty one
+    under a carried letter keeps the length that letter is carrying, so a bare note row
+    is cut to whatever the column says. An OFF argument or a 0 is the note column's own
+    note-off rather than a cut of no subticks at all, drawn OFF the way its === is drawn:
+    the note this channel has been holding at that row is released at that row's own
+    sample, the gate is put away rather than carried on below and the column carries no
+    letter there, so the notes entering the rows under a release sustain again. Where that
+    row entered a note of its own as well, that note's arrival had already released the
+    note above it at this very sample and a note-off at a sample sorts ahead of the note-on
+    entered there, so a note of no length at all cannot be spelled and the note entered
+    there is left to whatever ends it below. An argument under a carried letter keeps its
+    reach where it was, that being the notes entering there and the rows below rather than
+    a note the rows above had already armed. The STP spelling asks for nothing, a cut having
+    no move of the wheel to stop, and leaves the length above as it was; either way the note
+    this channel is left holding is held for whatever length is in force there, which is
+    what lets the letter gate the notes of the rows under it rather than cutting only the
+    row that named it. Like a slide's and a vibrato's rows, this row closes an arpeggiator
+    run this column was in, a run and a gate not being two things one column can hold at
+    once. */
 void PlaybackEngine::cutCommand (std::vector<PendingEvent>& events, int ch, int offset,
                                  double rowPpq, int argument, bool rowNamedLetter,
                                  int enteredNote, bool noteOnRow, int midiCh,
@@ -1025,16 +1045,30 @@ void PlaybackEngine::cutCommand (std::vector<PendingEvent>& events, int ch, int 
     }
     else if (argument == kArgOff || argument == 0)
     {
-        // the release, spelled two ways the way a call's and a slide's are: the 0 a
-        // row names beside or under the letter and the OFF the entry writes for an o.
-        // It puts the gate away rather than holding the note for no subticks at all,
-        // so the note that row entered is left to whatever ends it below, and the
-        // release that gate had already armed for a note entered above it goes with it
-        // - the gate being switched off there is what says so, a further note entering
-        // this column having already opened the note that release belonged to. The
-        // column also carries nothing rather than the cut letter below a release, which
-        // is what stops a further row naming only an argument gating a note there and
-        // stops the tracker drawing a carried letter and length over the rows under it
+        // the release, spelled two ways the way a call's, a slide's and a vibrato's are:
+        // the 0 a row names beside or under the letter and the OFF the entry writes for an
+        // o. It reads and answers as the note column's own note-off, drawn OFF the way its
+        // === is drawn, and does what a note-off row does at that row: the note this channel
+        // has been holding from above is released at this row's own sample, which is what
+        // lets the letter cut a note off across the rows rather than only at the rows that
+        // entered one, and the gate is put away rather than holding a note for no subticks
+        // at all - the release that gate had already armed for that note goes with it, the
+        // note having just been taken away here. The column also carries nothing rather than
+        // the cut letter below a release, which is what stops a further row naming only an
+        // argument gating a note there and stops the tracker drawing a carried letter and
+        // length over the rows under it
+        if (c.activeNote >= 0 && ! noteOnRow)
+            // the note this channel has been holding is closed here, at this row's own
+            // sample, rather than left to whatever ends it below, and where the column
+            // had left the wheel bent under that note the release puts it back, the way
+            // a row's own note-off does. A row that entered a note of its own as well had
+            // already released the note above it as that note's arrival at this very
+            // sample, so the release asks for nothing of its own there: a note-off at a
+            // sample is sorted ahead of the note-on entered at it, which is what leaves a
+            // note of no length at all without a spelling and leaves the note entered
+            // here sounding until something below ends it
+            stopNote (events, offset, ch, c.activeMidiCh, c.activeNote);
+
         c.endCut();
         c.lastCmd = -1;
         c.lastCmdVal = -1;
@@ -1050,12 +1084,28 @@ void PlaybackEngine::cutCommand (std::vector<PendingEvent>& events, int ch, int 
         // that the length in force for the notes entered from here on: the narrowest
         // cut the field can name holds a note for one subtick rather than closing it at
         // the row that entered it, since a 0 is the release above, and the widest holds
-        // it for as far as the field reaches, its release waiting past this row and past
-        // the clip that has it, the clip's own end being what closes the note there
+        // it for as far as the entry reaches, kCutTopTicks subticks three digits deep,
+        // its release waiting past this row and past the clip that has it, the clip's own
+        // end being what closes the note there. The two numbers just below that top, 128
+        // and 129, are the OFF and the STP spellings rather than lengths, so those two
+        // lengths of the grid have no spelling of their own
         c.cutTicks = ticks;
     }
 
-    armCut (ch, enteredNote, midiCh, rowPpq, song);
+    if (enteredNote >= 0)
+        armCut (ch, enteredNote, midiCh, rowPpq, song);
+    else if (rowNamedLetter && ! noteOnRow)
+        // the letter beside a row that named no note of its own cuts across the rows: the
+        // note this channel has still been holding from the rows above is the one the
+        // length named there belongs to, released at that many subticks past this row
+        // rather than left to whatever ends it below, the way the letter entered beside
+        // a row that did strike a note already has that note to hold open. A row naming
+        // only an argument under a carried letter keeps its reach where it was, the notes
+        // entered above having been armed at their own rows, which is what leaves a
+        // retarget to the notes entering there and the ones below, and a row whose note
+        // duplicated another channel's on the same MIDI output channel in this row sent
+        // nothing of its own, so it leaves nothing armed here either
+        armCut (ch, c.activeNote, c.activeMidiCh, rowPpq, song);
 }
 
 //==============================================================================
@@ -1087,8 +1137,11 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
         // the one a cut letter, a length named under a carried one or a bare note row
         // under a carried one holds open, so the cut's own release below has a pitch to
         // belong to rather than whatever the channel happened to be holding from above.
-        // A row whose note duplicates another tracker channel's on the same MIDI output
-        // channel in this row was not sent at all, so it leaves nothing here armed
+        // A cut letter beside a row that named no note of its own arms for whatever the
+        // channel has still been holding instead, which is what lets the letter cut
+        // across the rows. A row whose note duplicates another tracker channel's on the
+        // same MIDI output channel in this row was not sent at all, so it leaves nothing
+        // here armed
         int enteredNote = kEmpty;
 
         // answers a row that named the bend letter or an argument under a carried
@@ -1142,13 +1195,19 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
 
             // a row naming a command that is not the cut letter leaves no gate in force
             // under it either: the letter the column stopped having has no note-length
-            // left to hold the notes below it, and the release that gate had armed for
-            // a note entered above it has no gate of its own left to cut it, the way a
-            // run's and a ramp's waiting steps go when the column supersedes them lower
-            // down - the note that entered above is left to whatever ends it below, a
-            // further note entering this column having already opened it at this row. The
-            // cut row that arms a gate of its own does so below, at the note it entered,
-            // the way a slide row arms its own ramp at the point this left the wheel at
+            // left to hold the notes below it, and the release that gate had armed for a
+            // note entered above it has no gate of its own left to cut it however far its
+            // counter had got, the way a run's and a ramp's waiting steps go when the
+            // column supersedes them lower down - a cut of a long length still waiting at
+            // this row is discarded rather than left to close whatever note the column
+            // happens to be holding at the subtick it was waiting for, the note that entered
+            // above being left to whatever ends it below, a further note entering this
+            // column having already opened it at this row. The cut row that arms a gate
+            // of its own does so below, at the note it entered or at the note it has been
+            // holding, the way a slide row arms its own ramp at the point this left the
+            // wheel at
+            if (cell.cmd != kCutCmd)
+                state.endCut();
             if (cell.cmd != kCutCmd)
                 state.endCut();
         }

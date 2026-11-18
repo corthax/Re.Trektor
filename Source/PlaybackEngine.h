@@ -197,22 +197,24 @@ private:
 
         /** A note-length gate this channel's column has in force, and the note-off
             a cut of that gate still has waiting: how many subticks the gate holds a
-            note entering this column for, 0 leaving none, counted on the same sub-row
-            grid an arpeggiator's steps, a slide's ramp and a wobble's points use, so
-            a cut of 3 at the Settings' 6 to the row holds the note for half a row and
-            one wider than the row waits for the block that reaches it. The gate keeps
-            being carried down under the letter, which is what lets one row's letter
-            gate the notes of the rows under it rather than cutting only the row that
-            named it. cutTime is where the release a cut armed for the note this
-            channel entered sits in absolute transport position rather than read off
-            the rows below, the way a run's steps, a ramp's steps and a wobble's points
-            are counted, cutNote and cutMidiCh name the pitch that release belongs to
-            and cutRowEnd is the end of the row the engine last processed, the bound the
-            flush below walks up to. The waiting release only ever closes the pitch the
-            row that armed it entered and this channel is still holding, which is what
-            makes it safe to leave a waiting cut in place while the gate above it is
-            retargeted or while the column's own note-off, a run's step or a clip's end
-            has already taken that note away, there being nothing left for it to close. */
+            note for, 0 leaving none, counted on the same sub-row grid an arpeggiator's
+            steps, a slide's ramp and a wobble's points use, so a cut of 3 at the
+            Settings' 6 to the row holds the note for half a row and one wider than the
+            row waits for the block that reaches it. The gate keeps being carried down
+            under the letter, which is what lets one row's letter gate the notes of the
+            rows under it rather than cutting only the row that named it, and the letter
+            also cuts across a row that named no note of its own, arming its release for
+            the note this channel has been holding from above rather than for nothing at
+            all. cutTime is where the release a cut armed sits in absolute transport
+            position rather than read off the rows below, the way a run's steps, a ramp's
+            steps and a wobble's points are counted, cutNote and cutMidiCh name the pitch
+            that release belongs to and cutRowEnd is the end of the row the engine last
+            processed, the bound the flush below walks up to. The waiting release only
+            ever closes the pitch the row that armed it left this channel holding and
+            this channel is still holding, which is what makes it safe to leave a waiting
+            cut in place while the gate above it is retargeted or while the column's own
+            note-off, a run's step or a clip's end has already taken that note away,
+            there being nothing left for it to close. */
         int cutTicks = 0;                      // subticks a note entering this column is held for (0 = no gate)
         double cutTime = -1.0;                 // where the waiting release sits, in transport beats (-1 = none)
         int cutNote = -1;                      // the pitch that waiting release belongs to
@@ -222,10 +224,13 @@ private:
         /** Leaves no gate in force and no cut waiting: the column stopped having the
             letter, so the length it held has nothing left to gate the notes below it,
             and the release that gate had armed for a note entered above it has no gate
-            of its own left to cut it, which is how a run's and a ramp's waiting steps
-            go when the column supersedes them lower down - the note that row entered is
-            left to whatever ends it below, a further note entering the column having
-            already opened it at that row's own sample. */
+            of its own left to cut it, however far that counter had got - a cut of a long
+            length still waiting under a row that names another command is discarded rather
+            than left to close whatever note the column happens to be holding there, which
+            is how a run's and a ramp's waiting steps go when the column supersedes them
+            lower down. The note that row entered is left to whatever ends it below, a
+            further note entering the column having already opened it at that row's own
+            sample. */
         void endCut() noexcept
         {
             cutTicks = 0;
@@ -549,7 +554,7 @@ private:
         this block play again arm its own cut at that row rather than advancing one twice,
         and what retargeting a length under a carried letter leaves a note that row entered
         above it armed for at its own row's length instead of re-timing it there. */
-    void armCut (int ch, int enteredNote, int midiCh, double rowPpq, const Song& song);
+    void armCut (int ch, int heldNote, int midiCh, double rowPpq, const Song& song);
 
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,

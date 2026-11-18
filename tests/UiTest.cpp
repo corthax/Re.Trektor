@@ -3699,8 +3699,55 @@ int main()
                "the same letter enters a C natural where the note column is asked for");
         check (cmdAt (11) == rtr::kEmpty, "and leaves that row's command column alone, the cut letter being only the command number's");
 
+        // a cut's own lengths are the only arguments that reach past the 0..127 the
+        // other kinds use: three digits of the Settings' grid deep, and the entry knows
+        // which command this row's argument answers against, so a letter named at a fresh
+        // row is what lets that row hold a three-digit length at all
+        tracker->setCursorRow (12);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('C', juce::ModifierKeys(), 'C'));
+        check (cmdAt (12) == rtr::kCutCmd && argAt (12) == rtr::kCutDefaultTicks,
+               "the letter named again at a fresh row, its argument left at the default length the entry writes beside it");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+
+        const int depthBeforeWide = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('9', juce::ModifierKeys(), '9'));
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        check (argAt (12) == 900,
+               "the third digit the field commits lands a length of 900 subticks rather than the 127 the other arguments top at: a cut's lengths are clamped to their own top rather than to the field's, which is what the entry knowing the kind this row's argument answers against is for");
+        check (proc.getUndoDepth() == juce::jmin (depthBeforeWide + 1, song.settings.undoSteps),
+               "and typing that length is one action of its own on the undo line, one step of the cap once the line is full");
+        check (tracker->carriedCommandNumber (13, 0) == rtr::kCutCmd && tracker->carriedCommandValue (13, 0) == 900,
+               "and the rows under that letter carry the three-digit length, drawn dim beside the carried letter the way a shorter one is, the field being wide enough to spell it");
+
+        // the two numbers just below the cut's own top stay the spellings above the field's
+        // top rather than reaching the lengths they would otherwise name
+        tracker->setCursorRow (14);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('C', juce::ModifierKeys(), 'C'));
+        check (cmdAt (14) == rtr::kCutCmd && argAt (14) == rtr::kCutDefaultTicks,
+               "the letter named a third time, its argument left at the default length again");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('2', juce::ModifierKeys(), '2'));
+        tracker->keyPressed (juce::KeyPress ('8', juce::ModifierKeys(), '8'));
+        check (argAt (14) == rtr::kArgOff,
+               "the 128 a digit run lands beside a cut letter is the OFF argument rather than a length of 128 subticks: the two numbers below the cut's own top stay the release and the hold spellings the entry writes for an o and an s, which is what leaves a cut of 128 or 129 subticks without a spelling of its own");
+        check (tracker->carriedCommandNumber (15, 0) < 0,
+               "and that row leaves the column carrying nothing below it, the OFF read there putting the gate away the way a 0 beside the letter does");
+
         if (auto* pat = song.activePattern())
-            check (pat->length > 11, "the fixture reaches past the rows this section typed into");
+            check (pat->length > 14, "the fixture reaches past the rows this section typed into");
 
         // the rows this section parked the cursor on are below the window the
         // checks after it click into, so the view is brought back to the top

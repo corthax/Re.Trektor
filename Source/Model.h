@@ -19,8 +19,9 @@ constexpr int kMidiChannelCount = 16;
     above that the command letters: the letter A names kArpCmd, the letter B
     names kBendCmd, the letters U and D name a slide of the pitch wheel to
     its top and to its bottom, the letter V runs a vibrato and the letter C
-    cuts the note its row entered to a length of its own, each claimed as the
-    field's first character rather than typed as a number, which is what stops
+    cuts a note's length, whether the note entered at the row it is spelled
+    beside or has been held by that column from the rows above, each claimed as
+    the field's first character rather than typed as a number, which is what stops
     a typed digit run from inventing a letter - a decimal field spells CC 10 as
     10, so nothing about a number's spelling reaches one of the letters. kBendCmd,
     the two slide values, the vibrato letter and this build's cut letter all sit
@@ -62,27 +63,42 @@ constexpr int kMidiChannelCount = 16;
     which is what lets the letter that bent the pitch, a slide's extreme or a
     plain bend argument all be the base a wobble swings from.
 
-    A cut's argument says how long the note its own row entered is held rather
-    than what any other row is asked to do: the subticks are counted on the same
-    sub-row grid an arpeggiator's steps, a slide's ramp and a wobble's points
-    already use, so a cut of 3 subticks at the default of 6 to the row holds the
-    note for half a row and the widest one the field can name holds it for
-    kCutTopTicks subticks, which is past the row that named it - the note-off the
-    cut asks for waits for the block that reaches that subtick the way a run's
-    steps, a ramp's steps and a wobble's points do, and is only ever sent for the
-    pitch that row entered on that channel. Unlike the wheel's letters, this one
-    keeps being carried down under it: a note entering a row that named no command
-    of its own under a carried cut is held for the length the column carries, which
-    is what lets the letter gate a whole staccato section rather than cutting only
-    the row that named it, and an argument named under a carried letter retargets
-    that length for the notes below rather than re-timing a note the row above had
-    already armed. A row that names the letter and leaves the argument empty takes
-    the default length of kCutDefaultTicks subticks, the number the entry writes so
-    the cell spells the cut it asks for, and both a 0 beside the letter and the OFF
-    the entry writes for an o are the release rather than a cut of no subticks at
-    all, so the notes under a release row sustain again and the column carries no
-    letter below it; the s spelling asks for nothing beside a cut, since a cut has
-    no move of the wheel to stop, and leaves the length above as it was. */
+    A cut's argument says how long a note is held rather than what any other row is
+    asked to do: the subticks are counted on the same sub-row grid an arpeggiator's
+    steps, a slide's ramp and a wobble's points already use, so a cut of 3 subticks
+    at the default of 6 to the row holds the note for half a row and the widest one
+    the entry can name holds it for kCutTopTicks subticks, three digits on that grid.
+    The letter cuts the note its own row entered and, beside a row that named no note
+    of its own, the note that channel has been holding from the rows above it, released
+    at the length this row names past it, which is what lets the letter cut across the
+    rows rather than only the one that entered a note. Unlike the wheel's letters, this
+    one keeps being carried down under it: a note entering a row that named no command
+    of its own under a carried cut is held for the length the column carries, which is
+    what lets the letter gate a whole staccato section rather than cutting only the row
+    that named it, and an argument named under a carried letter retargets that length
+    for the notes entering there and the rows below rather than re-timing a note the row
+    above had already armed. A row that names the letter and leaves the argument empty
+    takes the default length of kCutDefaultTicks subticks, the number the entry writes
+    so the cell spells the cut it asks for, and both a 0 beside the letter and the OFF
+    the entry writes for an o are the note column's own note-off rather than a cut of no
+    subticks at all, drawn OFF the way its === is drawn: the note this channel is
+    holding at that row is released at that row's own sample, and the gate is put away
+    rather than carried on below, so the notes entering the rows under a release sustain
+    again and the column carries no letter there. Where that row entered a note of its
+    own as well, that note's arrival had already released the note above it, so the
+    release adds nothing of its own and the note entered there is left to whatever ends
+    it below - a note of no length at all cannot be spelled, its note-off being sorted
+    ahead of its note-on at the same sample. Two lengths of the grid have no spelling of
+    their own: the numbers 128 and 129 the argument field holds stay the OFF and STP
+    spellings, so a cut of 128 or 129 subticks cannot be named. The s spelling asks for
+    nothing beside a cut, since a cut has no move of the wheel to stop, and leaves the
+    length above as it was. A gate whose note-off has not reached its subtick yet is
+    discarded when a row under it names a command that is not the cut letter: the letter
+    the column stopped having has no note-length left to hold the notes below it, and
+    the release that gate had armed for a note entered above it has no gate of its own
+    left to cut it, which is how a run's and a ramp's waiting steps go when the column
+    supersedes them lower down - the note entered above is left to whatever ends it
+    below, the rows under that command having nothing left to be cut. */
 constexpr int kArgOff = 128;  // the argument that reads OFF: an arpeggiator going off or the wheel's release
 constexpr int kArgStp = 129;  // the argument that reads STP: the wheel held at the point it is at
 constexpr int kMaxArpMacros = 127; // arpeggiator macros, ids 1..127; the id 0 call releases
@@ -113,8 +129,8 @@ constexpr int kVibFreqTop = 127;  // the widest cycle a vibrato can ask for, in 
 constexpr int kVibDefaultAmp = 50; // the amplitude a newly defined macro starts at, in hundredths
 constexpr int kVibDefaultFreq = 8; // the cycle a newly defined macro starts at, in subticks
 
-constexpr int kCutCmd = 148; // command value 148 cuts the note its row entered, entered as C
-constexpr int kCutTopTicks = 127; // the widest cut the argument field can name, in subticks on the Settings' grid
+constexpr int kCutCmd = 148; // command value 148 cuts a note's length, entered as C
+constexpr int kCutTopTicks = 999; // the widest cut the entry can name, in subticks on the Settings' grid; 128 and 129 below it stay the OFF and STP spellings
 constexpr int kCutDefaultTicks = 3; // subticks a note is held for when the row leaves the argument empty
 constexpr int kMaxUndoSteps = 200; // most undo steps the undo line can be asked for
 
@@ -135,7 +151,7 @@ struct Cell
     int vol = kEmpty;     // kEmpty or 0..127
     int pan = kEmpty;     // kEmpty or 0..127
     int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D); 147 = vibrato (V); 148 = cut (C)
-    int cmdVal = kEmpty;  // kEmpty, 0..127: a macro id, a point on the wheel, a slide's rows, a vibrato macro id or a cut's subticks; kArgOff = OFF and kArgStp = STP above the field's own top
+    int cmdVal = kEmpty;  // kEmpty, 0..127 or a cut's own subticks to kCutTopTicks: a macro id, a point on the wheel, a slide's rows, a vibrato macro id or a cut's subticks; kArgOff = OFF and kArgStp = STP above the field's own top
 
     bool empty() const noexcept
     {

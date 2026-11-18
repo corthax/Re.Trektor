@@ -867,15 +867,18 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                 else if (cmdNum == kCutCmd)
                                 {
                                     // the cut is drawn as its letter too, in the same
-                                    // lilac: it cuts the note its row entered rather than
-                                    // calling anything, so its argument beside it counts
-                                    // how many subticks that note is held for. Unlike the
-                                    // wheel's and a macro's letters, this one keeps being
-                                    // carried down under it, so the rows below a named one
-                                    // draw the letter and their carried length dim, which
-                                    // is what says that the notes entering those rows are
-                                    // cut to the length the column carries rather than left
-                                    // sustained until something else ends them
+                                    // lilac: it cuts a note's length rather than calling
+                                    // anything, so its argument beside it counts how many
+                                    // subticks the note that row entered, or the note that
+                                    // column has been holding from above where the row named
+                                    // no note of its own, is held for - as many as three
+                                    // digits of the Settings' grid. Unlike the wheel's and a
+                                    // macro's letters, this one keeps being carried down
+                                    // under it, so the rows below a named one draw the letter
+                                    // and their carried length dim, which is what says that
+                                    // the notes entering those rows are cut to the length the
+                                    // column carries rather than left sustained until
+                                    // something else ends them
                                     text = "C";
                                     colour = theme::cmdOther;
                                 }
@@ -924,12 +927,12 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     // the column stops carrying the letter below it, a
                                     // vibrato's release spells itself the same two ways
                                     // as a call's do, and a cut's release spells itself
-                                    // the same two ways as well: the 0 that cuts a note
-                                    // for no subticks at all reads as the gate being put
-                                    // away, so the notes entering the rows below a release
-                                    // are left sustained and the column carries no letter
-                                    // over them, which is why a row under a release names
-                                    // nothing rather than a dim letter and a dim length
+                                    // the same two ways as well: the 0 there is the note
+                                    // column's own note-off rather than a cut of no
+                                    // subticks at all, so the note that column has been
+                                    // holding is closed at that row and the gate is put
+                                    // away below it, which is why the rows under a release
+                                    // name nothing rather than a dim letter and a dim length
                                     text = "OFF";
                                 else if (cmdVal == kArgStp)
                                     // the STP spelling reads as the hold it asks for:
@@ -1616,7 +1619,7 @@ int TrackerComponent::maxDigitsFor (Field field) const
         case Field::vol: return 3; // 0-127
         case Field::pan: return 3; // 0-127
         case Field::cmdNum: return 3; // a plain CC 0-127
-        case Field::cmdVal: return 3; // 0-127, or the release's OFF and a hold's STP
+        case Field::cmdVal: return 3; // 0-127, to 999 beside a cut letter, or the release's OFF and a hold's STP
         default: return 0;
     }
 }
@@ -1650,7 +1653,13 @@ int TrackerComponent::clampValue (Field field, int value) const
             // cannot be typed back at all
             return juce::jlimit (0, kCcTop, value);
 
-        case Field::cmdVal: return juce::jlimit (0, 127, value);
+        case Field::cmdVal:
+            // the argument of a wheel letter, a call or a vibrato is a number to the
+            // field's own top, a macro id, a point on the wheel or a count of rows; only
+            // a cut's lengths reach past it, three digits of the Settings' grid, and
+            // those are clamped to their own top at the entry, where the kind the cursor
+            // answers against is known
+            return juce::jlimit (0, 127, value);
         default: return value;
     }
 }
@@ -1734,23 +1743,29 @@ void TrackerComponent::applyValue (Field field, int value)
             break;
 
         case Field::cmdVal:
-            cell.cmdVal = clampValue (field, value);
+        {
+            // the argument field belongs to whatever command its row answers against, and
+            // only a cut's lengths reach past the 0..127 the other kinds use: three digits
+            // deep is as far as the field spells, and a cut's own top is kCutTopTicks
+            // subticks of the Settings' grid
+            const int kind = commandKindAt (cursorRow, cursorChannel);
 
-            // a 0 typed beside a slide letter is the release the o would have
-            // written rather than a slide over no rows at all: the narrowest slide
-            // the field can name takes one row, so the entry lands the OFF argument
-            // the drawing reads and the engine answers by putting the wheel back at
-            // its centre. A 0 beside the call letter keeps the release spelling the
-            // arpeggiator already has, and one beside the bend letter keeps naming
-            // the wheel's own bottom rather than switching anything off. A cut of
-            // no subticks would hold a note for nothing at all, so a 0 beside or
-            // under the cut letter lands the same OFF the o writes for it, the entry
-            // spelling the release rather than a length below the field's own
-            // narrowest one
+            cell.cmdVal = kind == kCutCmd ? juce::jlimit (0, kCutTopTicks, value)
+                                          : clampValue (field, value);
+
+            // a 0 typed beside a slide letter is the release the o would have written
+            // rather than a slide over no rows at all: the narrowest slide the field can
+            // name takes one row, so the entry lands the OFF argument the drawing reads
+            // and the engine answers by putting the wheel back at its centre. A 0 beside
+            // the call letter keeps the release spelling the arpeggiator already has, and
+            // one beside the bend letter keeps naming the wheel's own bottom rather than
+            // switching anything off. A cut of no subticks would hold a note for nothing
+            // at all, so a 0 beside or under the cut letter lands the same OFF the o writes
+            // for it, the note that column has been holding being released there the way
+            // the note column's own === does and the gate being put away below rather than
+            // a length below the field's own narrowest one
             if (cell.cmdVal == 0)
             {
-                const int kind = commandKindAt (cursorRow, cursorChannel);
-
                 if (kind == kSlideUpCmd || kind == kSlideDownCmd || kind == kCutCmd)
                     cell.cmdVal = kArgOff;
             }
@@ -1762,6 +1777,7 @@ void TrackerComponent::applyValue (Field field, int value)
                 cell.cmd = 0;
 
             break;
+        }
 
         default: break;
     }
@@ -2047,21 +2063,24 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
         }
 
         // the argument field spells the wheel's own states as letters rather than
-        // as numbers, since the field only ever spells 0..127 and neither of the
-        // two is a number: an o lands the OFF argument, which switches the
-        // pitchbending off and puts the wheel back at its centre, and an s lands
-        // the STP one, which stops whatever move the wheel was making and leaves
-        // it sitting on the point it had got to. An o also goes off an
-        // arpeggiator run, a vibrato or a cut, the release the 0 beside any of
-        // those letters already spells, and a cut's OFF being the gate being put
-        // away rather than a note held for no subticks at all, which is what lets
-        // the notes entering the rows under a release sustain again. An s asks
-        // for nothing beside a call, a vibrato or a cut, since none of them has
-        // a move of the wheel to stop - a cut's letter gates the notes below it
-        // rather than making the wheel climb, so there is nothing there to hold -
-        // so a letter neither claim owns where the cursor sits is left alone
-        // rather than writing a value or typing a note beside it, and the cell's
-        // value stays as it was
+        // as numbers, since the two spellings name no number at all: an o lands the
+        // OFF argument, which switches the pitchbending off and puts the wheel back
+        // at its centre, and an s lands the STP one, which stops whatever move the
+        // wheel was making and leaves it sitting on the point it had got to. A cut's
+        // numbers alone reach past the 0..127 the other kinds use, three digits of the
+        // Settings' grid deep, and the two numbers just below that top, 128 and 129,
+        // stay these two spellings rather than lengths, so a cut of 128 or 129 subticks
+        // has no spelling of its own. An o also goes off an arpeggiator run, a vibrato
+        // or a cut, the release the 0 beside any of those letters already spells, a cut's
+        // OFF being the note column's own note-off rather than a note held for no subticks
+        // at all: the note that column has been holding is closed at that row and the gate
+        // is put away below it, which is what lets the notes entering the rows under a
+        // release sustain again. An s asks for nothing beside a call, a vibrato or a cut,
+        // since none of them has a move of the wheel to stop - a cut's letter gates the
+        // notes below it rather than making the wheel climb, so there is nothing there to
+        // hold - so a letter neither claim owns where the cursor sits is left alone rather
+        // than writing a value or typing a note beside it, and the cell's value stays as
+        // it was
         if (cursorField == Field::cmdVal)
         {
             const int kind = commandKindAt (cursorRow, cursorChannel);
