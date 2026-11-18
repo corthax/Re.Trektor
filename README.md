@@ -50,6 +50,66 @@ Bitwig Studio 6.1.4 runs as a Flatpak whose root ships glibc 2.42 and reported
 `version \`GLIBC_2.43' not found` for the unpinned binary; Reaper links natively
 and was unaffected.
 
+A Windows x86-64 VST3 of the same sources is optional and is not what a Linux
+host installs: the native Linux build above is the one to put in a Linux host.
+That Windows binary is built by the msvc-wine route, which runs Microsoft's own
+compiler and linker under Wine and is the only Windows route this tree keeps.
+The mingw-w64 cross toolchain is not used and nothing in the tree is patched for
+it any more: JUCE 8 refuses that compiler in
+`JUCE/modules/juce_core/system/juce_TargetPlatform.h` with
+`#error "MinGW is not supported. Please use an alternative compiler."` and
+`JUCE/BREAKING_CHANGES.md` says a Windows cross build has no workaround, so the
+vendored JUCE is the unpatched upstream tree and the build below needs no gate in
+it at all. The route downloads Microsoft's own toolchain, which means accepting
+its license: as Visual Studio is not redistributable, neither is what those two
+commands install.
+
+```sh
+cd ~/src/msvc-wine   # github.com/mstorsjo/msvc-wine
+./vsdownload.py --accept-license --dest ~/opt/msvc
+./install.sh ~/opt/msvc   # 200 packages, 1.6 GB down, 5.5 GB installed
+```
+
+Then the plug-in configures for that toolchain through the wrapper scripts in
+its `bin/x64` (the `.exe` files next to them being what Wine runs), with no
+toolchain file of its own:
+
+```sh
+export PATH="$HOME/opt/msvc/bin/x64:$PATH"
+CC=cl CXX=cl cmake -S . -B build-msvc -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_ARCH=x86_64 \
+    -DJUCE_TARGET_ARCHITECTURE=x86_64 -DJUCE_WINDOWS_HELPERS_CAN_RUN=FALSE \
+    -DCMAKE_CXX_FLAGS_INIT="/utf-8 -DJUCE_USE_WINDOWS_MEDIA_FORMAT=0"
+cmake --build build-msvc -j2
+```
+
+CMake identifies the compiler as MSVC 19.52.37029.0, which is what makes every
+`JUCE_MSVC` branch of the vendored JUCE take the path a native Windows build
+takes as well, and it is a toolchain JUCE supports natively.
+`JUCE_USE_WINDOWS_MEDIA_FORMAT=0` because that SDK spells Windows Multimedia's
+`wmsdk.h` but ships no `wmp*.lib` import library for it while this plug-in plays
+no media of its own; `JUCE_WINDOWS_HELPERS_CAN_RUN=FALSE` because the helper
+JUCE would run to write the bundle's `moduleinfo.json` is a Windows binary this
+build cannot run, which is why `CMakeLists.txt` answers
+`VST3_AUTO_MANIFEST` off when the target and host platforms differ and the
+manifest is written by the Linux tree's own helper over the Windows bundle
+instead, the manifest the two bundles end up carrying being one file:
+
+```sh
+./build/ReTrektor_vst3_helper build-msvc/ReTrektor_artefacts/Release/VST3/Re.Trektor.vst3 \
+    > build-msvc/ReTrektor_artefacts/Release/VST3/Re.Trektor.vst3/Contents/Resources/moduleinfo.json
+```
+
+Keep the parallelism low: `cl.exe` and `link.exe` run under Wine and the JUCE
+unity translation units peak high, one of them having been killed outright rather
+than reported by the compiler at `-j 4` on a machine with 4 GB free (`Error 137`,
+the SIGKILL of an out-of-memory kill, at
+`JUCE/modules/juce_audio_processors/juce_audio_processors.cpp`). What that build
+produces is the same bundle layout as the Linux one, `Contents/x86_64-win/`
+carrying the DLL whose VST3 entry exports are the `ExitDll` and `InitDll` pair
+at ordinal base 1, the two having been folded onto one address by the
+`juce_recommended_lto_flags` the plug-in target asks for on both platforms.
+
 ## Tests
 
 ```sh
@@ -1718,6 +1778,38 @@ removed leaves five points of the line rather than one.
 
   That build exposes a silent stereo output and `IS_SYNTH`, so it can be
   inserted like a normal instrument while still only producing MIDI.
+* The Windows x86-64 build above was checked at a real Windows host: the plug-in
+  loads there, its editor renders and it works, which is what says the plug-in's
+  own Windows GUI is fine and that nothing in the tree has to be bent for
+  Windows at all. Wine hosts are a different matter and are not pursued: the same
+  binary loads and runs there — `LoadLibrary` ok with the `InitDll`/`ExitDll` pair
+  answering, and a host harness reading the plug-in's whole VST3 shell through the
+  yabridge bridge, its name, `Fx` category, `uniqueId`, zero audio channel counts,
+  one block channel with four MIDI events in and four out and a 2463-byte state
+  that round-trips — but the editor's window comes up as an unpainted black
+  rectangle that still covers the host and still takes the host's input. The
+  reason is wine's, not the plug-in's: on Windows a plug-in does not draw inside
+  the host but is turned into a child HWND of the host's own window
+  (`JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp`'s
+  `isPlatformTypeSupported (kPlatformTypeHWND)` and `attached()`), JUCE 8 hands
+  that child window the Direct2D renderer by construction (`Component::createNewPeer`
+  asking for engine 1 at
+  `JUCE/modules/juce_gui_basics/native/juce_Windowing_windows.cpp:4809`), and that
+  renderer paints through a DXGI swapchain made for composition plus a tree hung
+  off the window with DirectComposition (`CreateSwapChainForComposition`,
+  `DCompositionCreateDevice`, `SetContent` and `Commit` in
+  `JUCE/modules/juce_gui_basics/native/juce_Direct2DHwndContext_windows.cpp`), the
+  paint being gated on that tree having been built (`ready &= compositionTree.has_value()`)
+  and the plug-in's own import list naming `dcomp.dll`, `d3d11.dll`, `dxgi.dll`
+  and `d2d1.dll` being what says the request really goes out. wine ships those
+  dlls but composes only the windows of its own Wayland and D3D backends, so the
+  tree never completes and nothing is ever painted into the window's client area,
+  which is why what is seen is an unpainted window rather than a plug-in that
+  failed to load — the plug-in works behind that rectangle, its undo line, its
+  MIDI and its state reaching the host. The other Windows plug-ins a wine host on
+  this machine does render are older-JUCE binaries that paint through GDI rather
+  than through that composition tree. Nothing in this repo is patched for wine:
+  a Linux host has the native build, and that is the one to install there.
 * Interactive behaviour has been verified with JUCE's plug-in host, headless
   editor interaction tests and Carla; a full Reaper session has not been run
   in this environment.
@@ -2094,6 +2186,49 @@ never was. Two drags out and back are two actions rather than one, since the poi
 and each mouse-down/up pair is one gesture; only a gesture ending where it began leaves no point. The
 transpose amount's row asked for the drag but not for the line's two ends, since its number belongs to the
 arrows' next click rather than to the model and a drag over it makes no point of the line to coalesce.
+Windows cross build moved to the msvc-wine route and the mingw branch taken out
+of the tree rather than left in it inert: JUCE 8 answers the mingw-w64 cross
+compiler at JUCE/modules/juce_core/system/juce_TargetPlatform.h with
+#error "MinGW is not supported. Please use an alternative compiler." and
+JUCE/BREAKING_CHANGES.md says a Windows cross build has no workaround, so the
+nine mingw-only gates the vendored copy carried - the lowercase Dbghelp.h spelling
+in juce_core.cpp, the __mingw_uuidof_s entry that read ComSmartPtr's id out of the
+interface's own in juce_ComSmartPtr_windows.h, the getaddrinfo/freeaddrinfo
+refusals in juce_Socket.cpp, intrin.h and <cstring> widened to JUCE_MINGW in
+juce_StandardHeader.h, that file's own platform block that replaced the #error and
+defined JUCE_MINGW, the jpeglib boolean widened in juce_JPEGLoader.cpp, the
+D2D1_SATURATION_PROP enum juce_graphics.cpp stated for the sys-root's missing one,
+the SAPI SpVoiceWrapper bridge juce_Accessibility_windows.cpp dropped and the UIA
+caret attribute juce_UIATextProvider_windows.h left unanswered - were reverted to
+the upstream tree, and tools/win-mingw.cmake, the CMakeLists' if (WIN32 AND MINGW)
+LTO valve and its if (WIN32 AND MINGW) block of -l... import libraries with the
+-Wl,--gc-sections and -static-lib... link options went with them, which leaves
+git diff -- JUCE empty and the vendored copy the unpatched upstream 8.0.9 rather
+than a fork the Windows route had to teach. msvc-wine (github.com/mstorsjo/msvc-wine,
+cl.exe and link.exe run under Wine behind the bin/x64 wrapper scripts) is a
+toolchain JUCE supports natively, so nothing in this repo is patched for the
+Windows build at all, and the one thing that build cannot do for itself is write
+the bundle's moduleinfo.json, which is what the VST3_AUTO_MANIFEST platform test
+in CMakeLists.txt now states rather than the mingw note it used to name. The
+wine-only renderer switch the previous round added (isRunningUnderWine reading the
+__wine_get_version export ntdll answers only on wine, useGdiRendererUnderWine
+asking the editor's ComponentPeer for the GDI engine by index rather than by name
+and settleWindowRenderer called from resized () and from the 20 Hz timer) and the
+half-written RETREKTOR_TRACE helper went the same way rather than being kept: the
+plug-in was checked at a real Windows 11 host and loads there, renders its editor
+and works, so the black window a wine host shows belongs to wine never completing
+the Direct2D/DirectComposition tree JUCE 8 gives a plug-in's child HWND by
+construction rather than to anything this build does, and wine compatibility is
+not pursued because a Linux host has the native build - the finding is written
+down in Known limitations and in the Build section rather than chased, and no
+wine branch, no windows.h include and no trace hook is left in the plug-in's own
+sources. The build-instrument/ tree that the arp commit added to the index by
+accident (232 files of CMake output, the README's own instrument-fallback recipe
+naming that directory as a configure target rather than as something to commit) is
+out of the index and off disk, build-win/ with tools/win-mingw.cmake and the
+--out= directory a mistyped screenshot path made are off disk, and .gitignore now
+answers build*/ and cmake-build-debug/ rather than build/ alone, which is what
+keeps the next add-everything from tracking a build tree again.
 Work State
 Completed
 Repo init, JUCE 8.0.9 vendored/committed; CMakeLists.txt for VST3 MIDI effect.
@@ -3556,83 +3691,190 @@ eaae15bca7fc617339eb1a7cdfb5fbb539c9089a422a11ede388d2188a0b48bf at --tab=vibs -
 4d1df0bc31c7f79ddfcd201512faacf801304fa96c67e88e5d1415ead43f4a36 at --tab=settings - their dumps still reading
 32, 28, 26 and 14 OUTSIDE PARENT lines, all of them the hidden ScrollBars and the zero-sized children of a
 hidden panel, which is what says the drag mode changes no paint at all.
+Windows route cut over to the msvc-wine build, the wine-side experiment and the
+mingw branch removed and the stray build trees out of the way (this round):
+Source/PluginEditor.cpp and Source/PluginEditor.h came back to the drag round's
+committed shape, which takes the isRunningUnderWine / useGdiRendererUnderWine /
+settleWindowRenderer trio, the windowRendererSettled member, the #ifdef _WIN32
+windows.h include and the half-written #if RETREKTOR_TRACE rtrTrace helper out of
+the plug-in and leaves git status reading no change in either file, and the nine
+mingw-gated files named above came back to upstream, so this round's whole source
+diff is CMakeLists.txt losing the two if (WIN32 AND MINGW) blocks and rewording the
+VST3_AUTO_MANIFEST comment to name the Windows build note rather than
+tools/win-mingw.cmake, .gitignore answering build*/ and cmake-build-debug/, and the
+build-instrument/'s 232 tracked files going out of the index with the tree going
+off disk. Both trees were rebuilt against that state rather than assumed. The Linux
+one came back byte-identical at 1207c0862ca3159cf5069bca5c62c7f80a1c4426d2bce75dfe9f5790cb20aa16
+rather than moving at all - the round took code out from behind a JUCE_WINDOWS guard
+and out of the mingw gates, so nothing Linux compiles changed - its
+moduleinfo.json unchanged at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee,
+its installed bundle at /home/corthax/.vst3/Corthax/Re.Trektor.vst3/ refreshed by
+rsync -a --checksum over its whole directory with the diff -r between the built and
+the installed trees reading clean rather than needing a second pass, and CoreTest
+388, UiTest 760 and Smoke 13 all PASS with 0 failures against the built bundle path
+given explicitly. The Windows one rebuilt at -j 2 after a -j 4 attempt had a JUCE
+unity translation unit, JUCE/modules/juce_audio_processors/juce_audio_processors.cpp,
+killed by the out-of-memory killer rather than reported by the compiler - Error 137,
+the signal rather than a C-nn diagnostic - on a machine that had 4 GB left, which is
+what the README's recipe says -j 2 for; its DLL is 3758592 bytes at
+74cfb283fc6ce6df0b086b6d5358558c582186455122aeb39f1253b1bd6dfdf1 where the paused
+mingw route's last one sat at 3f1cbf91f14c44d14ce8d5ce5fe06bfbd39d954a85a2114d778412bcc6e40605,
+its VST3 entry exports being the ExitDll and InitDll pair at ordinal base 1 folded
+onto one address, the LTO valve that used to answer the mingw route off being gone
+rather than needed since both platforms now ask for
+juce_recommended_lto_flags, and its import list being Windows' own set - KERNEL32,
+USER32, GDI32, SHELL32, ole32, OLEAUT32, MSVCP140, WINMM, d2d1, dxgi, d3d11, dcomp,
+IMM32, COMCTL32, dwmapi, VCRUNTIME140 and VCRUNTIME140_1, the nine api-ms-win-crt-...
+libraries and nothing else - rather than the mingw route's hand-picked -l... list,
+GDI32's BitBlt and CreateDIBSection still being asked for beside the dcomp, d3d11,
+dxgi and d2d1 the composition path names, which is what says the black window a
+wine host shows is that path's and not a link the plug-in had to be handed. The
+bundle's moduleinfo.json regenerated over the Windows bundle by the Linux tree's own
+helper at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee, the same
+990 bytes the Linux bundle carries since a manifest is the plug-in's two classes,
+their Fx sub-category and their flags rather than anything per-binary. Both harnesses
+were re-run against that binary: the wine load probe loading it (LoadLibrary ok,
+InitDll () = true and ExitDll () = true, exit 0) and the native JUCE VST3-host
+harness reading the whole shell through the yabridge bridge (loaded = 1 of 1,
+name = Re.Trektor, descriptive = Re.Trektor, format = VST3, category = Fx, maker =
+Corthax, version = 0.1.0, uniqueId = -883204095, instrument = no, channels in = 0
+out = 0, block chans = 1 with inEvents = 4 and outMidiEvents = 4, state bytes = 2463
+and the same 2463 back from a round trip), the bridge needing no yabridgectl sync at
+all since its Contents/x86_64-win entry is a symlink to the wine prefix's bundle,
+whose copy was restaged at the same 74cfb283fc6ce6df0b086b6d5358558c582186455122aeb39f1253b1bd6dfdf1
+bytes - the bridge and the prefix being a test route for the Windows binary on this
+box rather than something a Linux host installs, a Linux host taking the native build.
+The four pinned 1240x760 shots came back byte-identical at the hashes the previous
+round pinned, 938d8f49f8efea8a4928b2a10e9c604199294fd4fb91e1148c22201e15f250af at
+--dump --arp-call=8 --arp=0,4,off,8, aa47556ccc5764ad10dfc7f82179826a42cfeff7f4d6b095e5b9f5f471528657
+at --tab=macros --arp=0,4,off,8 --arp-loop, eaae15bca7fc617339eb1a7cdfb5fbb539c9089a422a11ede388d2188a0b48bf
+at --tab=vibs --vib-shape="Triangle Down" --vib-amp=25 --vib-cycle=6 --vib-call=8 and
+4d1df0bc31c7f79ddfcd201512faacf801304fa96c67e88e5d1415ead43f4a36 at --tab=settings,
+their dumps still reading 32, 28, 26 and 14 OUTSIDE PARENT lines, this round touching
+neither paint nor layout - which is what those hashes are here for a re-reading rather
+than a re-pinning.
 Active
-Nothing is open in the code: a number widget's row is draggable and one drag along it is one action of the
-undo line end to end, at the editor and at UiTest. What is left is what a host hears rather than what this
-build has to write: whether the pointer path a host moves along a row is heard as the several mouseDrags the
-harness hands over the +/- pair and the row's own width or as one for the whole path, the plug-in earning one
-point of the undo line either way since the line hears the gesture's two ends rather than counting its events;
-and whether a host routes a Return to a plug-in panel's own text editors at all, the keyboard focus being
-unobservable headlessly since Component::takeKeyboardFocus no-ops when getPeer () is empty and no harness here
-creates a desktop window.
+Nothing is open in the code: the tree carries one Windows route, the msvc-wine
+recipe the Build section names, its vendored JUCE is the unpatched upstream tree
+with git diff -- JUCE empty, its plug-in sources carry no wine branch, no windows.h
+include and no trace hook, and every Linux pin the previous round left came back at
+the same bytes rather than moved - the .so at 1207c0862ca3159cf5069bca5c62c7f80a1c4426d2bce75dfe9f5790cb20aa16,
+moduleinfo.json at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee,
+CoreTest 388 / UiTest 760 / Smoke 13 PASS with 0 failures and the four pinned 1240x760
+shots at their pinned hashes with their dumps reading 32, 28, 26 and 14 OUTSIDE PARENT
+lines. The tracked Re.Trektor.vst3.tar.gz reads current rather than stale as well:
+untarred beside this build it carries the same 6153096-byte .so at the same
+1207c0862ca3159cf5069bca5c62c7f80a1c4426d2bce75dfe9f5790cb20aa16 and the same
+990-byte manifest, which is what says the tarball the user re-cut at 2a583a8 already
+holds what this build holds rather than an older .so. What is left is the user's
+rather than the code's: the Windows bundle a Windows host runs has to be the one this
+round rebuilt at 74cfb283fc6ce6df0b086b6d5358558c582186455122aeb39f1253b1bd6dfdf1
+rather than the one that VM was last shown, since the previous build's bytes carry the
+wine renderer switch and the trace scaffolding this round took out.
 Blocked
-No Reaper installed; the only host on this machine is /usr/bin/carla, so this round's drag is verifiable at
-the editor and at UiTest - one mouseDown, several mouseDrags and one mouseUp handed to the Settings tab's Undo
-steps knob moving the number that row shows, feeding song.settings.undoSteps, raising the depth by exactly one
-for the whole drag rather than one per event, one Ctrl+Z taking the whole drag back to the number the row had
-before it, the way back being a second action of its own and the row's own + button still costing one step of
-its interval - rather than by what a host's own pointer path along the row hears, and a host that sends one
-mouseDrag for the whole path rather than one per movement of the pointer is what has to confirm that the
-coalescing earns one point of the undo line rather than one per event of its own. The keyboard focus remains
-unobservable in UiTest rather than failing: Component::takeKeyboardFocus no-ops when getPeer () is empty and
-no harness here creates a desktop window, so whether a host that holds the focus on one of these panels routes
-a Return to that panel's own text editors rather than to a Button a click left there is what a host has to
-confirm. The .so changed bytes this round at sha256
-1207c0862ca3159cf5069bca5c62c7f80a1c4426d2bce75dfe9f5790cb20aa16 rather than staying put, since the drag
-wiring is code rather than comments: the installed bundle and the built one being byte-identical under diff -r
-and moduleinfo.json unchanged at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee is what says
-the hosts that scanned the previous bundle still see one plug-in rather than a renamed one. The host floor was
-left as the previous round recorded it rather than re-read against this build: the round asked for no symbol,
-no math and no include beyond what the tree already had, so GLIBC_2.38 and GLIBCXX_3.4.32 still stand as what
-the pinned Bitwig 6.1.4 Flatpak root can load rather than as a floor confirmed for this .so again. The warning
-set is the tree's own rather than a new one: the hidden processBlock (double&) overload, the two
--Wsign-conversion notes at PlaybackEngine.cpp:104 and :112 against the stuck-key guard's bitset and the unused
-song parameter of arpCommand at PlaybackEngine.cpp:366, that file not having been recompiled this round so
-those notes stand as the previous round recorded them rather than being re-emitted, and the -Wshadow pair now
-at PluginEditor.cpp:371 and :397 rather than the 354 and :380 the previous round recorded - the bottom bar's
-CHANNELS handler and the pattern name editor's own onReturnKey, those lines having moved down by the drag
-wiring this round added to that file; this round added no warning of its own. A shot's dump reads the hidden
-ScrollBars and the zero-sized children of a hidden panel as OUTSIDE PARENT lines rather than as cards clipped
-out, which is why the four shots report 32, 28, 26 and 14 of them rather than a shortfall of cards - the same
-counts the previous round pinned, which is what says the drag mode changes no paint at all. The tracked
-Re.Trektor.vst3.tar.gz the tree carries from commit 432dd55 is stale against this build rather than being
-something this round left open in the code - it was cut from an older .so - and re-cutting it is the user's to
-ask for rather than something a round does on its own.
+What this box cannot show is a plug-in window at a Windows host: the editor's rendering
+at a real Windows 11 host is the user's VM's report - the plug-in loads, its editor
+renders and it works - rather than anything observable here, since the only way the
+Windows binary can be run at all on this machine is under Wine, and Wine is where the
+plug-in's child HWND is never painted, its DirectComposition tree being composed only
+for Wine's own Wayland and D3D backends. That finding is written up in Known
+limitations rather than chased, since a Linux host has the native build and wine
+compatibility is not pursued; nothing in the tree carries a wine branch to chase with.
+The Windows binary's own VST3 shell is as far as this box gets about that binary: the
+wine load probe loading it (LoadLibrary ok, InitDll () = true and ExitDll () = true,
+exit 0) and the native JUCE VST3-host harness reading the whole shell through the
+yabridge bridge (loaded = 1 of 1, uniqueId -883204095, no audio buses, one block
+channel with four MIDI events in and four out, a 2463-byte state that round-trips) -
+and a shell read is not a rendered window. The .so came back at 1207c0862ca3159cf5069bca5c62c7f80a1c4426d2bce75dfe9f5790cb20aa16
+byte-identical to the previous round's pin rather than changing bytes at all, this
+round taking code out from behind a JUCE_WINDOWS guard and out of the mingw gates,
+so that hash is a re-reading of the same bytes rather than a moved one; moduleinfo.json
+unchanged at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee and the
+diff -r between the built and the installed bundles reading clean is what says the
+hosts that scanned the previous bundle still see one plug-in rather than a renamed one.
+The host floor stands as the previous round recorded it, GLIBC_2.38 and GLIBCXX_3.4.32,
+the .so not having been relinked against anything new. The warning sets are the tree's
+own rather than new ones, both compilers having recompiled this round: GCC's is the
+hidden processBlock (double&) overload across the nine unity translation units, the
+-Wsign-conversion pair at PlaybackEngine.cpp:104 and :112 and the unused song at
+PlaybackEngine.cpp:366 - that file having been recompiled this round rather than left
+as the previous round recorded it - the four -Wswitch-enum notes at TrackerComponent.cpp:1585,
+:1612 and :1695 on 'note' and TimelineComponent.cpp:412 on 'none', the unused area at
+TrackerComponent.cpp:604 and e at :1171, the two -Wshadow 'auto* p' at PluginEditor.cpp:371
+and :397 - the same two lines the previous round recorded, the drag wiring having moved
+them there - the playHead -Wshadow at PluginProcessor.cpp:59, the deprecated
+getStringWidthFloat at TrackerComponent.cpp:241 and the -Wclass-memaccess note the
+vendored VST3 SDK's own PClassInfo memcpy makes; MSVC's is those same sites in its own
+words, four C4244 (Model.cpp:172 twice, PoolComponent.cpp:353 and :359), three C4100
+(PlaybackEngine.cpp:366, TrackerComponent.cpp:604 and :1171), the C4996 for the same
+deprecated getStringWidthFloat at TrackerComponent.cpp:241 and the C4458 for the same
+playHead at PluginProcessor.cpp:59, beside JUCE's own splash-screen note at
+juce_gui_basics.cpp(61) - and no error of either compiler anywhere in either log, the
+Windows build's only failure being the out-of-memory kill of that unity translation
+unit at -j 4. Both the Windows trees of the previous round are gone from disk, so a
+stray route cannot be built from by accident: build-win/ and tools/win-mingw.cmake are
+off disk and build*/ is in .gitignore rather than untracked and waiting to be added.
 Next Move
-Commit this round's source as one commit - 4ecf72ec27fce8118919fc3e72242ff5354a01c9, the eight Source/** and
-tests/UiTest.cpp files the drag round touched - and its docs as a second commit naming both that hash and the
-previous round's c22eba1978b1d51bc990b80c26af6e978bd5ba52, since the README carries both rounds' splices and
-its live sections now describe both the arpeggiator and the drag, rather than one commit for both, and never
-push: origin/master sits at 432dd55 Create Re.Trektor.vst3.tar.gz, so the local tree is ahead of it by the
-previous round's source at c22eba1, this round's source at 4ecf72e and the docs commit this paragraph is
-being written for - three for the user's own push to spend - and a round that pushes spends a decision that
-was never asked for. The tracked tarball cut at 432dd55 is stale against
-this build rather than being silently re-cut here. Then ask the user for the next feature rather than
-inventing one: the Command column's five letters, the arpeggiator's own first step, the note-off step's
-openings, the two macro tabs, the undo and redo pair with a drag now being one action of its line, the Alt
-clipboard and slice steps and the keyboard-focus model are all landed and pinned, and what remains of this
-round belongs to what a host hears rather than to code this build still has to write. Ask the hosts the one
-question this round cannot answer at the editor layer, since the editor only says what it does with the events
-it is handed: whether a host's own pointer path along a knob's row is heard as several mouseDrags along that
-row or as one for the whole path, the plug-in earning one point of the undo line either way since the line
-hears the gesture's two ends rather than counting its events. Ask the hosts the fourth the Enter work cannot
-answer at that layer either, since no focus was ever observable in UiTest: whether a host that holds the
-keyboard focus on a plug-in panel routes a Return to that panel's own text editors rather than to whatever a
-click left holding it, the plug-in having taken that focus away from every one of its Buttons so the press
-should land on the field it was typed into wherever the pointer had last been. Keep the pinned bundle's host
-checks alive rather than dropping them because a round made a knob draggable: the installed .so and the built
-one being the same bytes at sha256 1207c0862ca3159cf5069bca5c62c7f80a1c4426d2bce75dfe9f5790cb20aa16 and
-moduleinfo.json unchanged at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee is what says the
-hosts that scanned the previous round's bundle still see one plug-in rather than a renamed one. Keep the
-round's ritual for whatever comes next: implement, build with cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-and cmake --build build -j"$(nproc)", run CoreTest, UiTest and Smoke against the built bundle path given
-explicitly rather than the harness's own default - UiTest, Smoke and EditorShot needing DISPLAY=:0 - take the
-EditorShot screens the new layer needs and read their dumps rather than their pixels, refresh the installed
-bundle by rsync -a --checksum over its whole directory rather than its single .so - the diff -r between the
-built and installed trees being what says it landed rather than a second rsync - reconcile the README's live
-sections against what the files hold and commit source and docs separately without pushing.
+Commit this round's source as one commit - CMakeLists.txt losing the two if (WIN32 AND
+MINGW) blocks and rewording the VST3_AUTO_MANIFEST comment to name the Windows build
+note rather than tools/win-mingw.cmake, .gitignore answering build*/ and cmake-build-debug/,
+and the build-instrument/'s 232 tracked files going out of the index with the tree off
+disk, the two Source/PluginEditor files and the nine vendored JUCE files having come
+back to what the tree already carried rather than being counted as this round's changes,
+which is what makes git diff -- JUCE and the plug-in's own editor files read empty -
+and its docs as a second commit naming that hash beside the drag round's 4ecf72ec27fce8118919fc3e72242ff5354a01c9
+and the arpeggiator round's c22eba1978b1d51bc990b80c26af6e978bd5ba52, since the README's
+live sections now carry the Windows route, the host finding and this round's cleanup
+beside the drag and the arpeggiator, rather than one commit for both - and never push:
+origin/master now sits at 2a583a8 Update Re.Trektor.vst3.tar.gz, the user having pushed
+the previous round, so this round's two commits leave the tree ahead by two for the user's
+own push to spend, and a round that pushes spends a decision that was never asked for.
+Then ask the user for the next feature rather than inventing one: the Command column's
+letters, the arpeggiator's own first step, the note-off step's openings, the two macro
+tabs, the undo and redo pair with a drag now being one action of its line, the Alt
+clipboard and slice steps, the keyboard-focus model and the draggable number rows are
+all landed and pinned, and this round added no behaviour of its own - it only took the
+Windows route and the wine experiment out - so there is nothing here to ask a host about.
+Ask the user rather than the hosts what the Windows side needs, since that is where the
+one open question lives: whether the VM has to be shown the rebuilt bundle at
+74cfb283fc6ce6df0b086b6d5358558c582186455122aeb39f1253b1bd6dfdf1 to keep the Windows
+claim alive, and whether any Windows host other than the VM's is worth reading the
+plug-in's shell at. Keep the Linux pins alive rather than dropping them because a round
+touched only Windows: the built and the installed .so being the same bytes at
+1207c0862ca3159cf5069bca5c62c7f80a1c4426d2bce75dfe9f5790cb20aa16, moduleinfo.json unchanged
+at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee, the tracked tarball
+still un-tarring to those same two files and the four shots still coming back at their
+pinned hashes with 32, 28, 26 and 14 OUTSIDE PARENT lines is what says a Windows-only
+round changed neither paint nor layout. Keep the round's ritual for whatever comes next:
+implement, build the Linux tree with cmake -S . -B build -DCMAKE_BUILD_TYPE=Release and
+cmake --build build -j"$(nproc)", run CoreTest, UiTest and Smoke against the built bundle
+path given explicitly - UiTest, Smoke and EditorShot needing DISPLAY=:0 - take the
+EditorShot screens the new layer needs and read their dumps rather than their pixels,
+refresh the installed bundle by rsync -a --checksum over its whole directory rather than
+its single .so - the diff -r between the built and installed trees being what says it
+landed rather than a second rsync - reconcile the README's live sections and commit source
+and docs separately without pushing, and for a Windows change build the msvc-wine tree
+the Build section now names at -j 2 rather than -j 4, regenerate the bundle's moduleinfo.json
+with the Linux tree's own helper over the Windows bundle and re-run the wine load probe
+and the host harness against the bridge, so the binary's VST3 shell is read rather than
+assumed even though its window cannot be seen at this box.
 Relevant Files
-/media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect).
+/media/data2/GameDev/Plugins/ReTrektor/CMakeLists.txt: JUCE plugin build (VST3, MIDI effect) with one Windows
+route rather than two: the RTR_VST3_AUTO_MANIFEST test answering TRUE only when the target and host platforms
+agree, its comment naming the Windows build note in README.md rather than a toolchain file of this file's own,
+which is the only thing this file does for a cross build now that both if (WIN32 AND MINGW) blocks are gone from
+it - the LTO valve that used to answer juce_recommended_lto_flags off for the mingw route, the target's PUBLIC
+list reading juce_recommended_config_flags / juce_recommended_lto_flags / juce_recommended_warning_flags on both
+platforms, and the block of -l... import libraries with -Wl,--gc-sections and -static-lib... that mingw's link
+driver needed rather than MSVC's reading the #pragma comment (lib, "...") lines JUCE writes itself - so the file
+ends at the target_link_libraries closing paren at line 112 rather than carrying a Windows recipe of its own.
+/media/data2/GameDev/Plugins/ReTrektor/.gitignore: build*/ answers every CMake tree this project makes rather
+than build/ alone, which is what keeps the next add-everything from tracking a build tree again - the build-instrument/
+the arp commit added to the index by accident having gone out of the index with it, the README's instrument-fallback
+recipe naming that directory as a configure target rather than as something to keep - beside tests/build/, the
+*.png and *.log the pinned screenshots and the harness logs drop beside the tree, and the IDE block now answering
+cmake-build-debug/ as well as .vscode/, .idea/ and *.user, that directory already carrying its own nested .gitignore
+answering * to itself so it stays off the index either way.
 /media/data2/GameDev/Plugins/ReTrektor/Source/Model.h / Model.cpp: core data model, song/pattern/clip ops, snapping, slicing, paste, serialization, per-channel column visibility bytes (Pattern::vis), the volume/pan CC settings and the interpolation of one column between the values that already exist (InterpField, Pattern::interpolate taking a std::function<bool (int row, int ch)> mask so the selection can be any shape and a cell outside the mask ends the anchor run), and the cell clipboard (CellClipboard holding one {row, ch, Cell} entry per copied cell with its offset inside the copied rectangle, the kPasteNote/kPasteInst/kPasteVol/kPastePan/kPasteCmd/kPasteCmdVal bits and kPasteAll naming which fields reach plus kPasteAdditive = 64 as a mode bit added to a filter rather than one more field, Pattern::pasteCells writing them at an anchor and, when that bit is set, masking each copied cell's own non-empty fields under the working mask so an empty field of the buffer leaves the target's value in place and a cell carrying nothing at all writes nothing, still skipping a target past length or channels so a paste never grows the pattern), and the Undo steps setting (Settings::undoSteps, default 50 with kMaxUndoSteps = 200 as the cap, written and read back clamped with the rest of the SETTINGS block so the depth a host reloads belongs to the song, the same block having lost the pattern paste's default property on both the write and the read back along with its Settings member, which leaves a song saved before the drop reloading with nothing to read there, this block also losing the hex display's property on both the write and the read back with its Settings member and the Settings tab's row for it gone, which is what lets an older state that still spells that choice reload with nothing to read it into and leaves every value the model holds the one decimal spelling valueString and instString draw it in, a shorter number padded with spaces so its digits land in the same columns as a longer one's), and the arpeggiator macros (ArpMacro holding signed semitone steps off the base note, kArpCmd = 128 as the command value the letter A enters and kMaxArpMacros = 127 naming the id cap with id 0 the release call, kMaxArpSteps = 64, kArpEmptyStep = -128 as the step that sounds nothing and, this round, as the value every step of a newly defined macro holds and every step growing one adds, the steps being one std::int16_t each now that a step spells the note column's own note-off as the new kArpNoteOffStep = -129 below the new kArpTopStep = 127 a typed jump is clamped to so the two spellings below -128 are the only values a step can hold that are not jumps, kArpDefaultSteps = 8 naming only how many of them a macro starts with while kArpDefaultJump was deleted outright since nothing builds a shape any more, Song::arps one grow-only table indexed by id - 1 beside the pattern rows and channels the build already treats that way so clearing a macro keeps the room its steps took and defining it again restores them, findArp growing it while peekArp reads it without growing it so the UI, the engine and the writer never invent a macro, arpDefined / arpLooped / firstUndefArpId / lastDefArpId / defineArp / clearArp / setArpLength clamped 1..64 and padded with kArpEmptyStep rather than with the base note, so a macro's shape is only ever where it was entered / setArpStep, which this round keeps the two spellings below -128 as sentinels and clamps only a jump to ±kArpTopStep so the opening passes through it and the octave snap untouched on either side / setArpLooped naming it, the ARPS section writing a macro's id, loop flag, length and its steps as one base64 block rather than one property per step - this round two bytes a step little endian, since the opening sits below what one byte can name, and the read telling the two spellings apart by the length the block declares rather than by what it finds, since a one-byte block is exactly as long as half a wide one's, so an older state's steps widen sign extended with their jumps, their steps that sound nothing and their absence intact, an older state's MACROS section dropped outright on the read since those kinds are gone, an older row's command in the 128-143 range landing on kArpCmd while the argument it holds stays the argument
 it was, and the ARPS read clearing the whole table ahead of filling it, since that section names every macro that exists, which is what hands an undo an earlier state's own steps, loop flag and absence rather than the steps the macro still held with the state's added behind them), and the pitch bend letter
 (kCcTop = 127 as the highest plain CC number a column can hold, kBendCmd = 144 as the command value
@@ -3960,6 +4202,15 @@ setupBottomSlider, the one site that builds all three of them, because those thr
 change recorded in their own onValueChange rather than through a panel's handler, and the keyboard focus the
 three knobs want rather than their own +/- pair now sits beside the drag that row asks for rather than instead
 of it.
+What the previous round added to these two files came back rather than stayed, so both read the bytes the
+drag round committed them at and git diff reads empty in either: no #ifdef _WIN32 block including <windows.h> at
+the .cpp's top, no isRunningUnderWine reading the __wine_get_version export only ntdll on wine answers, no
+useGdiRendererUnderWine asking the editor's ComponentPeer for the GDI renderer by index instead of by name, no
+settleWindowRenderer called from resized () and from the 20 Hz timer, no windowRendererSettled member holding
+that to once per window and no half-written #if RETREKTOR_TRACE rtrTrace helper appending to a Z:\tmp path, the
+black window a wine host shows being wine's never completing the DirectComposition tree JUCE 8 gives a plug-in's
+child HWND rather than anything these two files have to answer for - the plug-in having been checked at a real
+Windows 11 host, where it loads, renders its editor and works.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TimelineComponent.h / .cpp: timeline, drag/drop, context menus, zoom, ruler (bar numbers only, no transport readout), and the Alt pair of undo and redo answered in its keyPressed, which is where a press aimed at undo has to be heard while the timeline's own clip menu is open or while a pattern is being dropped onto it, and a focusRescue member it calls at the end of both context menus and ahead of the playback guard in its drop, since both the popup and the dragged item are parentless desktop windows that take the keyboard focus with them when they close, and the Alt clipboard steps answered after the undo one through copyStep / pasteStep / cutStep members the editor injects, chained through the 4-argument answerClipboardKey so an Alt+C / Alt+V / Alt+X pressed while this panel routes the press reaches the tracker's cell clipboard rather than the host's, and the clip slice answered last of all through answerSliceKey with a sliceStep member of the same shape, so an Alt+S heard while this panel holds the press splits the clip under the playhead that the timeline's own "Slice at playhead" menu item reaches rather than leaving the Ctrl+X spelling the host already spent on its own cut.
 /media/data2/GameDev/Plugins/ReTrektor/Source/ui/TrackerComponent.h / .cpp: tracker grid, key entry, per-channel column visibility chips, field widths from fieldGlyphs, an entered command argument staying implicit over the command number carried in the column (carriedCommandNumber), cell selection (selBits one bit per (row, channel) in kSelWords = 2 uint64 words per row, applyCellRect unioning/subtracting/replacing word masks, gestureOp reading the held modifiers, channelAtX and channelBoundsFor naming a cell, per-cell painting and a hidden chip inverting its plate (theme::text plate, letter cut out in theme::panelLight) instead of dimming) and the cell clipboard (cellClipboard of CellClipboard type, copySelectionToClipboard putting the selected cells on it with their offsets inside the copied rectangle counted from the top-left selected cell and doing nothing while nothing is selected, pasteClipboardAtCursor writing at the cursor and only marking the model changed when it wrote something, cutSelectionToClipboard taking that copy and then emptying exactly the cells it took through the clearSelectedCells loop the cell menu's Clear / Selection calls as well so the two do not drift apart, marking the model changed for the wipe alone since the copy changes nothing in the saved song, hasCellClipboard greying out both of the menu's pastes, and the cell menu's four top-level items - a "Clear" submenu whose leaves keep the old ids so the callback still answers them by id (4 Selection / 1 Cell / 2 Channel / 3 Pattern), "Copy selection" (id 5), "Cut selection" (id 6 right after the copy, greyed while nothing is selected and answered by the same cutSelectionToClipboard the Alt+X key reaches), and two sibling paste submenus carrying the same seven leaves, Everything / Note / Instrument / Volume / Pan / Command / Command Value, the plain "Paste" one at ids 7..13 and the "Paste (Additive)" one at ids 17..23, both greyed by hasCellClipboard and both answered through one static pasteMasks the callback hoists above its if-chain so the field and the mode compose rather than a leaf owning the mode, pasteClipboardAtCursor (pasteMasks[result - 7]) and pasteClipboardAtCursor (pasteMasks[result - 17] | kPasteAdditive), 16 left unused between the two runs and the undo pair's 14/15 still last), and the undo pair (undoStep / redoStep std::function members the editor injects so the menu's Undo and Redo, ids 14 and 15 after the paste submenu's leaves and greyed out by the plug-in's own counts, walk the same line Ctrl+Z and Ctrl+Y walk and refresh every panel rather than only the grid, and cancelPendingEdit reporting whether a numeric buffer was half typed and closing it the way Esc does, which the Ctrl+Z and Alt+Z branches and the menu's Undo consult before stepping so one press is one effect, and its keyPressed now answering the Alt pair itself through answerUndoRedoKey, with cancelPendingEdit as the closing hook so a half-typed number still closes on that press rather than being walked over, while any other letter held with Alt is still handed up rather than typed as a note at the cursor), and a focusRescue member it calls at the end of the cell menu's callback, whether the press picked an item, a greyed one or dismissed the popup with Escape, and the Alt clipboard steps answered through the 4-argument answerClipboardKey with copyStep / pasteStep / cutStep members of the same shape the editor injects, placed ahead of the hand-up that keeps other Alt letters out of the tracker's own key entry, since the three letters they name are three of the note-entry letters and an Alt held c or x that fell through would type a C or a D sharp at the cursor next to copying, pasting or cutting, and the Alt+S slice answered the same way through answerSliceKey with a sliceStep member of the same shape the editor injects, this very letter being the note entry's C sharp, so the slice is claimed before the key entry can leave a C sharp at the cursor whether or not there was a clip to split, and the command letters: the A and the B branch sitting in the path that owns a value field's first character, so either letter claims the command number as its own command value while a number that merely has an a or a b in it keeps its own spelling and the CC 10 and CC 11 a column asks for are typed as their own 10 and 11, a letter typed after a run of digits claiming the field and dropping that number rather than reading it, the pair painted in theme::cmdMacro with every value drawn in the view's one decimal spelling, the A a row carries from above drawn dim through carriedCommandNumber beside the bright argument a row below writes, and clampValue's command number capped at kCcTop rather than at the call, both letters' claim writing the command value it names straight into the cell rather than as a number that gets clamped there, so a typed digit run and an interpolation ramp can only reach a plain CC and typing 144 into the field gives the highest CC rather than inventing a letter - the letters being the only route to a command kind - beside each letter leaving its own argument behind, a call at the release id 0 and a bend at the wheel's centre kBendCentreVal so a row naming only the letter bends nowhere rather than locking the wheel to its bottom, and the bend pair painted in the lilac theme::cmdOther that was going unused with that argument drawn in the view's one decimal spelling like every other value and that letter carried down a column drawn dim like the call's is beside the bright argument a row below writes, the command cell now splitting its two halves by their own glyph counts rather than halving the whole cell and each half taking its own pad, with fieldGlyphs giving the number's half three glyphs and the argument's half three more in the view's one decimal spelling so a macro id of 100, a bend's point above 99 and an arpeggiator release's OFF all keep their last glyph while the instrument's half keeps room for its dash and two digits, and maxDigitsFor taking the three decimal digits at the keyboard everywhere so no letter can be invented by a number's spelling, valueString and instString drawing every value decimal with no setting and no row offering another spelling, the display's carry table and the two reads walking the command column together through one file-local stepCommandCarry so they cannot disagree - a row that named a command of its own leaves that one and its own argument, the value cell answering such a row with that row's own argument so a letter that had none draws nothing beside it rather than picking an argument up from above, and a row that named only an argument keeps the letter carried above it and leaves the argument it named itself carried for the rows below rather than the one that letter called with, an argument of 0 under a carried call clearing both since that argument is the release the engine's arpCommand already answers there; drawRows fills a row's entry from what the column carries into that row before that row steps it, which is what an argument-only release still reads its letter on its own row and draws neither letter nor argument over the ones under it, and carriedCommandNumber walks the column down from its top over the rows above rather than up from the row, since what a row leaves in force also depends on the arguments the rows above it entered, beside a new public carriedCommandValue reading the argument the same walk leaves so a test reads the carry rather than a pixel, while the letter A with the argument 0 still releases and leaves the column under it carrying neither a letter nor an argument and the value cell spells that release OFF rather than a bare 0, and this round's argument field beside it:
 a file-local commandArgumentReleases (cmd, cmdVal) naming an OFF of any kind and a 0 read under a call or under a
@@ -4420,6 +4671,23 @@ once the row asks for the horizontal one, and its ScopedDragNotification current
 sendDragStart () and sendDragEnd () at a gesture's two ends once each at the mouse-down and the mouse-up
 rather than once per mouseDrag - that pair being what the plug-in's own onDragStart and onDragEnd hang the
 undo line's one point of a whole drag on.
+That vendored copy is the unpatched upstream 8.0.9 rather than a fork the Windows route has to teach, git diff
+-- JUCE having been read empty this round: the nine files that carried a JUCE_MINGW gate for the mingw-w64 cross
+compiler came back to upstream with that branch, namely juce_core/juce_core.cpp's second lowercase dbghelp.h
+spelling of the case-sensitive sys-root's, juce_core/native/juce_ComSmartPtr_windows.h's __mingw_uuidof_s entry
+reading a COM interface's id out of the interface itself, juce_core/network/juce_Socket.cpp's getaddrinfo /
+freeaddrinfo refusals standing in for the Vista-era resolver pair, juce_core/system/juce_StandardHeader.h's
+intrin.h and <cstring> widened to JUCE_MINGW, juce_core/system/juce_TargetPlatform.h's own __MINGW32__ platform
+block that replaced that file's #error "MinGW is not supported. Please use an alternative compiler." and defined
+JUCE_MINGW itself and widened the #ifdef _MSC_VER test, juce_graphics/image_formats/juce_JPEGLoader.cpp's jpeglib
+boolean widened where the sys-root's header had no name for it, juce_graphics/juce_graphics.cpp's own D2D1_SATURATION_PROP
+for the enum that same sys-root's d2d1.h did not ship, juce_gui_basics/native/accessibility/juce_Accessibility_windows.cpp's
+SAPI SpVoiceWrapper that bridge dropped and juce_gui_basics/native/accessibility/juce_UIATextProvider_windows.h's UIA
+caret attribute left unanswered. The route kept here drives cl.exe and link.exe under Wine behind msvc-wine's bin/x64
+wrappers, CMake answering that compiler as MSVC 19.52.37029.0, which is what makes every JUCE_MSVC branch of this
+tree take the path a native Windows build takes as well and leaves nothing of JUCE to patch for the Windows build
+at all - the one thing that build cannot do for itself being to run the helper that writes the bundle's moduleinfo.json,
+which is the cross-platform question the CMakeLists' RTR_VST3_AUTO_MANIFEST gate answers rather than anything in JUCE."
 Important Context
 Build: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc) (build dir currently configured and passing).
 Portability check: readelf -VW <Re.Trektor.so inside the bundle> | grep -oE "GLIBC_[0-9]+\.[0-9]+" | sort -uV | tail -3 must top out at GLIBC_2.38, and objdump -R must name no sqrtf/atan2f relocation; before the pin the only 2.43 pulls were exactly those two, this environment is Arch with glibc 2.43 while Bitwig's Flatpak root ships 2.42, and other plug-ins there load at 2.38/GLIBCXX_3.4.32 (NeuralNote.so fails identically over log10f@GLIBC_2.43).
