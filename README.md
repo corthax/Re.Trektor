@@ -174,15 +174,22 @@ and Command.
   | `U` | 145 | slides the wheel to its top; the argument is how many rows below the letter its extreme sits over |
   | `D` | 146 | slides the wheel to its bottom, same argument |
   | `V` | 147 | runs a vibrato macro; the argument is the macro id `1`–`127` |
+  | `C` | 148 | cuts the notes that column's channel enters to a length; the argument is that length in subticks (a subtick being a row over the Settings' "Subticks per row", default 6) |
 
   `A` and the wheel letters are drawn orange and lilac, and an argument carried from
   above is drawn dim beside the letter. Every letter leaves an argument behind, so
-  `A` and `V` start at the release id `0`, `B` at the wheel's centre `64` and a slide
-  at the default span of 8 rows. Above the number the argument field can hold sit two
-  spellings: `o` / `O` writes `OFF` — pitchbend off and the wheel back at its centre,
-  the arpeggiator run off, a wobble off — and `s` / `S` writes `STP`, which stops a
-  wheel move and leaves the wheel on the point it reached. `STP` is refused beside
-  `A` and `V`, a run and a wobble having no wheel move to stop.
+  `A` and `V` start at the release id `0`, `B` at the wheel's centre `64`, a slide at
+  the default span of 8 rows and `C` at a length of 3 subticks. Above the number the
+  argument field can hold sit two spellings: `o` / `O` writes `OFF` — pitchbend off and
+  the wheel back at its centre, the arpeggiator run off, a wobble off, a note-length
+  gate off — and `s` / `S` writes `STP`, which stops a wheel move and leaves the wheel
+  on the point it reached. `STP` is refused beside `A`, `V` and `C`, a run, a wobble and
+  a cut having no wheel move to stop. `C` is the one command that keeps being carried
+  down the column rather than answering the rows under it, so one letter gates a whole
+  staccato passage: every note entering a row it is carried on is released that many
+  subticks after it is struck, a row naming only a number retargets the length for the
+  rows under it, and `0` or `o` writes `OFF`, which releases the gate and leaves the
+  notes sustained as before.
 * `` ` `` enters a note-off, drawn `===`.
 * A tracker pattern can use up to 127 tracker channels, independent of the 16 MIDI
   output channels; identical notes triggered on several tracker channels in one row
@@ -196,8 +203,8 @@ whatever the run was holding. A looped macro cycles until a note-off, an `A 0` c
 the end of the clip takes it away; an unlooped one leaves its last step's note held.
 A vibrato swings the wheel about whatever point the wheel is already at, over the
 macro's own shape, amplitude and cycle, and repeats for as long as the column carries
-the letter, so a release row is what puts the pitchbending away. The full rules for all
-three are in [project.md](project.md).
+the letter, so a release row is what puts the pitchbending away. The full rules for
+those are in [project.md](project.md).
 
 ## Macros
 
@@ -330,9 +337,9 @@ keyboard focus: it rests on the control whose text box the value is typed into.
   for that half of the column, so an older state's `MACROS` block is dropped and an
   older row's command value `128`–`143` lands on the letter `A` while the argument it
   holds stays the argument it was — usually the release, so those calls have to be
-  re-entered by hand. This build's bend, slide and vibrato letters are values
-  `144`–`147` an older build could not have written, so no older row turns into one
-  of those. Two settings rows the older state may still spell — the pattern paste's
+  re-entered by hand. This build's bend, slide, vibrato and cut letters are values
+  `144`–`148` an older build could not have written, so no older row turns into one of
+  those. Two settings rows the older state may still spell — the pattern paste's
   default and the hex display — were dropped outright and simply read nothing.
 * The argument spellings that sit above the numbers that field can hold read
   unchanged in a saved state, so an older argument of `128` or `129` beside a call
@@ -355,8 +362,9 @@ keyboard focus: it rests on the control whose text box the value is typed into.
 * Interactive behaviour has been verified with JUCE's own plug-in host, headless
   editor interaction tests and Carla; a full Reaper session has not been run in this
   environment.
-* Command kinds beyond plain CC, the arpeggiator call, the pitch wheel and the
-  vibrato that wobbles it are future work.
+* Command letters beyond the arpeggiator call, the pitch wheel letters, the vibrato and
+  the note-length cut are future work (a dedicated pitch bend CC105/CC106 pair rather
+  than the standard pitch wheel message, tempo, song position).
 
 ## Licensing
 

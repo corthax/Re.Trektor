@@ -669,7 +669,17 @@ cmake --build tests/build -j"$(nproc)"
   macro id and leaves that letter and that argument carried dim over the rows under it in that
   channel only, and `--vib-call-id=VAL` naming the id that call writes, so `0` makes it the
   release, whose argument is drawn `OFF` rather than as a `0` and which leaves the rows below it
-  carrying no letter and no argument at all)
+  carrying no letter and no argument at all; `--cut=ROW` to name a note-length cut in tracker
+  channel 0 at that row, which paints the command column's lilac `C` and the length it cuts to
+  in decimal beside it and leaves that letter and that length carried dim over every row under it
+  — the one command letter that keeps being carried down rather than answering the rows below it —
+  and `--cut-ticks=VAL` naming the length that call writes, 3 being the default the letter's own
+  entry leaves, a subtick being one part of a row over the Settings row "Subticks per row" so a
+  cut of 3 at the default 6 holds the note for half a row and sends its note-off partway through
+  that row rather than at its end, and `--cut-ticks=0` being the release the entry writes for an `o`,
+  drawn `OFF` rather than as a `0`, which puts the gate away and leaves the rows under it carrying
+  no letter at all, so a `--cut=8 --cut-ticks=0` shot shows that gate released at its own row
+  rather than carried under it)
 
 Example:
 
@@ -1175,17 +1185,20 @@ and no row that offers one. Instrument values are the MIDI output channel
 (`0`–`15`), drawn with the column's dash as `-0` to `-15`, the same labels the
 tools panel's remap dropdowns use. Volume and Pan take `0`–`127` as up to three
 digits, displayed right-aligned like the pan column. The Command field accepts
-`0`–`127` and the five letters `A`, `B`, `U`, `D` and `V`: an `A` typed as the command number
+`0`–`127` and the six letters `A`, `B`, `U`, `D`, `V` and `C`: an `A` typed as the command number
 field's first character claims it and means `128`, the arpeggiator call, whose
 argument names the macro id, a `B` claims it and means `144`, the pitch bend, whose
 argument names a point on the wheel, a `U` or a `D` claims it and means `145` or
 `146`, a slide of the wheel to its top or to its bottom, whose argument says how many
 rows below the one that named the letter its extreme sits over rather than where on
 that wheel it goes, and a `V` claims it and means `147`, the vibrato, whose argument names
-which of the VIB MACRO tab's macros the column swings. The claim is only the command
-number field's, which is what keeps `V` a note letter where the note column is asked for:
-typed there it still types an F natural, the way the slide letter `D` still types a D
-natural. The CC `10` and CC `11` a column asks for are typed `10` and `11`,
+which of the VIB MACRO tab's macros the column swings. A `C` claims it and means `148`,
+the cut, whose argument names how many subticks of the Settings' grid the notes that
+column's channel enters are held for, counted from the row that entered each of them,
+rather than where on a wheel or in a macro the command goes. The claim is only the
+command number field's, which is what keeps `V` a note letter where the note column is
+asked for: typed there it still types an F natural, the way the slide letter `D` still
+types a D natural and the cut letter `C` still types an E natural. The CC `10` and CC `11` a column asks for are typed `10` and `11`,
 and a letter typed after a run of digits only claims
 the field, the number being typed having been dropped rather than read as a
 command, so nothing about a number's spelling reaches one of the letters. A
@@ -1195,11 +1208,15 @@ reach above it: typing `146` into that field gives the highest CC rather than th
 slide letter, an older build's `143` cannot be typed back at all, and an interpolation
 ramp climbs toward that highest CC rather than inventing a command. Each letter has to
 leave an argument behind, so a call and a vibrato start at the release id `0`, a bend starts at the
-wheel's centre `64` and a slide starts at the default span of `8` rows, which is what
+wheel's centre `64` and a slide starts at the default span of `8` rows and a cut starts at a
+length of `3` subticks of that grid, which is what
 makes a row naming only the `B` bend nowhere rather than lock the wheel to its bottom,
 a row naming only a slide letter take its extreme over 8 rows rather than over
-none at all and a row naming only the `V` read as `V OFF` rather than run the default macro.
-The call pair is drawn orange and the three wheel pairs and the vibrato pair lilac, every
+none at all, a row naming only the `V` read as `V OFF` rather than run the default macro
+and a row naming only the `C` cut the note it entered for 3 subticks rather than spell
+the release instead of the gate it asks for.
+The call pair is drawn orange and the three wheel pairs, the vibrato pair and the cut pair
+lilac, every
 value in the view being decimal, and either letter a row carries from above
 draws dim like any other carried command. So does the argument carried beside
 it, and that argument is the newest one that column's rows entered rather than
@@ -1207,7 +1224,14 @@ the one the letter itself named, which is what an argument typed under a
 command already in force changes: the rows under it are drawn with it beside
 the letter still carried there, and under a carried slide letter that newest
 argument is the span the rows below are still taking toward the extreme rather
-than a new point on that wheel. An argument of `0` typed under a carried call
+than a new point on that wheel. Under a carried cut letter it is the length the
+notes entering those rows are held for rather than a point of anything, and a
+cut is the one command letter that is not answered by the rows under it but keeps
+being carried down them, which is what gates every note entering a row under the
+letter rather than only the row that named it — the note entered at the letter's
+own row being cut there too, and a row naming nothing but a note under it being
+cut as well, so one row's letter gates a whole staccato passage rather than one
+note. An argument of `0` typed under a carried call
 is the arpeggiator release on its own, that row reading a bright `OFF` beside
 the letter carried into it and the rows under it carrying neither the letter
 nor an argument, and the same `0` read beside a named or a carried vibrato letter
@@ -1216,20 +1240,28 @@ lands that vibrato's own release there rather than a call of macro `0`, since id
 other way of spelling it, both of them drawing `OFF` and both of them leaving the
 column carrying neither the letter nor an argument below, and the same `0` read beside a named or a carried slide letter
 lands that release there rather than a slide over no rows at all, since the
-narrowest span the field can ask for takes one row. The argument field answers
+narrowest span the field can ask for takes one row, and the same `0` read beside
+a named or a carried cut letter puts the length gate away there rather than
+holding a note for no subticks at all, since the narrowest length the field can
+ask for takes one subtick and a `0` has the release to say instead, the note a
+row above that release had the gate holding keeping the length its own row armed
+it for while the notes entering rows below it are left to whatever ends them
+further down. The argument field answers
 two letters rather than digits, since neither is a number the field could spell:
 an `o` or an `O` lands the `OFF` the drawing reads, switching the pitchbending
 off and putting the wheel back at its centre beside a wheel letter, going
-the arpeggiator run off beside a call and taking a vibrato's swing off beside the
-vibrato letter, and an `s` or an `S` lands the `STP`, which stops whatever move the
-wheel was making and leaves it sitting on the point it had got to, beside a wheel letter only — an `s` aimed at the vibrato letter
-is refused rather than written, since a wobble has no move of the wheel to stop,
-the cell keeping the argument it had and the swing above still swinging over the
-rows below it. A letter neither of those two
-claims is ignored rather than written, the cell keeping the value it had, and
-it types no note in the note column beside it either, so an `s` aimed at a call,
-at a vibrato or at a plain CC asks nothing of a run or a swing that has no wheel
-to stop.
+the arpeggiator run off beside a call, taking a vibrato's swing off beside the
+vibrato letter and putting a note-length gate away beside the cut letter. An
+`s` or an `S` lands the `STP`, which stops whatever move the wheel was making
+and leaves it sitting on the point it had got to, beside a wheel letter only —
+an `s` aimed at the vibrato letter or at the cut letter is refused rather than
+written, since neither a wobble nor a gate has a move of the wheel to stop,
+the cell keeping the argument it had and the swing or the gate above still
+running over the rows below it. A letter neither of those two claims is
+ignored rather than written, the cell keeping the value it had, and it types
+no note in the note column beside it either, so an `s` aimed at a call, at a
+vibrato, at a cut or at a plain CC asks nothing of a run, a swing or a gate
+that has no wheel to stop.
 
 The ARP MACRO tab's steps are typed the same way rather than one press at a time: the
 arrows and Page Up/Down move the step cursor over the cards it draws, with `Tab` joining
@@ -1555,6 +1587,80 @@ removed leaves five points of the line rather than one.
     whose clip says where it sits, and a swing whose next point sits more than a row behind where
     this block starts, which is what a scrub or a jump leaves a swing ended at where it had got to
     rather than one swinging late at that point.
+* Command `148`, entered as the letter `C`, gates how long the notes that tracker
+  channel's column enters are held rather than moving the wheel or running a macro, and
+  its argument names that length in subticks on the grid the Settings row "Subticks per
+  row" names (default 6), so at the default a length of 3 holds a note for half a row and
+  a length of 6 holds it for a whole one. The row that named the letter enters its own
+  note as every note row does and sends nothing of its own for the cut: that note waits
+  for a note-off the length's number of subticks past the sample that row sits at rather
+  than for whatever ends it below, the release's position being the row's own transport
+  position plus that count over the grid — rowPpq + ticks/(rowsPerBeat*subticks), never a
+  sum of step widths — the way a run's steps, a ramp's steps and a wobble's points are
+  counted from the row that armed them rather than read off the rows, which is what makes
+  the subtick it sits on exact for any length named and what leaves a row this block plays
+  again because the transport jumped arm its own cut at that row rather than advancing one
+  twice. A length wider than the row's own subticks waits in the channel state for the
+  block that reaches it, exactly as those wait, and is spent once when it gets there rather
+  than once per block that passes it. The field holds lengths of one subtick to 127 of them:
+  a `0` there is the release rather than a length below the narrowest one, which is also
+  why the row that armed a cut never closes its own note at the sample it entered it on.
+  * the gate is state the column carries down rather than state its own row only, so every
+    note entering a row the letter is carried over is cut as well — a bare note row naming
+    neither a command nor an argument included, and the note entered at the letter's own row
+    included — which is what lets one row's letter gate a whole staccato passage rather than
+    one note, and each waiting release closes the pitch its own row entered in the order the
+    transport reaches them rather than whatever note the column happens to be holding when
+    its subtick comes around;
+  * a row under a carried letter naming only a number retargets that length for the notes
+    entering this row and the ones below it, the newest length that column entered rather
+    than the one the letter itself named, and reaches no further back than there: a note the
+    gate was already holding above that row keeps the length its own row armed it for, since
+    the row that retargeted entered no note of its own to re-arm a waiting release at its own
+    subticks. A row under a letter that named neither the letter nor an argument keeps the
+    length that letter is carrying, which is what makes a bare note row cut to whatever the
+    column says rather than to nothing;
+  * a release spelled either way — the `0` the argument field can type or the `OFF` the entry
+    writes for an `o`, both drawn `OFF` — puts the gate away at that row, leaves the column
+    carrying neither the letter nor an argument under it and leaves the note that row entered
+    sustained to whatever ends it further down, while the notes above it keep the lengths their
+    own rows armed: the release belongs to the rows below it rather than reaching back into a
+    note it had already closed. A row under such a release naming only a number reaches nothing,
+    since a release leaves the column gating nothing rather than gating length `0`, the way a
+    row under a released call or a released vibrato arms nothing;
+  * the `STP` spelling asks nothing beside the cut letter, a cut having no move of the wheel to
+    stop, and the editor refuses it there rather than writing it, so the only way it reaches the
+    model is a saved state or a shot's flag putting it there: the gate above keeps gating and the
+    note entered at that row is held for the length still being carried there;
+  * the waiting release answers only for the pitch its own row entered and only while that
+    channel still holds exactly that note on that MIDI channel, so a row taking that note away —
+    the note column's own `===` — is what releases it at its own sample and the release the cut
+    had still waiting for further down goes with it rather than firing there, and a row naming a
+    command that is not a cut drops the gate the same way: one superseded state losing its
+    waiting work is the one rule an arpeggiator run's and a ramp's superseded steps already
+    follow rather than a second rule the cut adds. That is what a scrub or a jump leaves behind
+    as well: a waiting release sitting more than a row behind the sample a block starts at cannot
+    be placed any more, so it is dropped and the note it belonged to is left to whatever ends it
+    below, the way a run's, a ramp's and a wobble's waiting steps are left behind there;
+  * that release is the one an explicit note-off answers through, so about the wheel it does what
+    a row's own note-off does — ending a run's or a ramp's note the column was in and putting a
+    pitch the channel had left bent back at the wheel's centre — and it shares the stuck-note
+    guard's own record of a release rather than putting a second note-off of that pitch beside the
+    one the guard already had for that sample. A row naming a cut closes an arpeggiator run this
+    column was in rather than holding one gate and a run at once, that run's last step's note being
+    released at that row, and a cut row that struck a note of its own asks for no note-off of its
+    own beside it, its own note-on having released that pitch there already;
+  * a clip whose rows run out under a still-waiting release closes the note at that clip's end
+    rather than letting the length reach past the clip, the limit the per-row flush works under
+    staying at the end of the last row this engine owned — the clip's own end — so the waiting
+    release never reaches a sample of its own below it and a note entered at a clip's last row
+    sounds for the rows that clip still has rather than for a length hanging out of it;
+  * a transport re-arm leaves the gate the column carries in force the way it leaves a carried
+    volume, pan or command number, so the note entering the row a seek landed inside is cut to the
+    length still carried there and waits for that length counted from that row on the new pass, its
+    release sitting below the seek's own start rather than above it; the re-arm's all-notes-off is
+    what closes a note whose waiting release had not reached its subtick yet, and no second note-off
+    of that pitch sits beside the note-on the same row entered at the same sample.
 * A tracker pattern can use up to 127 tracker channels, independent of the 16
   MIDI output channels. Identical notes triggered on multiple tracker channels
   in the same row are sent only once.
@@ -1662,9 +1768,10 @@ removed leaves five points of the line rather than one.
   `128`–`143` lands on the letter `A` while the argument it holds stays
   the argument it was, which for the older encoding was the ignored value, so
   the macro that call now names — usually id `0`, the release — has to be
-  re-entered by hand. This build's own bend letter, its two slide letters and its
-  vibrato letter are command values `144`–`147` that an older build could not have
-  written, so no older row turns into a bend, a slide or a wobble and none of
+  re-entered by hand. This build's own bend letter, its two slide letters, its
+  vibrato letter and its cut letter are command values `144`–`148` that an older
+  build could not have
+  written, so no older row turns into a bend, a slide, a wobble or a gate and none of
   those calls becomes one; an older state has no `VIBS` section either, since
   nothing older than the letter `V` had a vibrato to save, so the read arrives
   with the one default macro a fresh song defines rather than with an empty tab.
@@ -1725,7 +1832,9 @@ removed leaves five points of the line rather than one.
   a run having no wheel to stop and the row sounding nothing and leaving the run
   above it as it was, an `s` beside a vibrato letter refused the same way, a swing
   having no move of the wheel to stop either and leaving the swing above still
-  swinging, and an `s` beside a plain CC is refused the same way, and a `0`
+  swinging, an `s` beside the cut letter refused the same way, a note-length gate
+  having no move of the wheel to stop either and leaving the gate above still
+  gating the rows below it, and an `s` beside a plain CC is refused the same way, and a `0`
   beside the bend letter's own row keeps naming the wheel's bottom while the `o`
   there spells the release. The `STP` hold asks nothing of the note column, so the
   note that row or a row above it struck is still held under it bent at the point
@@ -1923,6 +2032,130 @@ Right tools panel: Transpose, Remapping, Selection Interpolation with scope: Sel
 Tabs on top: Tracker / Macros / Settings; Macros tab for arpeggiator/glide macro setup.
 Testing target: Reaper.
 Decisions
+The sixth Command-column letter and the round's own ritual around it (this round): a
+`C` in that column cuts the note its row entered off *value* sub-ticks, the note-off it
+asks for being sent that many sub-ticks after the note-on rather than at whatever ends
+the note below, and the letter keeps being carried down under it rather than answering
+the rows under it, which is what lets one row's letter gate a whole staccato passage.
+Source/Model.h names the letter in the Command column's own doc and adds the paragraph
+for a cut's argument, takes `kCutCmd = 148` above `kVibCmd = 147` and above `kOlderCmdTop`
+at 143 - which is what no older state can produce and what no older row can turn into -
+with `kCutTopTicks = 127` as the widest length the field can name and `kCutDefaultTicks = 3`
+as what the letter's own entry leaves, the entry writing that number so a bare letter reads
+`C 3` rather than the release `C OFF`. The gate belongs to a tracker channel's column rather
+than to its MIDI channel and is counted on the same sub-row grid an arpeggiator's steps, a
+slide's ramp and a wobble's points already use, so a cut of 3 at the Settings' default of 6
+to the row holds a note for half a row and one of 6 for a whole one. ChannelState grew
+`cutTicks`, `cutTime`, `cutNote`, `cutMidiCh` and `cutRowEnd` beside the run's and the ramp's
+own state, with `endCut()`, `cutWaiting()` and `cutGating()` beside the helpers those already
+have; `flushCut()` is called at both per-row flush sites, the plain per-row one and the jumped-back
+mid-row one, the second taking `cutRowEnd` as the limit it works under so a clip's own end stays
+that limit rather than a length hanging out of the clip, and `armCut()` re-arms the waiting
+release from the row that entered the note rather than from the rows below it - the release's
+position being that row's own transport position plus the count over that grid,
+`rowPpq + ticks/(rowsPerBeat*subticks)` rather than a sum of step widths, which is what keeps the
+subtick exact for every length named and what leaves a row this block plays again because the
+transport jumped arm its own cut at that row rather than advance one twice. A length reaching past
+its row waits in the channel state for the block that gets there, exactly as a run's, a ramp's and
+a wobble's waiting steps wait, and is spent once when it gets there rather than once per block that
+passes it, and it says anything only while that channel still holds exactly the note and the MIDI
+channel it was armed for, so a superseded state loses its waiting work - `endCut()` dropping the
+gate and the waiting release together, that being the one rule the run's and the ramp's superseded
+steps already follow rather than a second rule the cut adds, which is what the note-off row, a row
+naming a command that is not a cut, a scrub leaving a release more than a row behind the block
+there and a clip's end all answer through. The release is the one an explicit note-off answers
+through, `stopNote` being what sends it, so it ends a run's or a ramp's note the column was in and
+returns a pitch the channel had left bent to the wheel's centre there, and it shares the stuck-note
+guard's own record of a release rather than putting a second note-off of that pitch beside one the
+guard already had at that sample. The row naming the letter sends nothing of its own. The drawing
+takes no new colour: the pair is read in the theme's `cmdOther` lilac the wheel's own letters and a
+vibrato already use, in the six places the tracker had for a command letter - the argument's release,
+the letter itself, the `OFF` drawing's two sites, the value landing `kArgOff` for that kind, the
+letter claim defaulting `kCutDefaultTicks` and the kind split that tells a wheel letter from a cut
+and a release - plus the pool's grid-preview command tick. `s` is refused beside `C` rather than
+written, a cut having no move of the wheel to stop, that cell keeping the argument it had and the
+gate above it still gating the rows below. CoreTest grew 26 checks (414 total, PASS 0 failures) and
+UiTest 36 (796, PASS): the CoreTest section pins the arithmetic rather than describing it, a length of
+3 sub-ticks of the Settings' 6 to a row releasing the note entered at that row at 3000 samples into
+the transport, the 440th sample of the block starting at 2560, one of 9 releasing at 9000 samples, the
+296th of the block starting at 8704, and a length of a whole row closing the note at the next row's own
+first sample at 6000, the 368th of the block starting at 5632, since the flush above that row leaves a
+limit sitting exactly on the release rather than past it; the three notes a carried letter gates at
+rows 0, 1 and 2 enter at 0, 368 and 224 and are released 440, 296 and 152, each release closing the
+pitch its own row entered rather than whatever the column happens to hold, the retarget case
+pinning the note entering at 18000 samples, the 80th of the block starting at 17920, released 9
+sub-ticks later at 27000 samples, the 376th of the block starting at 26624, while the note armed
+above it keeps the length its own row armed and is released at 3000, a `0` or an `OFF` there
+leaving the note entering the row below still sounding when the blocks run out and the notes above
+keeping their lengths, an `STP` there asking nothing and that note being released at 15000 samples,
+the 152nd of the block starting at 14848, a note-off row releasing its note at its own sample 6000
+- the 368th - and the release the cut had still waiting for at 9000 going with it rather than firing
+there, a clip's end under a still-waiting cut closing the note entered at its last row at that clip's
+own end, the 448th of the block starting at 23552, rather than at the sub-tick the length asked for
+376 samples into a block below it that never gets one, a seek to 3.0 beats closing the held note by
+that re-arm's all-notes-off alone and leaving the letter carried so the note entering the row the seek
+landed inside waits for that length counted on the new pass at the 296th sample of the block 17 below
+the seek's own, and a cut row ending an arpeggiator run having that run's 8 notes and the row's own
+entering as a 9th, the run's last step's pitch closed once at the sample the cut's own note enters on
+rather than by a note-off of its own beside it and that note released at 15000 samples. The UI reading
+is spelled out rather than measured: `c` and `C` claiming 148 and
+leaving 3 beside them, a decimal length typed beside the letter, `carriedCommandNumber`, `carriedCommandValue`
+and `commandKindAt` reading the letter and the length dim over the rows under it, a value-only row
+retargeting what those rows carry, `0` and `o` both landing `kArgOff` and leaving nothing carried below,
+`s` refused leaving the cell's value, its note and the undo depth untouched, 148 typed as digits clamping
+to `kCcTop` at 127 rather than reaching the letter, and the note column's own `C` still entering an E
+natural there. One finding worth its own line: the undo-depth checks in that new section had to use the
+late-section convention `juce::jmin (depth + n, song.settings.undoSteps)` - `undoSteps` being 50, the
+line being full that far into the run - rather than the plain `+1` three of them first spelled, which
+FAILed 3 checks before the re-read fixed them.
+The round's ritual, all of it re-run rather than carried: the Linux plug-in rebuilt and its
+`.so` moving to sha256 864ea54e13942b4ef747768ee5a446025df060915094895e6e36f427e21daf9b at
+6153592 bytes from the previous round's 1207c0862ca3159cf5069bca5c62c7f80a1c4426d2bce75dfe9f5790cb20aa16
+at 6153096, the cut's code being what moved it rather than a comment, its `moduleinfo.json`
+unchanged at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee and its host floor
+still topping out at GLIBC_2.38 with GLIBCXX_3.4.32 with Source/Portability.cpp compiled -fno-lto;
+the installed bundle at /home/corthax/.vst3/Corthax/Re.Trektor.vst3/ refreshed by rsync -a --checksum
+over its whole directory rather than over its single `.so` and the diff -r between the built and the
+installed trees reading clean rather than needing a second pass; the tracked Re.Trektor.vst3.tar.gz
+regenerated over that bundle rather than over the built tree, coming down to 2575467 bytes from the
+2577682 the previous round tracked and un-tarring to that new `.so`, that same manifest and nothing
+else; and CoreTest 414, UiTest 796 and Smoke 13 all reading PASS with 0 failures, Smoke taking the
+installed bundle path as its own argument. The four pinned 1240x760 shots came back byte-identical at
+the hashes the previous round pinned - /tmp/opencode/shot_tracker.png 938d8f49f8efea8a4928b2a10e9c604199294fd4fb91e1148c22201e15f250af
+at --dump --arp-call=8 --arp=0,4,off,8, /tmp/opencode/shot_macros.png aa47556ccc5764ad10dfc7f82179826a42cfeff7f4d6b095e5b9f5f471528657
+at --tab=macros --arp=0,4,off,8 --arp-loop, /tmp/opencode/shot_vibs.png eaae15bca7fc617339eb1a7cdfb5fbb539c9089a422a11ede388d2188a0b48bf
+at --tab=vibs --vib-shape="Triangle Down" --vib-amp=25 --vib-cycle=6 --vib-call=8 and
+/tmp/opencode/shot_settings.png 4d1df0bc31c7f79ddfcd201512faacf801304fa96c67e88e5d1415ead43f4a36 at
+--tab=settings - their dumps still reading 32, 28, 26 and 14 OUTSIDE PARENT lines, all of them the
+hidden ScrollBars and the zero-sized children of a hidden panel, which is what says a sixth letter in
+a column that already drew five changes no paint and no layout at all. Two new shots are pinned this
+round for the letter itself: /tmp/opencode/shot_cut.png 59def6c919ad92ca47606527fac238eabb264c3d950429f6ce08ec5027aff9c1
+at --dump --cut=8, the tracker band reading row 008 as C-4 -0 96 then the lilac C and its length 3
+beside it and every row under that one carrying C 3 dim rather than answering it, which is what says
+the notes entering those rows are cut to the length the column carries rather than left sustained, and
+/tmp/opencode/shot_cut_release.png cfa6c81761b253cb88aefedc4db00dfff3bec9762264839ac714c1274381e0a1
+at --dump --cut=8 --cut-ticks=0, that same row reading C OFF with no row under it carrying anything
+beside it, which is what says the release puts the gate away at its own row rather than leaving a length
+of nothing carried down. Both dumps read 32 OUTSIDE PARENT lines, the tracker shot's own 32 unchanged,
+since neither flag adds a control. The Windows route rebuilt against the same sources with the msvc-wine
+toolchain at -j 2, its DLL moving to 3760128 bytes at sha256 20a1897ea1c841d8bdfc49df20c8868206cf76c32b8c452d14d987cd6513f9d3
+from the previous round's 3758592 at 74cfb283fc6ce6df0b086b6d5358558c582186455122aeb39f1253b1bd6dfdf1 -
+the cut being code both platforms compile rather than anything behind a platform guard - and its manifest
+regenerated over the Windows bundle by the Linux tree's own helper at the same b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee
+990 bytes the Linux bundle carries, a manifest being the plug-in's two classes, their Fx sub-category and
+their flags rather than anything per-binary. A plug-in window at a real Windows host stays unobservable on
+this box, so what the Windows build proves here is the compile and the link and the user's Windows 11 host
+report being the rest. The two documents were reconciled rather than rewritten: README.md's Command table
+gaining the `C` row, its argument's default length, its `OFF` spelling and its `s` refusal, its older-state
+bullet reading the build's own letters as `144`-`148` rather than `144`-`147`, its future-work line naming
+what the letters still leave rather than the four kinds they already have - the wording that round having
+left that line reading the implemented kinds as the future ones - and README going from 372 lines and 21811
+bytes to 380 lines and 22606 bytes; project.md taking the letter through its Command field's claim list, its
+default-argument and drawing sections, its MIDI model gaining the Command 148 bullet with the gate's
+carrying, its retarget, its release, its `STP`, its waiting-release rules and its clip-end and re-arm
+readings, and its Known limitations naming the letter in the older-state and the `s`-refusal readings,
+going from 5221 lines and 564962 bytes to 5454 lines and 586837 bytes. Landed as two commits, the sources one and
+the documents one, with nothing pushed and the tree ahead of origin/master by five.
 This round's change is the project's two documents rather than a layer of its code:
 README.md, the file GitHub renders, was narrowed to what a user of the plug-in asks
 of it - what it is, how to build each of its three variants with the commands that
