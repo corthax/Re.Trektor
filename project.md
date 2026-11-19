@@ -672,7 +672,8 @@ cmake --build tests/build -j"$(nproc)"
   carrying no letter and no argument at all; `--cut=ROW` to name a note-length cut in tracker
   channel 0 at that row, which paints the command column's lilac `C` and the length it cuts to
   in decimal beside it and leaves that letter and that length carried dim over every row under it
-  — the one command letter that keeps being carried down rather than answering the rows below it —
+  — one of the two command letters that keep being carried down rather than answering the
+  rows below it —
   and `--cut-ticks=VAL` naming the length that call writes, 3 being the default the letter's own
   entry leaves, a subtick being one part of a row over the Settings row "Subticks per row" so a
   cut of 3 at the default 6 holds the note for half a row and sends its note-off partway through
@@ -683,7 +684,24 @@ cmake --build tests/build -j"$(nproc)"
   at its own row rather than a gate carried under it. A `--cut=ROW` entered where the demo's
   channel 0 names no note — its notes sitting at rows 0, 4, 8 and 12 — paints the letter across
   the rows, the cut then belonging to the note that channel has still been holding from the row
-  above, so a `--cut=9 --cut-ticks=8` and a `--cut=9 --cut-ticks=0` shot show that reading)
+  above, so a `--cut=9 --cut-ticks=8` and a `--cut=9 --cut-ticks=0` shot show that reading);
+  `--retrig=ROW` to name a retrigger in tracker channel 0 at that row, which paints the command
+  column's lilac `R` and the period it strikes at in decimal beside it and leaves that letter and
+  that period carried dim over every row under it — the other command letter that keeps being
+  carried down rather than answering the rows below it — and `--retrig-ticks=VAL` naming the
+  period that call writes, 3 being the default the letter's own entry leaves and a sub-tick being
+  one part of a row over the Settings row "Subticks per row" so a retrigger of 3 at the default
+  6 strikes the note a third of a row after it was entered and again a third of a row after that,
+  `VAL` reaching the 999 sub-ticks the three-digit field asks for with 128 and 129 staying the
+  OFF and STP spellings rather than periods, and `--retrig-ticks=0` being the note column's own
+  note-off spelled as an argument, drawn `OFF` rather than as a `0`, which closes the note that
+  channel has been holding at that row and puts the gate away below it, so a shot of
+  `--retrig=8 --retrig-ticks=0` shows that note-off spelled at its own row rather than a period
+  carried under it; a `--retrig=ROW` entered where the demo's channel 0 names no note — its notes
+  sitting at rows 0, 4, 8 and 12 — paints the letter across the rows, the period then belonging
+  to the note that channel has still been holding from the row above and that note being struck
+  again every period the column carries rather than cut, so a `--retrig=9 --retrig-ticks=8` and
+  a `--retrig=9 --retrig-ticks=0` shot show that reading.
 
 Example:
 
@@ -1189,7 +1207,7 @@ and no row that offers one. Instrument values are the MIDI output channel
 (`0`–`15`), drawn with the column's dash as `-0` to `-15`, the same labels the
 tools panel's remap dropdowns use. Volume and Pan take `0`–`127` as up to three
 digits, displayed right-aligned like the pan column. The Command field accepts
-`0`–`127` and the six letters `A`, `B`, `U`, `D`, `V` and `C`: an `A` typed as the command number
+`0`–`127` and the seven letters `A`, `B`, `U`, `D`, `V`, `C` and `R`: an `A` typed as the command number
 field's first character claims it and means `128`, the arpeggiator call, whose
 argument names the macro id, a `B` claims it and means `144`, the pitch bend, whose
 argument names a point on the wheel, a `U` or a `D` claims it and means `145` or
@@ -1201,14 +1219,25 @@ the cut, whose argument names how many subticks of the Settings' grid a note is 
 counted from the row that named the letter — the note entered at that row, or, where that
 row named no note of its own, the note that column has still been holding from the rows
 above it, which is what lets the letter cut across the rows rather than only the row that
-entered a note — rather than where on a wheel or in a macro the command goes. A cut's
-argument is the only argument that reaches past `127`: the field is three digits deep for
-it, so a cut tops at `999` subticks, and the two numbers just below that top, `128` and
-`129`, are the `OFF` and the `STP` spellings rather than lengths, which is what leaves a
-cut of 128 or 129 subticks without a spelling of its own. The claim is only the
-command number field's, which is what keeps `V` a note letter where the note column is
+entered a note — rather than where on a wheel or in a macro the command goes. A `R` claims it
+and means `149`, the retrigger, whose argument names every how many subticks of the Settings'
+grid a note that is already sounding is struck again at — the note entered at the row the
+letter is spelled beside, or, where that row named no note of its own, the note that column has
+still been holding from the rows above it, which is what lets the letter strike across the rows
+rather than only the row that entered a note — a strike being that note column's own note-off and
+note-on at one sample, which is what re-articulates the note rather than restarting it, and a row
+where nothing was being held and where nothing enters having no note to strike again, so that
+letter is ignored rather than armed for a pitch that was never there — rather than where on a
+wheel or in a macro the command goes. A cut's lengths and a retrigger's periods are the only
+arguments that reach past `127`: the field is three digits deep for them, so a cut tops at
+`999` subticks and a retrigger's period reaches the same `999`, and the two numbers just below
+that top, `128` and `129`, are the `OFF` and the `STP` spellings rather than lengths or periods,
+which is what leaves a cut or a retrigger of 128 or 129 subticks without a spelling of its own.
+The claim is only the command number field's, which is what keeps `V` a note letter where the
+note column is
 asked for: typed there it still types an F natural, the way the slide letter `D` still
-types a D natural and the cut letter `C` still types an E natural. The CC `10` and CC `11` a column asks for are typed `10` and `11`,
+types a D natural, the cut letter `C` still types an E natural and the retrigger letter `R`
+still types an F natural an octave up. The CC `10` and CC `11` a column asks for are typed `10` and `11`,
 and a letter typed after a run of digits only claims
 the field, the number being typed having been dropped rather than read as a
 command, so nothing about a number's spelling reaches one of the letters. A
@@ -1218,16 +1247,16 @@ reach above it: typing `146` into that field gives the highest CC rather than th
 slide letter, an older build's `143` cannot be typed back at all, and an interpolation
 ramp climbs toward that highest CC rather than inventing a command. Each letter has to
 leave an argument behind, so a call and a vibrato start at the release id `0`, a bend starts at the
-wheel's centre `64` and a slide starts at the default span of `8` rows and a cut starts at a
-length of `3` subticks of that grid, which is what
+wheel's centre `64`, a slide starts at the default span of `8` rows, a cut starts at a length of
+`3` subticks of that grid and a retrigger starts at a period of `3` subticks apart, which is what
 makes a row naming only the `B` bend nowhere rather than lock the wheel to its bottom,
 a row naming only a slide letter take its extreme over 8 rows rather than over
 none at all, a row naming only the `V` read as `V OFF` rather than run the default macro
-and a row naming only the `C` cut the note it entered for 3 subticks rather than spell
-the release instead of the gate it asks for.
-The call pair is drawn orange and the three wheel pairs, the vibrato pair and the cut pair
-lilac, every
-value in the view being decimal, and either letter a row carries from above
+and a row naming only the `C` or the `R` holding the note it entered for 3 subticks or striking
+it again every 3 of them rather than spelling the release instead of the gate that row asks for.
+The call pair is drawn orange and the three wheel pairs, the vibrato pair, the cut pair and the
+retrigger pair are lilac, every
+value in the view being decimal, and a letter or a number a row carries from above
 draws dim like any other carried command. So does the argument carried beside
 it, and that argument is the newest one that column's rows entered rather than
 the one the letter itself named, which is what an argument typed under a
@@ -1235,16 +1264,19 @@ command already in force changes: the rows under it are drawn with it beside
 the letter still carried there, and under a carried slide letter that newest
 argument is the span the rows below are still taking toward the extreme rather
 than a new point on that wheel. Under a carried cut letter it is the length the
-notes entering those rows are held for rather than a point of anything, and a
-cut is the one command letter that is not answered by the rows under it but keeps
-being carried down them, which is what gates every note entering a row under the
-letter rather than only the row that named it — the note entered at the letter's
-own row being cut there too, a row naming nothing but a note under it being cut
-as well, and the letter beside a row that named no note of its own cutting the
-note that channel has still been holding from above at the length named there,
-which is what lets the letter cut across the rows — so one row's letter gates a
-whole staccato passage rather than one
-note. An argument of `0` typed under a carried call
+notes entering those rows are held for rather than a point of anything, and under
+a carried retrigger letter it is the period the notes entering those rows are
+struck again at rather than a point of anything either, and the cut `C` and the
+retrigger `R` are the two command letters that are not answered by the rows under
+them but keep being carried down them, which is what gates every note entering a
+row under either letter rather than only the row that named it — the note entered
+at the letter's own row being cut or re-struck there too, a row naming nothing but
+a note under either letter being cut as well or re-struck from that row as well,
+and the letter beside a row that named no note of its own cutting or re-striking
+the note that channel has still been holding from above at the length or period
+named there, which is what lets either letter work across the rows — so one row's
+`C` gates a whole staccato passage and one row's `R` gates a whole repeated-hit
+passage rather than one note each. An argument of `0` typed under a carried call
 is the arpeggiator release on its own, that row reading a bright `OFF` beside
 the letter carried into it and the rows under it carrying neither the letter
 nor an argument, and the same `0` read beside a named or a carried vibrato letter
@@ -1264,25 +1296,39 @@ sustaining again; where that row entered a note of its own as well, that
 note's arrival had already released the note above it at this very sample and a
 note-off at a sample is sorted ahead of the note-on entered at it, so the
 release asks nothing of its own there and the note entered at that row is left
-to whatever ends it below — a note of no length at all has no spelling. The
+to whatever ends it below — a note of no length at all has no spelling, and the
+same `0` read beside a named or a carried retrigger letter is that same release
+spelled as an argument rather than a period below the narrowest one, drawn `OFF`
+the way its `===` is drawn, closing the note that channel has been holding at that
+row's own sample and putting the retrigger's gate away below rather than carrying
+the period on, the strike that period had still left waiting for going with it
+since the note has just been taken away at that sample rather than closing
+whatever note the column happens to be holding at the subtick it was counted to,
+and the notes entering rows under that release sustaining again — the same rule
+about a note of no length at all and about a note-off sorted ahead of the note-on
+entered there holding for both letters, since a retrigger of no subticks would
+strike a note again at the very sample it was entered at. The
 argument field answers
 two letters rather than digits, since neither is a number the field could spell:
 an `o` or an `O` lands the `OFF` the drawing reads, switching the pitchbending
 off and putting the wheel back at its centre beside a wheel letter, going
 the arpeggiator run off beside a call, taking a vibrato's swing off beside the
 vibrato letter and spelling the note column's own note-off beside the cut
-letter, drawn `OFF` the way its `===` is drawn and closing the note that channel
-has been holding at that row. An
+letter or beside the retrigger letter, drawn `OFF` the way its `===` is drawn and
+closing the note that channel has been holding at that row — and, beside the
+retrigger letter, putting the period away for the rows below rather than carrying
+it on, the strike that period had still left waiting for going with it. An
 `s` or an `S` lands the `STP`, which stops whatever move the wheel was making
 and leaves it sitting on the point it had got to, beside a wheel letter only —
-an `s` aimed at the vibrato letter or at the cut letter is refused rather than
-written, since neither a wobble nor a gate has a move of the wheel to stop,
-the cell keeping the argument it had and the swing or the gate above still
-running over the rows below it. A letter neither of those two claims is
+an `s` aimed at the vibrato letter, at the cut letter or at the retrigger letter
+is refused rather than written, since a wobble, a note-length gate and a
+retrigger have no move of the wheel to stop,
+the cell keeping the argument it had and the swing, the gate or the period above
+still running over the rows below it. A letter neither of those two claims is
 ignored rather than written, the cell keeping the value it had, and it types
 no note in the note column beside it either, so an `s` aimed at a call, at a
-vibrato, at a cut or at a plain CC asks nothing of a run, a swing or a gate
-that has no wheel to stop.
+vibrato, at a cut, at a retrigger or at a plain CC asks nothing of a run, a
+swing, a gate or a period that has no wheel to stop.
 
 The ARP MACRO tab's steps are typed the same way rather than one press at a time: the
 arrows and Page Up/Down move the step cursor over the cards it draws, with `Tab` joining
@@ -1626,11 +1672,12 @@ removed leaves five points of the line rather than one.
   leaves a row this block plays again because the transport jumped arm its own cut at that
   row rather than advancing one twice. A length wider than the row's own subticks waits in
   the channel state for the block that reaches it, exactly as those wait, and is spent once
-  when it gets there rather than once per block that passes it. A cut's lengths are the only
-  arguments that reach past the 127 the other kinds top at: the field is three digits deep
-  for it, so lengths run from one subtick to 999 of them, and the two numbers just below
-  that top, `128` and `129`, stay the `OFF` and `STP` spellings rather than lengths, which
-  is what leaves a cut of 128 or 129 subticks without a spelling of its own. A `0` there is
+  when it gets there rather than once per block that passes it. A cut's lengths and a
+  retrigger's periods are the arguments that reach past the 127 the other kinds top at: the
+  field is three digits deep for them, so lengths run from one subtick to 999 of them, and
+  the two numbers just below that top, `128` and `129`, stay the `OFF` and `STP` spellings
+  rather than lengths, which is what leaves a cut of 128 or 129 subticks without a spelling
+  of its own. A `0` there is
   not a length below the narrowest one but the note column's own note-off spelled as an
   argument, drawn `OFF` the way its `===` is drawn: the note that channel has been holding
   at that row is closed at that row's own sample the way an `===` row does, with the wheel
@@ -1702,6 +1749,95 @@ removed leaves five points of the line rather than one.
     release sitting below the seek's own start rather than above it; the re-arm's all-notes-off is
     what closes a note whose waiting release had not reached its subtick yet, and no second note-off
     of that pitch sits beside the note-on the same row entered at the same sample.
+* Command `149`, entered as the letter `R`, strikes a note again rather than holding it for a
+  length, moving the wheel or running a macro, and its argument names that period in subticks
+  on the grid the Settings row "Subticks per row" names (default 6), so at the default a
+  period of 3 strikes the note a third of a row after it was entered and again a third of a
+  row after that. The note the period belongs to is the one the letter's row entered, or,
+  where that row named no note of its own, the one that channel has still been holding from
+  the rows above, which is what lets the letter strike across the rows rather than only the
+  row that entered a note — a letter entered where the channel was holding nothing arms
+  nothing there and only gates the notes entering the rows below, and a row where nothing is
+  being held and nothing enters there is ignored rather than armed for a pitch that was never
+  there. The row that named the letter sends nothing of its own there: the note entered at
+  that row sounds and is re-articulated, each strike being that note column's own note-off and
+  note-on at one sample rather than a note of no length at all — the two being sorted off-before-on
+  there, which is what a host reads as the note being opened again rather than as one closed
+  before it opened. The first strike sits at rowPpq + ticks/(rowsPerBeat*subticks), never a sum
+  of step widths, the same count a cut's release, a run's steps, a ramp's steps and a wobble's
+  points are made on, and each strike after it is counted on from the one the engine last played
+  at whatever period is in force there — so a row under a carried letter naming only a number
+  moves where the next strike is counted from rather than re-timing one the row above had
+  already armed, and a bare note row under that letter plays that note and restarts the count
+  from that row. A period narrower than a block's own samples strikes more than once inside one
+  block rather than once to it — at the Settings' 32 subticks to a row a row is 187.5 samples
+  wide so a period of 2 is 375 of them and two strikes land in the block starting at 1024, the
+  101st and 476th samples of it — the flush walking a gate's strikes out until the block's own
+  end rather than giving one to each block, and a period wider than a row's own subticks waits
+  in the channel state for the block that reaches its own subtick and is spent once there rather
+  than once per block walking toward it, exactly as those wait. Its periods reach past the 127
+  the other arguments top at the same way a cut's lengths do, three digits deep to 999 subticks,
+  so `R 130` strikes 21 rows below the row that entered the note at the 464th sample of the
+  block starting at 129536, and the two numbers just below that top, `128` and `129`, stay the
+  `OFF` and `STP` spellings rather than periods, which is what leaves a retrigger of 128 or 129
+  subticks without a spelling of its own.
+  * the period is state the column carries down rather than state its own row only, so every
+    note entering a row the letter is carried over is struck again there as well — a bare note
+    row naming neither a command nor an argument included — which is what lets one row's letter
+    gate a whole repeated-hit passage rather than one note, and the pitch entering a row under
+    the letter is closed both by its own strike and by the note entering the row under it, each
+    strike answering only for the pitch its own row armed and only while that channel still
+    holds exactly that pitch on that MIDI channel rather than for whatever note the column
+    happens to be holding at the subtick it was counted to;
+  * a `0` there or the `OFF` the entry writes for an `o` answers as the note column's own note-off
+    answers at that row: where the row named no note of its own, the note that channel has still
+    been holding from above is closed at that row's own sample rather than at a subtick of any
+    period, that argument being drawn `OFF` the way its `===` is drawn, and the gate is put away
+    there rather than carried on below, its own still-waiting strike for that note going with it
+    since the note has just been taken away at that sample; the notes entering the rows under such
+    a release sustain again, the column carrying neither the letter nor an argument there. Where
+    that row entered a note of its own as well, that note's arrival had already released the note
+    above it at this very sample and a note-off at a sample is sorted ahead of the note-on entered
+    at it, so the release asks for nothing of its own and that note is left sounding until something
+    below ends it — a note of no length at all has no spelling;
+  * a note-off row under a gate drops the strike that gate had still waiting for while the period
+    the column carries keeps being carried rather than the letter being put away, so the note
+    entering under that note-off plays and re-arms its own strikes, its first one sitting at that
+    many subticks past its own row — 9000 samples of duration at a period of 9 over the Settings'
+    6, landing 27000 samples into the transport at the 376th sample of the block starting at
+    26624 for a note entering two rows below the note-off — and closes and re-opens that pitch
+    at that one sample;
+  * a row under a gate naming a command that is not the retrigger letter drops that gate the same
+    way it drops a superseded run's, a ramp's, a wobble's and a cut's still-waiting work, so the
+    whole strike chain counted from that gate goes rather than a strike closing whatever note the
+    column happens to be holding at the subtick it was waiting for, and the note entered above is
+    left to whatever ends it below — the note entering that very row being one such ending, its own
+    note-on closing the pitch above at the 224th sample of the block starting at 11776 rather than
+    the superseded gate being spent at its own subtick. The cut `C` and the retrigger `R` are the
+    two commands that keep being carried down the column rather than answering the rows under them,
+    so a column answers whichever of the two it carries and a row naming one leaves the other away
+    below it: a `C 9` above an `R 3` loses the cut's still-waiting note-off and re-strikes the note
+    held above instead, leaving one more note-on than note-off there, and the other way round an
+    `R 9` above a `C 3` loses the strike and closes that note once at the subtick the two of them
+    were counted to;
+  * a retrigger row closes an arpeggiator run this column was in rather than holding a gate and a
+    run at once, that run's last step's note being released at the sample this row's own note enters
+    on, and a row that struck a note of its own asks for no note-off of its own beside it, its own
+    note-on having released that pitch there already — the gate then striking the note the column
+    named there rather than continuing from whatever note the run happened to be sounding;
+  * a transport re-arm leaves the period the column carries in force the way it leaves a carried
+    volume, pan or command number, so the note entering the row a seek landed inside is struck again
+    every period still carried there and waits for that period counted from that row on the new pass,
+    its strike sitting below the seek's own start rather than above it; the re-arm's all-notes-off is
+    what closes a note whose waiting strike had not reached its subtick yet, and no second note-off
+    of that pitch sits beside the note-on the same row entered at the same sample;
+  * the strikes wait under the same bound a cut's still-waiting release does, the end of the last row
+    this engine owned — the per-row flush records that row's end for every row and channel whether or
+    not the row named a gate, so no second bound is kept — which is what stops a strike reaching a
+    sample below it and leaves a note entered at a clip's last row struck only over the rows that
+    clip still has. A strike sitting more than a row behind where a block starts is dropped the way
+    a scrub or a jump drops a run's, a ramp's, a wobble's and a cut's still-waiting work, which is
+    what keeps a re-armed pass from firing a strike counted on the pass before it.
 * A tracker pattern can use up to 127 tracker channels, independent of the 16
   MIDI output channels. Identical notes triggered on multiple tracker channels
   in the same row are sent only once.
@@ -1810,9 +1946,9 @@ removed leaves five points of the line rather than one.
   the argument it was, which for the older encoding was the ignored value, so
   the macro that call now names — usually id `0`, the release — has to be
   re-entered by hand. This build's own bend letter, its two slide letters, its
-  vibrato letter and its cut letter are command values `144`–`148` that an older
-  build could not have
-  written, so no older row turns into a bend, a slide, a wobble or a gate and none of
+  vibrato letter, its cut letter and its retrigger letter are command values `144`–`149` that an
+  older build could not have
+  written, so no older row turns into a bend, a slide, a wobble, a gate or a retrigger and none of
   those calls becomes one; an older state has no `VIBS` section either, since
   nothing older than the letter `V` had a vibrato to save, so the read arrives
   with the one default macro a fresh song defines rather than with an empty tab.
@@ -1846,10 +1982,11 @@ removed leaves five points of the line rather than one.
   ignored: the release one going the run off and re-striking its base, the `STP`
   one being refused since a run has no wheel to stop, and an older argument of
   `130`–`143` still landing on the highest macro id as before. The only argument
-  that reaches past those numbers is a cut's length, three digits deep to 999
-  subticks, and even there `128` and `129` stay the two spellings rather than
-  lengths, so a cut of 128 or 129 subticks is the one pair of lengths the field
-  cannot name; nothing about the saved form says which build wrote the number,
+  that reach past those numbers are a cut's length and a retrigger's period, both three
+  digits deep to 999 subticks, and even there `128` and `129` stay the two spellings rather
+  than lengths or periods, so a cut or a retrigger of 128 or 129 subticks is the one pair of
+  lengths and periods the field cannot name; nothing about the saved form says which build
+  wrote the number,
   and the older state's own macro definitions are dropped outright, so those
   calls still have to be re-entered whichever way they now read.
 * A pitch wheel left bent by a channel whose clip was deleted outright is taken
@@ -1878,11 +2015,15 @@ removed leaves five points of the line rather than one.
   having no move of the wheel to stop either and leaving the swing above still
   swinging, an `s` beside the cut letter refused the same way, a note-length gate
   having no move of the wheel to stop either and leaving the gate above still
-  gating the rows below it, and an `s` beside a plain CC is refused the same way, and a `0`
+  gating the rows below it, an `s` beside the retrigger letter refused the same way again and
+  leaving the period above still striking the rows below it, and an `s` beside a plain CC is refused
+  the same way, and a `0`
   beside the bend letter's own row keeps naming the wheel's bottom while the `o`
-  there spells the release and a `0` or an `o` beside the cut letter is drawn `OFF`,
-  spelling the note column's own note-off rather than a length and closing the
-  note that channel has been holding at that row. The `STP` hold asks nothing of the note column, so the
+  there spells the release and a `0` or an `o` beside the cut letter or beside the retrigger
+  letter is drawn `OFF`,
+  spelling the note column's own note-off rather than a length or a period and closing the
+  note that channel has been holding at that row, the gate or the period being put away
+  below it so the notes entering the rows under it sustain again. The `STP` hold asks nothing of the note column, so the
   note that row or a row above it struck is still held under it bent at the point
   being held, and the letter stays carried below that row so a further row under it
   can re-arm a ramp, hold the wheel again or put it away. What only the hosts can
@@ -1984,8 +2125,8 @@ removed leaves five points of the line rather than one.
   shape is gone in that host rather than only in the fixture; what that section
   still covers at the engine alone is the moved-clip-from-time-0 scenario, which
   has not been asked in a host at all.
-* Command kinds beyond plain CC, the arpeggiator call, the pitch wheel and the
-  vibrato that wobbles it (a dedicated
+* Command kinds beyond plain CC, the arpeggiator call, the pitch wheel, the vibrato that wobbles
+  it, the note-length cut and the note retrigger (a dedicated
   pitch bend CC105/CC106 pair rather than the standard pitch wheel message, tempo, song
   position) are future work.
 * Selection snaps to channel boundaries: a cell is one channel's visible
@@ -2078,6 +2219,185 @@ Right tools panel: Transpose, Remapping, Selection Interpolation with scope: Sel
 Tabs on top: Tracker / Macros / Settings; Macros tab for arpeggiator/glide macro setup.
 Testing target: Reaper.
 Decisions
+This round adds a seventh letter, the letter `R` at command value 149, which strikes a note
+again every so many of the Settings' sub-row subticks rather than holding one for a length:
+what the request asks is that a note entering that column's row plays and restarts the
+striking if the letter was already running there or above it, that the letter works across
+the rows where the row named no note of its own by striking whatever that channel has still
+been holding, that a value of 0 or an OFF stops the retriggering the way a note-off stops a
+note, that periods reach 999 subticks, and that the letter is ignored where nothing is being
+held and nothing enters there. Source/Model.h names it above the cut's 148 with kRetrigCmd,
+kRetrigTopTicks = 999 and kRetrigDefaultTicks = 3 beside the cut's own pair, that top's
+comment naming 128 and 129 as the OFF and STP spellings falling just below it rather than as
+periods - which is what leaves 128 and 129 subticks the only pair of periods the field cannot
+name - takes the Command column's head claim from the six letters to the seven, writes the
+paragraph for a retrigger's argument through those readings and widens the Cell's cmdVal
+comment to a retrigger's own subticks beside a cut's.
+PlaybackEngine.h gives ChannelState the period it carries in force (retrigTicks), the transport
+position of the strike still waiting (retrigTime, negative for none), and the pitch that strike
+belongs to with the MIDI channel it answers to (retrigNote, retrigMidiCh), beside endRetrig for
+taking all four away, retrigWaiting for dropping the strike while keeping the period - the
+reading a note-off row and a re-arm need - and retrigGating for what the column has a period in
+force over. PlaybackEngine.cpp adds flushRetrig beside flushCut, armRetrig beside armCut and
+retrigCommand beside cutCommand, that command reached by three shapes at processRow - a row
+that named the letter and its own argument, a row naming only an argument under a letter still
+carried there and a row naming nothing at all under a letter carried above - the flush being a
+while-loop rather
+than a single test since a period narrower than a block's own samples - 187.5 samples at the
+Settings' 32 subticks to a row, so a period of 2 is 375 of them - strikes more than once inside
+one block rather than once to it, and a strike being dropped when it sits more than a row behind
+where this block starts rather than fired at this block's own first sample, which is what a
+scrub or a jump leaves behind there. It needs no bound of its own: the per-row flush already
+records c.cutRowEnd for every row and channel whether or not that row named a gate, so the
+strikes wait under the same end of the last row this engine owns that a cut's still-waiting
+release does, and a note entered at a clip's last row is struck only over the rows that clip
+still has. armRetrig arms at processRow's tail for whatever the row left the channel holding -
+the note it entered, otherwise only a row that itself named the letter and named no note, at
+that channel's own activeNote and activeMidiCh - which is what lets the letter strike across
+the rows there, a row naming only an argument under a carried letter arming nothing there and
+keeping its reach to the notes entering there and the rows below, and a row where the channel
+was holding nothing arming nothing at all. A strike is the note column's own note-off and
+note-on at one sample rather than a note of no length at all - flushRetrig spends it through
+startNote, whose already-ever-played branch puts the note-off ahead of the note-on it queues
+there, sorted off-before-on, which is what re-articulates the pitch a host is holding rather
+than restarting it, and each strike after the first is counted on from the one the engine last
+played at whatever period is in force there, so a retarget under a carried letter moves where
+the next strike is counted from rather than re-timing one the row above had already armed.
+processRow's teardown takes the duplicated `if (cell.cmd != kCutCmd) state.endCut();` the
+previous round had left and puts one cut check and the retrigger's own check in its place, so
+any row naming a command that is not the retrigger letter calls endRetrig and drops the whole
+strike chain counted from that gate rather than closing whatever note the column happens to be
+holding at the subtick it was counted to; the flush drops it the same way when
+c.activeNote == c.retrigNote && c.retrigMidiCh == c.retrigMidiCh fails, which is what a note
+entering the row under a gate, a note-off row and the re-arm's allNotesOff all answer through -
+that last beside the cut's own cutWaiting there, a re-arm having just taken every pitch this
+channel was holding away. The release spelled as 0 or the OFF the entry writes for an o reads
+through the same path a cut's release does - stopNote at that row's own sample, the wheel this
+channel had left bent under that note back at its centre with it, the gate put away rather than
+carried on below - and the note-off row drops the pending strike while the period the column
+carries keeps being carried, so the note entering under that note-off re-arms its own strikes.
+The entry keeps the two letters together where they belong rather than inventing a third:
+commandArgumentReleases answers for both carried letters, `R` draws in the lilac the cut's
+letter already draws and the release draws `OFF` the way its === is, commandKindAt is hoisted
+once at the cursor so applyValue clamps a retrigger's argument jlimit (0, kRetrigTopTicks, value)
+while every other kind still tops at the field's own, the letter claim chain names 'r' and 'R' as
+kRetrigCmd only at the command number field - the note column's own r already being a note letter
+and still typing the octave-up F natural there, offset 17 - the cell leaving kRetrigDefaultTicks
+beside a bare letter, and the o/s block's gateKind now covers the cut's and the retrigger's gates
+so the s stays refused beside either, an `s` beside a retrigger letter having no wheel move to
+stop and leaving the period above still striking the rows below it. PoolComponent's grid preview
+takes kRetrigCmd into the same lilac dot the cut's letter already drew. EditorShot gained
+--retrig=ROW and --retrig-ticks=VAL beside the cut's own pair, the demo's channel 0 notes sitting
+at rows 0, 4, 8 and 12 so --retrig=9 paints the letter across a row rather than beside a note.
+CoreTest grew 41 checks across ten named fixtures and the eight harnesses spelled inside them,
+18 in all (428 to 469, PASS 0 failures): a period of 3 at the
+default 6 striking at 3000, 6000, 9000, 12000 and 15000 samples into the transport, the 440th,
+368th, 296th, 224th and 152nd of the blocks starting at 2560, 5632, 8704, 11776 and 14848 - five
+strikes over 30 blocks rather than one to a block, six notes on and five notes off with the note
+left held when those blocks run out - the bare letter spelling the default, five more strikes at a
+period of 2 over the Settings' 32 subticks to a row in four blocks, two of them inside the one
+block starting at 1024, a
+period retargeted to 6 under a carried letter moving the next strike to the 224th of the block
+starting at 11776 and reaching no further back than there so the subtick the period above was
+going to reach is never placed at all, a bare note row under a carried letter playing that note
+and restarting the count from that row, the letter beside a row that named no note striking the
+note held above at 296, 224 and 152 and striking nothing of its own at that row, a letter entered
+where nothing was held and nothing enters sending nothing, the 0 spelled as an argument only
+under a carried letter closing the note that period had still left waiting at that row's own
+sample - the 368th of the block starting at 5632 rather than the 296th of the block starting at
+8704 - and the note entering beside a spelled release being left sounding since a note of no
+length at all has no spelling, a note-off row releasing its note at its own sample 6000 with the
+strike still waiting at 9000 going with it and a note entering two rows below that note-off
+re-arming its own strike at 27000 samples, the 376th of the block starting at 26624, a row
+naming a plain CC under a still-waiting strike discarding it while the note entering there
+closes the pitch above at the 224th of the block starting at 11776, a `C 9` above an `R 3`
+losing the cut's note-off and re-striking instead with one more note-on than note-off and an
+`R 9` above a `C 3` losing the strike and closing that note once at the 296th of the block
+starting at 8704, `R 130` in a 64-row pattern striking 21 rows below its row at the 464th
+sample of the block starting at 129536 with that waiting strike spent once rather than once per
+block walking toward it, 128 and 129 named as the two spellings rather than periods, and a
+retrigger row ending an arpeggiator run with that run's last step's pitch closed exactly once at
+the sample this row's own note enters on. UiTest grew 43 checks across one fixture (803 to 846,
+PASS 0 failures): the letter claiming 149 and leaving kRetrigDefaultTicks beside it, the undo
+depth read as the convention the previous round found - juce::jmin (depthBefore + n,
+song.settings.undoSteps), the line already full that far into the run - the rows under a named
+letter carrying it and its period through carriedCommandNumber, carriedCommandValue and
+commandKindAt, a typed 4 retargeting what those carry, a row naming only a 7 staying implicit
+under the carried letter and retargeting it, 0 and o landing kArgOff and leaving nothing carried
+below either way, the s refused beside the letter leaving the cell's value, its note and the
+undo depth untouched, 149 typed as digits giving the highest plain CC rather than the letter,
+the note column's own r typing 77 - an F natural an octave up at the octave those sections asked
+for - and leaving that row's command cell empty, 900 landing a three-digit period beside the
+letter rather than clamping to the 127 the other arguments top at, and 128 landing kArgOff rather
+than a period of 128 subticks so that row leaves the column carrying nothing below it.
+Both trees rebuilt, the Linux one first: the module grown from the 6153520 bytes the tracked
+tarball still holds to 6157928 at
+build/ReTrektor_artefacts/Release/VST3/Re.Trektor.vst3/Contents/x86_64-linux/Re.Trektor.so and
+sha256 c2468947c6bdd14811bd25616638d704a9b1c530d15f33640ea013a43e189af1, its
+moduleinfo.json 990 bytes at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee;
+the Windows tree's module grown from the 3760640 its own tarball held to 3762688 bytes at
+ccf0a779b8fdf6cf60cad541e4ea7171d1061c33ceb6f8bbe81832ee011ffb07, its moduleinfo.json regenerated
+through the Linux tree's ReTrektor_vst3_helper and reading the same 990 bytes at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee
+as the Linux one rather than being carried over, and Smoke reading PASS 0 failures at 13 checks
+with the bundle path as its
+argument from the repo root. The installed bundle at /home/corthax/.vst3/Corthax/Re.Trektor.vst3
+was refreshed with rsync -a --checksum and diff -r clean rather than rewritten, and the two
+tracked tarballs the user's own split commit f521e2b introduced were regenerated from their own
+trees - Re.Trektor(linux).tar.gz at 2575516 bytes and Re.Trektor(windows).tar.gz at 1679635, the
+old single Re.Trektor.vst3.tar.gz having gone with that split. Twelve shots were taken with
+DISPLAY=:0 at 1240x760 and dumped; the eight tracker-band dumps read 32 OUTSIDE PARENT lines
+each, which is what says the retrigger's and the cut's letters added no control to any window -
+the four standing ones being byte-identical to the hashes the previous round pinned - shot_tracker.png 938d8f49f8efea8a4928b2a10e9c604199294fd4fb91e1148c22201e15f250af at
+--dump --arp-call=8 --arp=0,4,off,8, shot_macros.png aa47556ccc5764ad10dfc7f82179826a42cfeff7f4d6b095e5b9f5f471528657 at
+--dump --tab=macros --arp=0,4,off,8 --arp-loop, shot_vibs.png eaae15bca7fc617339eb1a7cdfb5fbb539c9089a422a11ede388d2188a0b48bf at
+--dump --tab=vibs --vib-shape="Triangle Down" --vib-amp=25 --vib-cycle=6 --vib-call=8 and shot_settings.png
+4d1df0bc31c7f79ddfcd201512faacf801304fa96c67e88e5d1415ead43f4a36 at --dump --tab=settings, their
+dumps keeping the 32, 28, 26 and 14 OUTSIDE PARENT lines those tabs had before - the four carried
+cut shots unchanged from that round's pins at their 32 dump lines each - shot_cut.png 59def6c919ad92ca47606527fac238eabb264c3d950429f6ce08ec5027aff9c1
+at --dump --cut=8, shot_cut_release.png cfa6c81761b253cb88aefedc4db00dfff3bec9762264839ac714c1274381e0a1 at --dump
+--cut=8 --cut-ticks=0, shot_cut_across.png eca54c7f64700776d57a8158b347210bf10a7353904eeeebdc33f5b5eaad7b9c at --dump
+--cut=9 --cut-ticks=8 and shot_cut_across_off.png 6490d264d75875e6ed931a6219bfb184ec5d0f63757eb84a2cf8648329d07705 at --dump
+--cut=9 --cut-ticks=0 - and four new ones: shot_retrigger.png f4b97df7f4e3771af733b25a28d2db5518ed0b12a62134f68552ea589453b123
+at --dump --retrig=8, the tracker band reading row 008 as the demo's C-4 note then the lilac R
+and its default period 3 beside it with the rows under it carrying both dim, shot_retrigger_release.png
+bcf83b84c9441ede015b67724450c0ea447665fcb34c8eca6c026c2816124874 at --dump --retrig=8
+--retrig-ticks=0, that row reading R OFF with nothing carried under it, shot_retrigger_across.png
+6804c275c699d275d212a8c91c85e498f4e317bb51751cee1c50ffafda9ebb83 at --dump --retrig=9
+--retrig-ticks=8, row 009 having no note of its own - the demo's notes sitting at rows 0, 4, 8
+and 12 - so the bright R 8 reads as the letter striking across a row, the period then belonging
+to the note that channel has still been holding from the row above, and shot_retrigger_across_off.png
+ae99016260db7080771528eb78d6f65316603de9da958fae6c561ca272fb08f3 at --dump --retrig=9
+--retrig-ticks=0, that row reading R OFF across the row. README went from 388 lines and 23382
+bytes to 396 lines and 24241 keeping only the user-facing claims: its Command-letter table gains
+the R row at 149 and its argument paragraph takes both letters' 999 subticks three digits deep,
+the 128-and-129 pair left as the OFF and STP spellings for both, OFF spelled beside C or R drawn
+the way its === is, STP refused beside A, V, C and R, the cut C and the retrigger R named as the
+two commands that keep being carried down rather than answering the rows under them, a strike as
+a note-off and a note-on at one sample, a note entering a row under a carried R being struck
+again from its own row, a row naming only a number retargeting that length or period, the note
+entered at the very row an OFF is spelled beside left sounding since a note of no length at all
+cannot be spelled, a C or an R whose counter has not reached its note-off or its next strike yet
+being discarded with its waiting release or strike when another command appears under it and an
+R where nothing is held and nothing enters being ignored; its older-state bullet now reads the
+build's bend, slide, vibrato, cut and retrigger letters as values 144-149 and its future-work
+line names the retrigger among what this build already has. project.md takes the same readings
+through its Tests section's shot flags with --retrig=9 --retrig-ticks=8 and --retrig=9
+--retrig-ticks=0 named for the across-row letter, its Command field's claim to the seven letters
+with the R at 149, the note column's own r typing the octave-up F natural and both letters'
+999 with the gap, its keyboard map's release run taking the retrigger's 0 as that same drawn
+note-off with the strike that period had still left waiting going with it, its default-argument
+and drawing lists naming the retrigger pair in the same lilac and both letters as the two carried
+commands, its MIDI model gaining the Command 149 bullet with the gate's being carried down, its
+retarget, its release, its supersession against the cut's own letter either way round, its
+ending an arpeggiator run and its transport re-arm beside it, and its Known limitations taking
+144-149, both letters' 999 with the 128-and-129 gap as the one pair of lengths and periods the
+field cannot name, the s refused beside the retrigger letter too and a 0 or an o beside it drawn
+OFF as the note column's own note-off - that file going from 5641 lines and 604628 bytes to
+5961 lines and 634354 of them. Source/Model.cpp's fieldTop for the interpolation's
+command value stays at the highest CC 127 rather than widening to either letter's top, so a
+Tools ramp of that argument field still stops there while the field itself types three digits -
+which is what leaves that limit the one the earlier rounds documented rather than a new one the
+retrigger would otherwise invent.
 This round keeps the same sixth letter and takes four readings of it: the letter
 cuts not only the note entered at its own row but, beside a row that named no note
 of its own, the note that channel has still been holding from the rows above at the

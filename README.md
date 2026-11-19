@@ -175,29 +175,37 @@ and Command.
   | `D` | 146 | slides the wheel to its bottom, same argument |
   | `V` | 147 | runs a vibrato macro; the argument is the macro id `1`–`127` |
   | `C` | 148 | cuts a note's length; the argument is that length in subticks (a subtick being a row over the Settings' "Subticks per row", default 6) — the note being one that row entered or one that column has still been holding |
+  | `R` | 149 | strikes a note again every so many subticks; the argument is that period in subticks on the same grid — the note being one that row entered or one that column has still been holding |
 
-  `A` and the wheel letters are drawn orange and lilac, and an argument carried from
-  above is drawn dim beside the letter. Every letter leaves an argument behind, so
-  `A` and `V` start at the release id `0`, `B` at the wheel's centre `64`, a slide at
-  the default span of 8 rows and `C` at a length of 3 subticks. A `C`'s argument reaches
-  `999` subticks, three digits deep, while the other arguments top at `127`; the two
-  numbers just below the cut's top, `128` and `129`, stay the two spellings that sit
-  above the numbers, so a cut of `128` or `129` subticks has no spelling of its own.
-  `o` / `O` writes `OFF` — pitchbend off and the wheel back at its centre, the
-  arpeggiator run off, a wobble off, and beside `C` the note column's own note-off,
-  drawn `OFF` the way its `===` is drawn — and `s` / `S` writes `STP`, which stops a
-  wheel move and leaves the wheel on the point it reached. `STP` is refused beside `A`,
-  `V` and `C`, a run, a wobble and a cut having no wheel move to stop. `C` is the one
-  command that keeps being carried down the column rather than answering the rows under
-  it, so one letter gates a whole staccato passage: the note its row entered, or the
-  note that column has still been holding where the row named no note of its own, is
-  released that many subticks past the row that named the letter, a row naming only a
-  number retargets the length for the notes entering there and the rows under it, and
-  `0` or `o` writes `OFF`, which closes the note that column has been holding at that
-  row and leaves the notes entering the rows under it sustained — a note entered at the
-  very row the `OFF` is spelled beside is left sounding, since a note of no length at
-  all cannot be spelled. A `C` whose counter has not reached that note-off yet is
-  discarded, its waiting note-off with it, when another command appears under it.
+  `A` and the wheel letters, the cut and the retrigger are drawn orange and lilac, and an
+  argument carried from above is drawn dim beside the letter. Every letter leaves an
+  argument behind, so `A` and `V` start at the release id `0`, `B` at the wheel's centre
+  `64`, a slide at the default span of 8 rows, `C` at a length of 3 subticks and `R` at a
+  period of 3 subticks apart. A `C`'s and an `R`'s arguments reach `999` subticks, three
+  digits deep, while the other arguments top at `127`; the two numbers just below their
+  top, `128` and `129`, stay the two spellings that sit above the numbers, so a cut or a
+  retrigger of `128` or `129` subticks has no spelling of its own.
+  `o` / `O` writes `OFF` — pitchbend off and the wheel back at its centre, the arpeggiator
+  run off, a wobble off, and beside `C` or `R` the note column's own note-off, drawn `OFF`
+  the way its `===` is drawn — and `s` / `S` writes `STP`, which stops a wheel move and
+  leaves the wheel on the point it reached. `STP` is refused beside `A`, `V`, `C` and `R`,
+  a run, a wobble, a cut and a retrigger having no wheel move to stop. The cut `C` and the
+  retrigger `R` are the two commands that keep being carried down the column rather than
+  answering the rows under them, so one letter gates a whole staccato or repeated-hit
+  passage: the note its row entered, or the note that column has still been holding where
+  the row named no note of its own, is released that many subticks past the row that named
+  the letter, or struck again — a note-off and a note-on at one sample, which is what
+  re-articulates it rather than restarting it — every period the column carries, a note
+  entering one of the rows under a carried `R` being struck again from its own row. A row
+  naming only a number retargets that length or period for the notes entering there and the
+  rows under it, and `0` or `o` writes `OFF`, which closes the note that column has been
+  holding at that row and leaves the notes entering the rows under it sustained — a note
+  entered at the very row the `OFF` is spelled beside is left sounding, since a note of no
+  length at all cannot be spelled. A `C` whose counter has not reached its note-off yet, or
+  an `R` whose counter has not reached its next strike yet, is discarded, its waiting
+  release or strike with it, when another command appears under it; where nothing was being
+  held and nothing enters at an `R`'s row, that letter is ignored, there being no note to
+  strike again.
 * `` ` `` enters a note-off, drawn `===`.
 * A tracker pattern can use up to 127 tracker channels, independent of the 16 MIDI
   output channels; identical notes triggered on several tracker channels in one row
@@ -345,9 +353,9 @@ keyboard focus: it rests on the control whose text box the value is typed into.
   for that half of the column, so an older state's `MACROS` block is dropped and an
   older row's command value `128`–`143` lands on the letter `A` while the argument it
   holds stays the argument it was — usually the release, so those calls have to be
-  re-entered by hand. This build's bend, slide, vibrato and cut letters are values
-  `144`–`148` an older build could not have written, so no older row turns into one of
-  those. Two settings rows the older state may still spell — the pattern paste's
+  re-entered by hand. This build's bend, slide, vibrato, cut and retrigger letters are
+  values `144`–`149` an older build could not have written, so no older row turns into
+  one of those. Two settings rows the older state may still spell — the pattern paste's
   default and the hex display — were dropped outright and simply read nothing.
 * The argument spellings that sit above the numbers that field can hold read
   unchanged in a saved state, so an older argument of `128` or `129` beside a call
@@ -370,9 +378,9 @@ keyboard focus: it rests on the control whose text box the value is typed into.
 * Interactive behaviour has been verified with JUCE's own plug-in host, headless
   editor interaction tests and Carla; a full Reaper session has not been run in this
   environment.
-* Command letters beyond the arpeggiator call, the pitch wheel letters, the vibrato and
-  the note-length cut are future work (a dedicated pitch bend CC105/CC106 pair rather
-  than the standard pitch wheel message, tempo, song position).
+* Command letters beyond the arpeggiator call, the pitch wheel letters, the vibrato, the
+  note-length cut and the note retrigger are future work (a dedicated pitch bend
+  CC105/CC106 pair rather than the standard pitch wheel message, tempo, song position).
 
 ## Licensing
 
