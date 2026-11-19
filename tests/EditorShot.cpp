@@ -11,7 +11,7 @@
            [--slide=ROW] [--slide-down=ROW] [--slide-arg=VAL]
            [--vib-shape=SinUp] [--vib-amp=N] [--vib-cycle=N]
            [--vib-call=ROW] [--vib-call-id=VAL] [--vib-macros=N] [--macros=N] [--cmd-carry]
-           [--cut=ROW] [--cut-ticks=VAL]
+           [--cut=ROW] [--cut-ticks=VAL] [--retrig=ROW] [--retrig-ticks=VAL]
 
     --arp= writes signed semitone steps into arpeggiator id 1, so a Macros-tab
     shot shows a step strip of its own length rather than one that is all empty;
@@ -85,6 +85,26 @@
     what lets one row's letter cut a whole staccato passage. --cut-ticks=0 is the note
     column's own note-off spelled as an argument, drawn OFF rather than as a 0: the note
     that channel has been holding is closed at that row, the gate is put away and the rows
+    under it carry no letter at all.
+
+    --retrig=ROW names a retrigger in tracker channel 0 at that row, which paints the lilac
+    letter R, and --retrig-ticks=VAL says how many sub-ticks apart a note that is already
+    sounding is struck again at, so the argument is drawn in decimal beside the letter; with
+    no --retrig-ticks the row strikes at the default 3 sub-ticks its letter entry leaves. A
+    sub-tick is one part of a row over the Settings row "Subticks per row", so a retrigger of
+    3 at the default of 6 hits the note a third of a row after it was entered and again a third
+    of a row after that. The note struck is the one that row entered, or, where the row named
+    no note of its own, the one that channel has still been holding from the rows above, which
+    is what lets the letter work across the rows rather than only the row that entered a note;
+    where nothing was being held and nothing enters there, the letter is ignored. A retrigger's
+    argument reaches 999 sub-ticks, three digits deep, the two numbers just below that top, 128
+    and 129, being the OFF and STP spellings rather than periods. Like the cut's letter, this
+    one keeps being carried down under it rather than answering the rows below it, so the rows
+    under a named one draw the letter and their carried period dim, which is what says that the
+    notes entering those rows play and restart their striking every period the column carries -
+    which is what lets one row's letter gate a whole repeated-hit passage. --retrig-ticks=0 is
+    the note column's own note-off spelled as an argument, drawn OFF rather than as a 0: the
+    note that channel has been holding is closed at that row, the gate is put away and the rows
     under it carry no letter at all.
 
     --cmd-carry writes the command column's carried case in both channels: a row
@@ -332,6 +352,24 @@ int main (int argc, char** argv)
         if (args[i].startsWith ("--cut="))
         {
             cutRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    int retrigRow = -1; // a row naming the retrigger letter in tracker channel 0
+    int retrigTicks = rtr::kRetrigDefaultTicks; // how many sub-ticks apart a note sounding
+    // in that column is struck again, so a shot spells out the period the letter's own
+    // entry leaves
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--retrig-ticks="))
+        {
+            retrigTicks = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
+            args.remove (i);
+        }
+
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--retrig="))
+        {
+            retrigRow = args[i].fromFirstOccurrenceOf ("=", false, false).getIntValue();
             args.remove (i);
         }
 
@@ -602,6 +640,12 @@ int main (int argc, char** argv)
         {
             p.cell (cutRow, 0).cmd = rtr::kCutCmd;
             p.cell (cutRow, 0).cmdVal = cutTicks; // C 3: the lilac letter and the length it cuts for
+        }
+
+        if (retrigRow >= 0)
+        {
+            p.cell (retrigRow, 0).cmd = rtr::kRetrigCmd;
+            p.cell (retrigRow, 0).cmdVal = retrigTicks; // R 3: the lilac letter and the period it re-hits at
         }
 
         if (vibMacrosToDefine > 1)

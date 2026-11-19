@@ -257,6 +257,83 @@ private:
             return cutTicks > 0;
         }
 
+        /** A retrigger gate this channel's column has in force, and the next
+            re-articulation that gate still has waiting: how many sub-ticks apart
+            the strikes are, counted on the same sub-row grid an arpeggiator's
+            steps, a slide's ramp, a wobble's points, a cut's length and this
+            retrigger's own period use, so a period of 3 at the Settings' 6 to
+            the row strikes the note a third of a row after it was armed and
+            again a third of a row after that, and one narrower than a block's
+            own samples striking more than once inside a block rather than once
+            to it. The gate keeps being carried down under the letter, which is
+            what lets one row's letter gate the notes of the rows under it rather
+            than striking only the row that named it, and the letter also strikes
+            across a row that named no note of its own, arming its strike for the
+            note this channel has still been holding from above rather than for
+            nothing at all - a row with no note to strike again leaving the letter
+            ignored. retrigTime is where the next waiting strike sits in absolute
+            transport position rather than read off the rows below, the way a run's
+            steps, a ramp's steps, a wobble's points and a cut's release are
+            counted, and each strike after the first is counted from the one the
+            engine last played at whatever period is in force there, so a period
+            retargeted between the strikes moves the ones below it rather than
+            leaving them to the arming row's own. retrigNote and retrigMidiCh name
+            the pitch that strike belongs to, and the bound the flush below walks
+            up to is the end of the row the engine last processed, the same one the
+            cut's own waits on since every row and channel sets it whatever the
+            column carries. A waiting strike only ever closes and re-opens the
+            pitch the row that armed it left this channel holding and this channel
+            is still holding, its note-off and note-on being sorted off-before-on
+            at one sample rather than a hair apart, which is what makes it safe to
+            leave a strike in place while the period above it is retargeted or while
+            the column's own note-off, a run's step or a clip's end has already
+            taken that note away, there being nothing left for it to strike again. */
+        int retrigTicks = 0;                   // sub-ticks apart a note sounding in this column is struck again at (0 = no gate)
+        double retrigTime = -1.0;              // where the next waiting strike sits, in transport beats (-1 = none)
+        int retrigNote = -1;                   // the pitch that waiting strike belongs to
+        int retrigMidiCh = -1;                 // the MIDI output channel it was entered on
+
+        /** Leaves no gate in force and no strike waiting: the column stopped having
+            the letter, so the period it held has nothing left to gate the notes
+            below it, and the strike that gate had armed for a note entered above
+            it has no gate of its own left to strike again, however far its counter
+            had got - a strike still waiting under a row that names another command
+            is discarded rather than left to close and re-open whatever note the
+            column happens to be holding at the sub-tick it was waiting for, which
+            is how a run's, a ramp's, a wobble's and a cut's waiting points go when
+            the column supersedes them lower down. A strike the gate had already
+            made stays sounding, the note entered above being left to whatever ends
+            it below, a further note entering this column having already opened it
+            at this row. */
+        void endRetrig() noexcept
+        {
+            retrigTicks = 0;
+            retrigWaiting();
+        }
+
+        /** Leaves no strike waiting without putting the gate away: the note the
+            strike belonged to has been taken away by something else, a note-off
+            row, a run's own step, a transport re-arm or a clip's end, or the
+            strike could no longer be placed where it sits, so there is nothing
+            left to strike again and the strikes counted on from it go with it;
+            the letter the column carries keeps holding the period, which is what
+            lets the notes entering under it re-arm their own. */
+        void retrigWaiting() noexcept
+        {
+            retrigTime = -1.0;
+            retrigNote = -1;
+            retrigMidiCh = -1;
+        }
+
+        /** Whether the column still has a gate in force, which is what a note
+            entering a row that named no command of its own asks before it is
+            re-struck, and what makes the letter's carried spelling and the
+            engine's own idea of the period agree. */
+        bool retrigGating() const noexcept
+        {
+            return retrigTicks > 0;
+        }
+
         /** Ends a run: an arpeggiator that no longer has steps or no longer has
             a clip to hold it leaves nothing to play. The note the column last
             named is not part of the run, so it stays: a call further down the
@@ -423,6 +500,32 @@ private:
                    double ppqLimit, double ppqPerSample, int numSamples,
                    const Song& song);
 
+    /** Plays the strikes a retrigger gate has waiting up to the end of the row the
+        engine last owned, each one being the note column's own note-off and note-on
+        at the one sample its period names: they are sorted off-before-on there, which
+        is what re-articulates the note that is still being held rather than restarting
+        it or spelling a note of no length at all. The strikes are placed at absolute
+        transport positions counted from the row that armed the gate and then from one
+        strike to the next at whatever period is in force where the engine played it,
+        the way a run's steps, a ramp's steps, a wobble's points and a cut's release
+        wait rather than being read off the rows below, so a period narrower than a
+        block's own samples strikes more than once inside that block rather than once
+        to it and a period wider than a row waits for the block that gets there. `ppqLimit`
+        never passes the end of the row the engine last owned, the same bound the cut's
+        own waits on, which is what leaves a strike the column superseded below that row
+        not being placed at a sample of its own beyond it. A strike is only ever sent for
+        the pitch the row that armed it left this channel holding and this channel is
+        still holding, which is what makes it safe for something else to have taken that
+        note away already - the strike is dropped, and the ones counted on from it with
+        it, rather than closing and re-opening whatever note the column happens to be
+        holding there - and a strike that can no longer be placed where it sits, which is
+        what a scrub or a jump leaves behind, is dropped the way a run's, a ramp's, a
+        wobble's and a cut's waiting points are, the letter keeping the period in force
+        so a note entering under it below re-arms its own. */
+    void flushRetrig (std::vector<PendingEvent>& events, int ch, double ppqStart,
+                      double ppqLimit, double ppqPerSample, int numSamples,
+                      const Song& song);
+
     /** A row naming the arpeggiator command: the release call, id 0 or the OFF
         argument the entry also writes for an o, releases what the run is holding,
         ends it and strikes the note the run measured from again at this row, so
@@ -555,6 +658,66 @@ private:
         and what retargeting a length under a carried letter leaves a note that row entered
         above it armed for at its own row's length instead of re-timing it there. */
     void armCut (int ch, int heldNote, int midiCh, double rowPpq, const Song& song);
+
+    /** A row naming the retrigger letter, one naming only an argument under a letter
+        carried above it or one naming neither of the two and entering a note under a
+        letter the column carries: the argument counts the sub-ticks apart a note that
+        is already sounding in this column is struck again at, on the same sub-row grid
+        an arpeggiator's steps, a slide's ramp, a wobble's points and a cut's length use,
+        so the row itself sends nothing of its own and leaves the note it is holding
+        sounding, the first strike waiting for the flush below at the sub-tick the period
+        names past this row - a period wider than the row's own sub-ticks reaching past
+        that row and past the block that holds it the way a run's steps, a ramp's steps,
+        a wobble's points and a cut's release do, and reaching as far past it as the
+        entry's own top of kRetrigTopTicks sub-ticks. The strikes belong to the note this
+        channel is left holding at that row: the letter beside a row that named no note
+        of its own works across the rows, taking the note the column has been holding from
+        above and striking it again at that many sub-ticks past this row rather than leaving
+        it to whatever ends it below, which is what the letter entered beside a row that did
+        strike a note and a bare note row under a carried letter already do, and a row whose
+        note column held nothing and entered nothing is ignored, there being no note to
+        strike again. An empty argument beside a letter the row itself named takes the
+        default period rather than no period at all, the number the entry writes so the cell
+        spells the retrigger it asks for, and an empty one under a carried letter keeps the
+        period that letter is carrying, so a bare note row is re-struck to whatever the
+        column says; the notes entering there being armed at their own rows and the strikes
+        of a note the rows above had armed carrying on from the strike the engine last
+        played, which is what lets the letter gate a repeated-hit passage row by row rather
+        than striking only the row that named it. An OFF argument or a 0 stops the
+        retriggering rather than striking a note every no sub-ticks at all: it reads and
+        answers as the note column's own note-off, drawn OFF the way its === is drawn and
+        the way a cut's 0 is, closing the note this channel has been holding at that row at
+        that row's own sample and putting the gate away rather than carrying it on below, so
+        the notes entering the rows under a release sustain again and the column carries no
+        letter there. Where that row entered a note of its own as well, that note's arrival
+        had already closed the note above it at this very sample and sorted ahead of its own
+        note-on there, so the release asks for nothing of its own and the note entered there
+        is left to whatever ends it below - a note of no length at all cannot be spelled. An
+        argument under a carried letter retargets the period for the notes entering there and
+        the rows below rather than re-timing one the rows above had already armed at their
+        own rows. The STP spelling asks for nothing, a retrigger having no move of the wheel
+        to stop, and leaves the period above still being carried; either way the note that row
+        entered is left sounding under the period in force there, which is what makes the
+        letter gate the notes of the rows under it rather than only the row that named it.
+        Like a slide's, a vibrato's and a cut's rows, this row closes an arpeggiator run
+        this column was in, a run and a gate not being two things one column can hold at
+        once. */
+    void retrigCommand (std::vector<PendingEvent>& events, int ch, int offset,
+                        double rowPpq, int argument, bool rowNamedLetter, int enteredNote,
+                        bool noteOnRow, int midiCh, const Song& song);
+
+    /** Arms the gate this channel's column has in force for the note it is left holding
+        at the row that armed it: the pitch that row entered when it entered one of its own,
+        otherwise the pitch the channel has still been holding from the rows above, which is
+        what lets the retrigger letter work across the rows rather than only the row that
+        entered a note, and what leaves a row that left the channel holding no note at all
+        ignored rather than armed for nothing at all. The strikes the gate makes are counted
+        from that row rather than from the rows below it, which is what makes the sub-tick the
+        first one sits on exact for whatever period was named, keeps a row a transport jump
+        makes this block play again arming its own strikes at that row rather than advancing
+        one twice and leaves a period retargeted by a further row from reaching back into a
+        note above it that had already been armed at its own row. */
+    void armRetrig (int ch, int heldNote, int midiCh, double rowPpq, const Song& song);
 
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,

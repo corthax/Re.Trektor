@@ -18,18 +18,22 @@ constexpr int kMidiChannelCount = 16;
 /** The Command column's number field holds a plain CC number, 0..kCcTop, and
     above that the command letters: the letter A names kArpCmd, the letter B
     names kBendCmd, the letters U and D name a slide of the pitch wheel to
-    its top and to its bottom, the letter V runs a vibrato and the letter C
-    cuts a note's length, whether the note entered at the row it is spelled
-    beside or has been held by that column from the rows above, each claimed as
+    its top and to its bottom, the letter V runs a vibrato, the letter C
+    cuts a note's length and the letter R strikes one again every so many of
+    those sub-ticks, whether the note any of them is spelled beside has been
+    entered at that row or has been held by that column from the rows above, all
+    seven claimed as
     the field's first character rather than typed as a number, which is what stops
     a typed digit run from inventing a letter - a decimal field spells CC 10 as
     10, so nothing about a number's spelling reaches one of the letters. kBendCmd,
-    the two slide values, the vibrato letter and this build's cut letter all sit
+    the two slide values, the vibrato letter, this build's cut letter and its
+    retrigger letter all sit
     above kOlderCmdTop, the highest value an older build could write for its M0-M15
-    macro kinds, so the values this build owns for the pitch wheel and for a note's
-    length are values that build could not have written, and an older
+    macro kinds, so the values this build owns for the pitch wheel, for a note's
+    length and for a note's re-articulations are values that build could not have
+    written, and an older
     state's macro calls can all land on the letter they now means without any
-    of them becoming a bend, a slide, a wobble or a cut.
+    of them becoming a bend, a slide, a wobble, a cut or a retrigger.
 
     A bend's argument names a point on the 14-bit pitch wheel in 128s: 0 is the
     wheel's bottom, kBendCentreVal its exact centre and 127 near its top, so the
@@ -98,7 +102,64 @@ constexpr int kMidiChannelCount = 16;
     the release that gate had armed for a note entered above it has no gate of its own
     left to cut it, which is how a run's and a ramp's waiting steps go when the column
     supersedes them lower down - the note entered above is left to whatever ends it
-    below, the rows under that command having nothing left to be cut. */
+    below, the rows under that command having nothing left to be cut.
+
+    A retrigger's argument says how often a note that is already sounding is struck
+    again rather than how long it is held for: the sub-ticks are counted on the same
+    sub-row grid an arpeggiator's steps, a slide's ramp, a wobble's points and a cut's
+    length already use, so a retrigger of 3 at the Settings' 6 to the row strikes the
+    note a third of a row after it was entered and again a third of a row after that,
+    and the widest one the entry can name strikes it kRetrigTopTicks sub-ticks apart,
+    three digits on that grid. Each strike is the note column's own note-off and note-on
+    at one sample, sorted off-before-on, which is what re-articulates the note rather
+    than restarting it or spelling a note of no length at all. The letter strikes the
+    note its own row entered and, beside a row that named no note of its own, the note
+    that channel has still been holding from the rows above it, which is what lets the
+    letter work across the rows rather than only the one that entered a note; where that
+    row named no note of its own and nothing was being held, the letter is ignored,
+    there being no note to strike again. The first strike sits that many sub-ticks past
+    the row the note was armed at rather than past the strike below it, and each one
+    after that is counted from the strike the engine last played at whatever period is
+    in force there, which is what keeps the beat exact for whatever length was named,
+    what lets a period be retargeted between the strikes rather than leaving them to
+    the one the arming row called with and what leaves a row a transport jump makes
+    this block play again arming its own strikes at that row. Like the cut's letter,
+    this one keeps being carried down under it: a note entering a row that named no
+    command of its own under a carried retrigger plays that note and restarts the
+    striking from that row, which is what lets the letter gate a whole repeated-hit
+    passage rather than striking only the row that named it, and an argument named
+    under a carried letter retargets the period for the notes entering there and the
+    rows below rather than re-timing one the row above had already armed. A row that
+    names the letter and leaves the argument empty takes the default period of
+    kRetrigDefaultTicks sub-ticks, the number the entry writes so the cell spells the
+    retrigger it asks for, and both a 0 beside the letter and the OFF the entry writes
+    for an o stop the retriggering rather than strike a note every no sub-ticks at
+    all: they read and answer as the note column's own note-off, drawn OFF the way its
+    === is drawn and the way a cut's 0 is, closing the note this channel is holding at
+    that row at that row's own sample and putting the gate away rather than carrying it
+    on below, so the notes entering the rows under it sustain again and the column
+    carries no letter there. Where that row entered a note of its own as well, that
+    note's arrival had already closed the note above it at this very sample and sorted
+    ahead of its own note-on there, so the release asks for nothing of its own and the
+    note entered there is left to whatever ends it below - a note of no length at all
+    cannot be spelled. A row whose note-off took a held note away leaves no strike
+    waiting below it, the letter having no note left to strike again there, and leaves
+    the period the column carries still being carried, so a note entering under it
+    below re-arms. A strike that has not reached its sub-tick yet is discarded when a
+    row under it names a command that is not the retrigger letter: the letter the
+    column stopped having has no strikes left to make and the one that gate had armed
+    for a note entered above it has no gate of its own left to strike it, which is how
+    a run's, a ramp's, a wobble's and a cut's waiting points go when the column
+    supersedes them lower down - the note entered above is left to whatever ends it
+    below, a strike the gate had already made sounding whatever it is left to below. A
+    retrigger and a cut are two letters of one note's own length, so a column answers
+    whichever of the two it carries and a row naming one leaves the other away below
+    it. Like a slide's, a vibrato's and a cut's rows, this row closes an arpeggiator
+    run this column was in, a run and a gate not being two things one column can hold
+    at once. The two numbers 128 and 129 the argument field holds stay the OFF and STP
+    spellings, so a period of 128 or 129 sub-ticks cannot be named, and the s spelling
+    asks for nothing beside a retrigger, since a retrigger has no move of the wheel to
+    stop, and leaves the period above as it was. */
 constexpr int kArgOff = 128;  // the argument that reads OFF: an arpeggiator going off or the wheel's release
 constexpr int kArgStp = 129;  // the argument that reads STP: the wheel held at the point it is at
 constexpr int kMaxArpMacros = 127; // arpeggiator macros, ids 1..127; the id 0 call releases
@@ -132,6 +193,9 @@ constexpr int kVibDefaultFreq = 8; // the cycle a newly defined macro starts at,
 constexpr int kCutCmd = 148; // command value 148 cuts a note's length, entered as C
 constexpr int kCutTopTicks = 999; // the widest cut the entry can name, in subticks on the Settings' grid; 128 and 129 below it stay the OFF and STP spellings
 constexpr int kCutDefaultTicks = 3; // subticks a note is held for when the row leaves the argument empty
+constexpr int kRetrigCmd = 149; // command value 149 retriggers a note, entered as R
+constexpr int kRetrigTopTicks = 999; // the widest retrigger the entry can name, in subticks on the Settings' grid; 128 and 129 below it stay the OFF and STP spellings
+constexpr int kRetrigDefaultTicks = 3; // sub-ticks apart a note is struck again at when the row leaves the argument empty
 constexpr int kMaxUndoSteps = 200; // most undo steps the undo line can be asked for
 
 /** Column visibility bits: the chips above a channel toggle one field of one
@@ -150,8 +214,8 @@ struct Cell
     int inst = kEmpty;    // kEmpty or 0..15 (MIDI output channel)
     int vol = kEmpty;     // kEmpty or 0..127
     int pan = kEmpty;     // kEmpty or 0..127
-    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D); 147 = vibrato (V); 148 = cut (C)
-    int cmdVal = kEmpty;  // kEmpty, 0..127 or a cut's own subticks to kCutTopTicks: a macro id, a point on the wheel, a slide's rows, a vibrato macro id or a cut's subticks; kArgOff = OFF and kArgStp = STP above the field's own top
+    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D); 147 = vibrato (V); 148 = cut (C); 149 = retrigger (R)
+    int cmdVal = kEmpty;  // kEmpty, 0..127 or a cut's or a retrigger's own subticks to kRetrigTopTicks: a macro id, a point on the wheel, a slide's rows, a vibrato macro id, a cut's subticks or a retrigger's sub-ticks; kArgOff = OFF and kArgStp = STP above the field's own top
 
     bool empty() const noexcept
     {

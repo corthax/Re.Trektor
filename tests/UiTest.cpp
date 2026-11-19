@@ -3753,6 +3753,229 @@ int main()
         // checks after it click into, so the view is brought back to the top
         tracker->keyPressed (juce::KeyPress (juce::KeyPress::homeKey, juce::ModifierKeys(), 0));
     }
+    //== The retrigger letter and the period it carries =========================
+    {
+        auto cmdAt = [&] (int row)
+        {
+            auto* pp = song.activePattern();
+            return pp != nullptr ? pp->cell (row, 0).cmd : rtr::kEmpty;
+        };
+        auto argAt = [&] (int row)
+        {
+            auto* pp = song.activePattern();
+            return pp != nullptr ? pp->cell (row, 0).cmdVal : rtr::kEmpty;
+        };
+
+        // the same readings as the section above, this one for the letter that strikes a
+        // note again rather than for the letter that holds it for a length: what is checked
+        // here is the entry's letter and the carrying the view does over the rows under it,
+        // all of it readable headlessly rather than as events, so this fixture needs a
+        // pattern to type into and no clip to play its rows, the pattern above having been
+        // left holding the cut section's rows
+        const int retriggerFixture = song.addPattern ("retrigger fixture", 64, 1).id;
+        song.activePatternId = retriggerFixture;
+        check (song.findPattern (retriggerFixture) != nullptr
+                   && song.activePattern() != nullptr
+                   && song.activePattern()->id == retriggerFixture,
+               "the tracker is handed a fresh fixture of one channel as the pattern its rows type into");
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdNum
+                   && tracker->getCursorChannel() == 0,
+               "the cursor sits on the command number field of the fixture's only channel");
+
+        tracker->setCursorRow (0);
+        check (cmdAt (0) == rtr::kEmpty && argAt (0) == rtr::kEmpty,
+               "the fresh row names no command and holds no argument to start from");
+
+        const int depthBeforeRetrig = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('R', juce::ModifierKeys(), 'R'));
+        check (cmdAt (0) == rtr::kRetrigCmd,
+               "the letter R claims the command number field and writes command 149: the value this build owns for a retrigger sits above the highest an older build could write and above the top a typed number can reach, so a digit run cannot invent it");
+        check (argAt (0) == rtr::kRetrigDefaultTicks,
+               "and leaves the default count of sub-ticks apart beside it, so the cell spells the re-hit it asks for rather than a note struck again every no sub-ticks at all, which would read as the release");
+        check (proc.getUndoDepth() == juce::jmin (depthBeforeRetrig + 1, song.settings.undoSteps),
+               "and claiming the letter is one action of its own on the undo line, one step of the depth the Settings tab asks for once that line is full, which it is this far into the run");
+        check (tracker->commandKindAt (0, 0) == rtr::kRetrigCmd,
+               "the argument beside that row belongs to the command that row named");
+        check (tracker->carriedCommandNumber (1, 0) == rtr::kRetrigCmd
+                   && tracker->carriedCommandValue (1, 0) == rtr::kRetrigDefaultTicks,
+               "the rows under a named retrigger carry the letter and its period, drawn dim like every other carried value and in the same lilac as the cut's letter: the retrigger is one of the two commands that keep being carried down rather than answering the rows below it, which is what says the notes entering those rows play and are struck again every period the column carries rather than sounding once and being held until something else ends them");
+        check (tracker->commandKindAt (1, 0) == rtr::kRetrigCmd,
+               "a row under that letter answers an argument against the letter still being carried there rather than against nothing at all");
+
+        // typing over the period the letter left behind asks for one of its own, and the
+        // letter claim left the cursor on the row that named it rather than on the row
+        // below, which is what lets that period be typed beside it
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::cmdVal,
+               "the cursor moves onto that row's own argument field, the letter claim having left the row where it is");
+
+        const int depthBeforePeriod = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('4', juce::ModifierKeys(), '4'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (argAt (0) == 4, "four sub-ticks of the Settings' grid apart is how often the note entered at that row is struck again, the period being spelled in decimal like a slide's rows or a macro id");
+        check (proc.getUndoDepth() == juce::jmin (depthBeforePeriod + 1, song.settings.undoSteps),
+               "and typing that period is one action of its own on the undo line, the claim and the argument being two steps the user can walk back separately");
+        check (cmdAt (0) == rtr::kRetrigCmd, "the letter keeps its claim beside a typed number, nothing about that number's spelling reaching the letter");
+        check (tracker->carriedCommandNumber (1, 0) == rtr::kRetrigCmd && tracker->carriedCommandValue (1, 0) == 4,
+               "and the rows below carry the period typed above rather than the default the entry left behind");
+
+        // an argument-only row under the carried letter retargets that period
+        tracker->setCursorRow (2);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        tracker->keyPressed (juce::KeyPress ('7', juce::ModifierKeys(), '7'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (cmdAt (2) == rtr::kEmpty, "under the carried letter a row naming only a number stays implicit, the letter above it being the command that row's argument belongs to");
+        check (argAt (2) == 7, "and names a period of its own over that same gate, which is what lets a repeated-hit passage be retargeted row by row");
+        check (tracker->carriedCommandNumber (3, 0) == rtr::kRetrigCmd && tracker->carriedCommandValue (3, 0) == 7,
+               "the retargeted period keeps being carried down under it, so the notes entering the rows below are struck again every 7 sub-ticks rather than every 4 named above");
+
+        // the release spelled by a bare number the argument field can type
+        tracker->setCursorRow (4);
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+        check (cmdAt (4) == rtr::kEmpty && argAt (4) == rtr::kArgOff,
+               "a 0 typed under the carried letter lands the OFF argument rather than a period of no sub-ticks: a retrigger of no sub-ticks would strike a note again at the very sample it was entered at, which a note-on sorted after a note-off there cannot be, so the entry spells the release the way it does beside a cut's letter");
+        check (tracker->carriedCommandNumber (5, 0) < 0,
+               "the release leaves the column carrying nothing below it, so the notes entering those rows sustain again and a row naming only an argument there answers nothing");
+
+        // the same release spelled by the o, beside a letter the row itself named
+        tracker->setCursorRow (6);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('R', juce::ModifierKeys(), 'R'));
+        check (cmdAt (6) == rtr::kRetrigCmd && argAt (6) == rtr::kRetrigDefaultTicks,
+               "the letter named again, its argument left at the default period");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+
+        const int depthBeforeOff = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('o', juce::ModifierKeys(), 'o'));
+        check (argAt (6) == rtr::kArgOff, "the o typed in that row's argument field writes the OFF spelling of that release, a letter rather than a number above the field's own top, drawn the way the note column's own === is drawn");
+        check (proc.getUndoDepth() == juce::jmin (depthBeforeOff + 1, song.settings.undoSteps),
+               "and writing that spelling is one action of its own on the undo line, one step of the cap once the line is full");
+        check (cmdAt (6) == rtr::kRetrigCmd, "the row named the letter itself, so the letter stays in that cell beside the release the argument names");
+        check (tracker->carriedCommandNumber (7, 0) < 0, "and the release puts the gate away for the rows below, whatever way the letter was reached");
+
+        // the STP spelling, which asks for nothing beside a retrigger letter
+        tracker->setCursorRow (8);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('R', juce::ModifierKeys(), 'R'));
+        check (cmdAt (8) == rtr::kRetrigCmd, "the retrigger letter named at a fresh row");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+
+        const int depthBeforeStp = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('s', juce::ModifierKeys(), 's'));
+        check (argAt (8) == rtr::kRetrigDefaultTicks,
+               "the s typed beside a retrigger letter is refused rather than written: a retrigger gates the notes below it rather than making the wheel climb, so it has no move to stop and the period the entry left stays in the cell");
+        check (proc.getUndoDepth() == depthBeforeStp,
+               "and a letter neither claim owns where the cursor sits leaves nothing behind to undo, the cursor not advancing over it either");
+        check (song.activePattern() != nullptr && song.activePattern()->cell (8, 0).note == rtr::kEmpty,
+               "and it types no note beside it, the claim being only this field's letters");
+        check (tracker->carriedCommandNumber (9, 0) == rtr::kRetrigCmd && tracker->carriedCommandValue (9, 0) == rtr::kRetrigDefaultTicks,
+               "the letter and its period keep being carried under a refused spelling, which is what says nothing about the gate changed there");
+
+        // a digit run cannot reach the retrigger letter either: the number field tops at the
+        // highest plain CC, so the letters are the only way to name a command kind
+        tracker->setCursorRow (10);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('4', juce::ModifierKeys(), '4'));
+        tracker->keyPressed (juce::KeyPress ('9', juce::ModifierKeys(), '9'));
+        check (cmdAt (10) == rtr::kCcTop && argAt (10) == 0,
+               "149 typed as digits gives the highest plain CC with its argument at the entry's own start rather than the retrigger letter, the field topping at the CC the column asks for");
+        check (tracker->carriedCommandNumber (11, 0) == rtr::kCcTop,
+               "that CC is what the rows under it carry, the gate having been superseded by a row that named a command of its own");
+
+        // the note column's own r keeps meaning a note, the claim being only the command
+        // number field's first character: the letter's octave is named so the pitch
+        // entered is one that can be written out rather than read off whatever
+        // the sections above left behind
+        check (song.settings.recordOctave == 4, "the octave the note column enters at is the one the sections above asked for");
+
+        tracker->setCursorRow (11);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::note; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::note,
+               "all the way back, the cursor is on the note column again");
+
+        tracker->keyPressed (juce::KeyPress ('r', juce::ModifierKeys(), 'r'));
+        check (song.activePattern() != nullptr && song.activePattern()->cell (11, 0).note == 77,
+               "the same letter enters an F natural, an octave up, where the note column is asked for, the same way the cut letter's c types an E natural there");
+        check (cmdAt (11) == rtr::kEmpty, "and leaves that row's command column alone, the retrigger letter being only the command number's");
+
+        // a retrigger's periods are the other arguments that reach past the 0..127 the
+        // other kinds use: three digits of the Settings' grid deep, and the entry knows
+        // which command this row's argument answers against, so a letter named at a fresh
+        // row is what lets that row hold a three-digit period at all
+        tracker->setCursorRow (12);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('R', juce::ModifierKeys(), 'R'));
+        check (cmdAt (12) == rtr::kRetrigCmd && argAt (12) == rtr::kRetrigDefaultTicks,
+               "the letter named again at a fresh row, its argument left at the default period the entry writes beside it");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+
+        const int depthBeforeWide = proc.getUndoDepth();
+        tracker->keyPressed (juce::KeyPress ('9', juce::ModifierKeys(), '9'));
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        tracker->keyPressed (juce::KeyPress ('0', juce::ModifierKeys(), '0'));
+        check (argAt (12) == 900,
+               "the third digit the field commits lands a period of 900 sub-ticks rather than the 127 the other arguments top at: a retrigger's periods are clamped to their own top rather than to the field's, which is what the entry knowing the kind this row's argument answers against is for");
+        check (proc.getUndoDepth() == juce::jmin (depthBeforeWide + 1, song.settings.undoSteps),
+               "and typing that period is one action of its own on the undo line, one step of the cap once the line is full");
+        check (tracker->carriedCommandNumber (13, 0) == rtr::kRetrigCmd && tracker->carriedCommandValue (13, 0) == 900,
+               "and the rows under that letter carry the three-digit period, drawn dim beside the carried letter the way a shorter one is, the field being wide enough to spell it");
+
+        // the two numbers just below a retrigger's own top stay the spellings above the
+        // field's top rather than reaching the periods they would otherwise name
+        tracker->setCursorRow (14);
+
+        for (int i = 0; i < 8 && tracker->getCursorField() != rtr::TrackerComponent::Field::cmdNum; ++i)
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('R', juce::ModifierKeys(), 'R'));
+        check (cmdAt (14) == rtr::kRetrigCmd && argAt (14) == rtr::kRetrigDefaultTicks,
+               "the letter named a third time, its argument left at the default period again");
+
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+
+        tracker->keyPressed (juce::KeyPress ('1', juce::ModifierKeys(), '1'));
+        tracker->keyPressed (juce::KeyPress ('2', juce::ModifierKeys(), '2'));
+        tracker->keyPressed (juce::KeyPress ('8', juce::ModifierKeys(), '8'));
+        check (argAt (14) == rtr::kArgOff,
+               "the 128 a digit run lands beside a retrigger letter is the OFF argument rather than a period of 128 sub-ticks: the two numbers below the retrigger's own top stay the release and the hold spellings the entry writes for an o and an s, which is what leaves a retrigger of 128 or 129 sub-ticks without a spelling of its own");
+        check (tracker->carriedCommandNumber (15, 0) < 0,
+               "and that row leaves the column carrying nothing below it, the OFF read there putting the gate away the way a 0 beside the letter does");
+
+        if (auto* pat = song.activePattern())
+            check (pat->length > 14, "the fixture reaches past the rows this section typed into");
+
+        // the rows this section parked the cursor on are below the window the
+        // checks after it click into, so the view is brought back to the top
+        tracker->keyPressed (juce::KeyPress (juce::KeyPress::homeKey, juce::ModifierKeys(), 0));
+    }
     //== The VIB MACRO tab's card ==============================================
     {
         // the vibrato macros the Command column's V calls live on their own tab,

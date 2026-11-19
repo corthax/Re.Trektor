@@ -56,11 +56,16 @@ namespace
         away. The cut letter takes the same two spellings as well, its 0 being the release
         rather than a note held for no subticks at all and its OFF being the one the entry
         writes for an o, which is what lets the notes under a release row sustain again.
+        The retrigger letter takes the same two spellings as well, its 0 being the release
+        rather than a note struck again every no sub-ticks at all and its OFF being the one
+        the entry writes for an o, which is what lets the notes under a release row sustain
+        again and leaves the note that column has been holding closed at that row.
         Only the STP spelling asks to be carried on, since a row beside it only
         stops the move the wheel was making and leaves the letter in force under it;
         a vibrato has no move to stop, so the spelling means nothing beside its letter,
-        and neither has a cut, whose letter keeps gating the notes under it rather than
-        answering them. A row that puts a command away leaves the column carrying
+        and neither has a cut's or a retrigger's letter, whose gates keep holding the
+        notes entered under them rather than answering the rows below them. A row that
+        puts a command away leaves the column carrying
         nothing below it. */
     bool commandArgumentReleases (int cmd, int cmdVal)
     {
@@ -71,7 +76,7 @@ namespace
             return false;
 
         return cmd == kArpCmd || cmd == kVibCmd || cmd == kSlideUpCmd
-            || cmd == kSlideDownCmd || cmd == kCutCmd;
+            || cmd == kSlideDownCmd || cmd == kCutCmd || cmd == kRetrigCmd;
     }
 
     /** Whether a row that named a command leaves one in force for the rows
@@ -882,6 +887,24 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     text = "C";
                                     colour = theme::cmdOther;
                                 }
+                                else if (cmdNum == kRetrigCmd)
+                                {
+                                    // the retrigger is drawn as its letter too, in the same
+                                    // lilac: it strikes a note again rather than calling
+                                    // anything, so its argument beside it counts how many
+                                    // sub-ticks apart the note that row entered, or the note
+                                    // that column has been holding from above where the row
+                                    // named no note of its own, is struck again at - as many
+                                    // as three digits of the Settings' grid. Like the cut's
+                                    // letter, this one keeps being carried down under it, so
+                                    // the rows below a named one draw the letter and their
+                                    // carried period dim, which is what says that the notes
+                                    // entering those rows play and restart their striking
+                                    // every period the column carries rather than sounding
+                                    // once and being left held until something else ends them
+                                    text = "R";
+                                    colour = theme::cmdOther;
+                                }
                                 else
                                 {
                                     text = valueString (cmdNum, fieldGlyphs (Field::cmdNum));
@@ -904,19 +927,21 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                 // bend's is where on the wheel its centre of 64 is read,
                                 // so both keep the decimal spelling the whole view is
                                 // written in; so does the argument of a plain CC, a
-                                // slide's rows, a vibrato's macro id and a cut's subticks,
-                                // each of them just a count
+                                // slide's rows, a vibrato's macro id and a cut's or a
+                                // retrigger's sub-ticks, each of them just a count
                                 const bool arpCall = cmdNum == kArpCmd;
                                 const bool bendCall = cmdNum == kBendCmd;
                                 const bool slideCall = cmdNum == kSlideUpCmd
                                                       || cmdNum == kSlideDownCmd;
                                 const bool vibCall = cmdNum == kVibCmd;
                                 const bool cutCall = cmdNum == kCutCmd;
+                                const bool retriggerCall = cmdNum == kRetrigCmd;
 
                                 if (( arpCall && cmdVal == 0 ) || cmdVal == kArgOff
                                     || ( slideCall && cmdVal == 0 )
                                     || ( vibCall && cmdVal == 0 )
-                                    || ( cutCall && cmdVal == 0 ))
+                                    || ( cutCall && cmdVal == 0 )
+                                    || ( retriggerCall && cmdVal == 0 ))
                                     // the release reads as what it does rather than
                                     // as a number: an arpeggiator's going off, spelled
                                     // by the 0 the row named or by the OFF the entry
@@ -944,8 +969,8 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
 
                                 colour = arpCall ? theme::cmdMacro
                                                  : ( bendCall || slideCall || vibCall
-                                                   || cutCall ) ? theme::cmdOther
-                                                                : theme::cmdCC;
+                                                   || cutCall || retriggerCall ) ? theme::cmdOther
+                                                                                 : theme::cmdCC;
 
                                 // an argument the row did not name is the one the
                                 // column carries down from above, drawn dimmer like
@@ -1745,13 +1770,15 @@ void TrackerComponent::applyValue (Field field, int value)
         case Field::cmdVal:
         {
             // the argument field belongs to whatever command its row answers against, and
-            // only a cut's lengths reach past the 0..127 the other kinds use: three digits
-            // deep is as far as the field spells, and a cut's own top is kCutTopTicks
-            // subticks of the Settings' grid
+            // only a cut's lengths and a retrigger's periods reach past the 0..127 the
+            // other kinds use: three digits deep is as far as the field spells, and a
+            // cut's own top is kCutTopTicks subticks of the Settings' grid while a
+            // retrigger's is kRetrigTopTicks sub-ticks of that same grid
             const int kind = commandKindAt (cursorRow, cursorChannel);
 
-            cell.cmdVal = kind == kCutCmd ? juce::jlimit (0, kCutTopTicks, value)
-                                          : clampValue (field, value);
+            cell.cmdVal = ( kind == kCutCmd || kind == kRetrigCmd )
+                              ? juce::jlimit (0, kind == kRetrigCmd ? kRetrigTopTicks : kCutTopTicks, value)
+                              : clampValue (field, value);
 
             // a 0 typed beside a slide letter is the release the o would have written
             // rather than a slide over no rows at all: the narrowest slide the field can
@@ -1763,10 +1790,17 @@ void TrackerComponent::applyValue (Field field, int value)
             // at all, so a 0 beside or under the cut letter lands the same OFF the o writes
             // for it, the note that column has been holding being released there the way
             // the note column's own === does and the gate being put away below rather than
-            // a length below the field's own narrowest one
+            // a length below the field's own narrowest one. A retrigger of no sub-ticks
+            // would strike a note again at the very sample it was entered at, which a
+            // note-on sorted after a note-off there cannot be, so a 0 beside or under the
+            // retrigger letter lands the same OFF the o writes for it, the note that
+            // column has been holding being closed there the way the note column's own
+            // === does and the gate being put away below rather than a period below the
+            // field's own narrowest one
             if (cell.cmdVal == 0)
             {
-                if (kind == kSlideUpCmd || kind == kSlideDownCmd || kind == kCutCmd)
+                if (kind == kSlideUpCmd || kind == kSlideDownCmd || kind == kCutCmd
+                    || kind == kRetrigCmd)
                     cell.cmdVal = kArgOff;
             }
 
@@ -2023,7 +2057,10 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
         // editing path above, and the argument typed next names what that
         // letter's own field means: a macro id for A, a point on the wheel for B,
         // a span in rows for U and D, a vibrato macro id for V and a count of
-        // subticks for C
+        // subticks for C or a count of the sub-ticks apart a note is struck again
+        // at for R. The note column's own r still types the octave-up F natural
+        // beside it, since a letter only claims the field the cursor is on, the
+        // same way the cut letter's c types an E natural there
         if (cursorField == Field::cmdNum)
         {
             const int letterCmd = text == 'a' || text == 'A' ? kArpCmd
@@ -2032,6 +2069,7 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
                                 : text == 'd' || text == 'D' ? kSlideDownCmd
                                 : text == 'v' || text == 'V' ? kVibCmd
                                 : text == 'c' || text == 'C' ? kCutCmd
+                                : text == 'r' || text == 'R' ? kRetrigCmd
                                                              : kEmpty;
 
             if (letterCmd != kEmpty)
@@ -2046,15 +2084,18 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
                 // release, id 0, a bend starts at the wheel's centre and a slide
                 // starts at the default span of rows its extreme is counted over,
                 // a cut starts at the default count of subticks its note is held
-                // for, so a row that names only the letter spells the command it
-                // asks for rather than locking the wheel to its bottom, bending
-                // nowhere, sliding over no rows at all or holding a note for no
-                // subticks, which would read as the release instead
+                // for and a retrigger starts at the default count of sub-ticks
+                // apart its note is struck again at, so a row that names only the
+                // letter spells the command it asks for rather than locking the
+                // wheel to its bottom, bending nowhere, sliding over no rows at all,
+                // holding a note for no subticks or striking a note again at the
+                // sample it was entered at, which would read as the release instead
                 if (claim.cmdVal == kEmpty)
                     claim.cmdVal = letterCmd == kBendCmd ? kBendCentreVal
                                  : letterCmd == kSlideUpCmd || letterCmd == kSlideDownCmd ? kSlideDefaultSpan
                                  : letterCmd == kCutCmd ? kCutDefaultTicks
-                                                        : 0;
+                                 : letterCmd == kRetrigCmd ? kRetrigDefaultTicks
+                                                           : 0;
 
                 markChanged();
                 repaint();
@@ -2075,18 +2116,26 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
         // OFF being the note column's own note-off rather than a note held for no subticks
         // at all: the note that column has been holding is closed at that row and the gate
         // is put away below it, which is what lets the notes entering the rows under a
-        // release sustain again. An s asks for nothing beside a call, a vibrato or a cut,
-        // since none of them has a move of the wheel to stop - a cut's letter gates the
-        // notes below it rather than making the wheel climb, so there is nothing there to
-        // hold - so a letter neither claim owns where the cursor sits is left alone rather
-        // than writing a value or typing a note beside it, and the cell's value stays as
-        // it was
+        // release sustain again. A retrigger's periods reach just as far past the 0..127
+        // the other kinds use, three digits of that same grid deep, and the two numbers
+        // just below its own top, 128 and 129, stay these two spellings rather than
+        // periods either, so a retrigger of 128 or 129 sub-ticks has no spelling of its
+        // own either, and an o beside or under the retrigger letter stops its striking
+        // rather than re-hitting a note at the sample it was entered at: the note the
+        // column has been holding is closed there and the gate is put away below, the
+        // note entering a row under it sustaining again until something else ends it. An
+        // s asks for nothing beside a call, a vibrato, a cut or a retrigger, since none
+        // of them has a move of the wheel to stop - a cut's and a retrigger's letters
+        // gate the notes below them rather than making the wheel climb, so there is
+        // nothing there to hold - so a letter neither claim owns where the cursor sits
+        // is left alone rather than writing a value or typing a note beside it, and the
+        // cell's value stays as it was
         if (cursorField == Field::cmdVal)
         {
             const int kind = commandKindAt (cursorRow, cursorChannel);
             const bool wheelKind = kind == kBendCmd || kind == kSlideUpCmd || kind == kSlideDownCmd;
-            const bool cutKind = kind == kCutCmd;
-            const bool releaseKind = kind == kArpCmd || kind == kVibCmd || wheelKind || cutKind;
+            const bool gateKind = kind == kCutCmd || kind == kRetrigCmd;
+            const bool releaseKind = kind == kArpCmd || kind == kVibCmd || wheelKind || gateKind;
 
             const int letterVal = text == 'o' || text == 'O' ? ( releaseKind ? kArgOff : kEmpty )
                                 : text == 's' || text == 'S' ? ( wheelKind ? kArgStp : kEmpty )
