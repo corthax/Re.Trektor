@@ -175,7 +175,7 @@ and Command.
   | `D` | 146 | slides the wheel to its bottom, same argument |
   | `V` | 147 | runs a vibrato macro; the argument is the macro id `1`–`127` |
   | `C` | 148 | cuts a note's length; the argument is that length in subticks (a subtick being a row over the Settings' "Subticks per row", default 6) — the note being one that row entered or one that column has still been holding |
-  | `R` | 149 | strikes a note again every so many subticks; the argument is that period in subticks on the same grid — the note being one that row entered, or one that column has still been holding and gets struck at the letter's own row as well when that row named no note of its own |
+  | `R` | 149 | strikes a note again every so many subticks; the argument is that period in subticks on the same grid — the note being one that row entered, or one that column has still been holding and gets struck at the letter's own row as well when that row named no note of its own. Where that column had a vibrato swinging, the letter ends that wobble and puts the wheel back at its exact centre, just ahead of the strike at its own row |
 
   `A` and the wheel letters, the cut and the retrigger are drawn orange and lilac, and an
   argument carried from above is drawn dim beside the letter. Every letter leaves an
@@ -189,7 +189,10 @@ and Command.
   run off, a wobble off, and beside `C` or `R` the note column's own note-off, drawn `OFF`
   the way its `===` is drawn — and `s` / `S` writes `STP`, which stops a wheel move and
   leaves the wheel on the point it reached. `STP` is refused beside `A`, `V`, `C` and `R`,
-  a run, a wobble, a cut and a retrigger having no wheel move to stop. The cut `C` and the
+  a run, a wobble, a cut and a retrigger having no wheel move of their own to stop — an
+  `R` row puts a wheel back only where a wobble above it was swinging on the same column,
+  that take-back belonging to the wobble rather than to the letter, and happens whatever
+  the row's argument spells. The cut `C` and the
   retrigger `R` are the two commands that keep being carried down the column rather than
   answering the rows under them, so one letter gates a whole staccato or repeated-hit
   passage: the note its row entered, or the note that column has still been holding where
@@ -200,7 +203,13 @@ and Command.
   spelled beside a row that named no note of its own strikes the note that column has still
   been holding at that row's own sample as well, so the retriggering of a note that has been
   sounding since the rows above starts where the letter was spelled rather than one period
-  below it. A row naming only a number retargets that length or period for the notes
+  below it. Where that column had a vibrato swinging, the letter ends that wobble and puts
+  the wheel back at its exact centre just ahead of the strike at its own row, so a strike
+  below it is played at the pitch the column named rather than at wherever in its swing the
+  cycle happened to have got to — a wobble's own displacement being the only one that goes,
+  while a bend's point and the point a slide's ramp had climbed to on that same column keep
+  their pitch under the letter and a slide spelled on another channel's column keeps climbing
+  as it was. A row naming only a number retargets that length or period for the notes
   entering there and the rows under it, and `0` or `o` writes `OFF`, which closes the note
   that column has been holding at that row and leaves the notes entering the rows under it
   sustained — a note entered at the very row the `OFF` is spelled beside is left sounding,

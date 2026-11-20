@@ -1323,13 +1323,20 @@ it on, the strike that period had still left waiting for going with it. An
 and leaves it sitting on the point it had got to, beside a wheel letter only —
 an `s` aimed at the vibrato letter, at the cut letter or at the retrigger letter
 is refused rather than written, since a wobble, a note-length gate and a
-retrigger have no move of the wheel to stop,
+retrigger have no move of the wheel of their own to stop, an `R` row's one
+wheel answer being the take-back of a swing a wobble above it had left in force
+on that same column rather than a move the letter makes, and happening whatever
+that row's argument spells —
 the cell keeping the argument it had and the swing, the gate or the period above
 still running over the rows below it. A letter neither of those two claims is
 ignored rather than written, the cell keeping the value it had, and it types
 no note in the note column beside it either, so an `s` aimed at a call, at a
 vibrato, at a cut, at a retrigger or at a plain CC asks nothing of a run, a
-swing, a gate or a period that has no wheel to stop.
+swing, a gate or a period that has no wheel to stop, an `R` row named beside or
+under a carried letter being the one row that answers a wheel for something other
+than its own kind of move — a row naming only a number under a carried letter
+leaving a swing above it alone, since it is the row that named the letter whose
+take-back that is.
 
 The ARP MACRO tab's steps are typed the same way rather than one press at a time: the
 arrows and Page Up/Down move the step cursor over the cards it draws, with `Tab` joining
@@ -1829,6 +1836,35 @@ removed leaves five points of the line rather than one.
     held above instead, leaving one more note-on than note-off there, and the other way round an
     `R 9` above a `C 3` loses the strike and closes that note once at the subtick the two of them
     were counted to;
+  * where the column has a wobble swinging, that row is also what takes the swing away and what
+    puts the wheel back at its exact centre 8192 at that row's own sample, ahead of the note-off
+    and note-on of the strike spelled there — the message being queued at that row's own offset
+    with the same order the notes are queued at and the two being kept in the order they were
+    queued in by the sort, which is what leaves the letter's own strike and the ones counted on
+    from it below played at a wheel the row has straightened rather than at wherever in its swing
+    a cycle's last point had left the wheel. A wobble's displacement is the only displacement
+    that row takes away: a point a bend row left on the wheel, and the point a slide's ramp had
+    climbed to in that same column, keep their pitch below the letter, which is what makes the
+    letter re-strike a note at the pitch the column asked to have bent rather than straightening
+    a pitch it was asked to bend, and a ramp another tracker channel's column was climbing is
+    left climbing on, that wheel being that column's own state rather than one this row has
+    anything to do with — the take-back being spent in the row's own vibrato teardown ahead of
+    the command's dispatch rather than inside the retrigger's own answer, since that dispatch is
+    what clears the swing and there is nothing left to ask for by the time the answer runs.
+    Four fixtures pin it: a full-swing `V 1` over a cycle of 6 subticks beside a note entered at
+    row 0 with an `R 3` at row 5 sends 40 wheel messages over 59 blocks, its last point 2399 at
+    the 66th sample of the block starting at 29184 being followed by that centre message at the
+    304th sample of the block starting at 29696 ahead of that row's own note-off and note-on at
+    that same 304, and after 20 more blocks the wheel sends nothing more while 6 note events
+    answer for the three strikes counted on at that period, reaching 33000, 36000 and 39000
+    samples at the 232nd, 160th and 88th samples of the blocks starting at 32768, 35840 and
+    38912; a `B 96` above an `R 3` keeps its one wheel message at 12288 positions and sends no
+    centre message anywhere below; an `R 3` on the column a `U 8` ramp was climbing on stops that
+    ramp at its 23rd step 12116 at 29000 samples with no centre message either; and an `R 3` on
+    the column beside one a `U 8` was climbing on leaves that ramp climbing its whole 48 sub-ticks
+    past the letter's row, reaching the wheel's own top 16383 at the 240th sample of the block
+    starting at 53760 over 106 blocks and 48 wheel messages while the letter's own column still
+    strikes, 19 note events over them;
   * a retrigger row closes an arpeggiator run this column was in rather than holding a gate and a
     run at once, that run's last step's note being released at the sample this row's own note enters
     on, and a row that struck a note of its own asks for no note-off of its own beside it, its own
@@ -2025,7 +2061,12 @@ removed leaves five points of the line rather than one.
   swinging, an `s` beside the cut letter refused the same way, a note-length gate
   having no move of the wheel to stop either and leaving the gate above still
   gating the rows below it, an `s` beside the retrigger letter refused the same way again and
-  leaving the period above still striking the rows below it, and an `s` beside a plain CC is refused
+  leaving the period above still striking the rows below it — an `R` row named with that letter
+  still ending a swing above it on the same column and sending the wheel back to its exact centre
+  at that row ahead of the strike spelled there, that take-back answering for the wobble rather
+  than for the letter and happening whatever the argument spells, and a row naming only a number
+  under a carried letter asking nothing of a swing above it, that take-back being only the naming
+  row's — and an `s` beside a plain CC is refused
   the same way, and a `0`
   beside the bend letter's own row keeps naming the wheel's bottom while the `o`
   there spells the release and a `0` or an `o` beside the cut letter or beside the retrigger
@@ -2051,7 +2092,16 @@ removed leaves five points of the line rather than one.
   armed the swing, which is what a swing a clip armed with no note of its own needs
   since no note-off of it was ever going to close it and nothing of it was ever
   going to release anything, the all-notes-offs being the ones the transport's own
-  start asks for, or a transport re-arm. A swing whose macro was taken away ends at
+  start asks for, or a transport re-arm — or a row under it naming a command that is
+  not the bend letter, whose answer ends the swing and leaves the wheel at whatever
+  point of its own the swing had got to rather than taking that point back, the
+  retrigger letter's row being the one exception: its own answer puts the wheel back
+  at its exact centre at that row's own sample, ahead of the note-off and note-on of
+  the strike spelled there, so a note re-triggered under a wobble that row took over
+  is played at the pitch the column named rather than at wherever in its swing the
+  cycle had got to, while a bend's own point and the point a slide's ramp had climbed
+  to in that same column keep their pitch below the letter and a ramp another tracker
+  channel's column was climbing is left climbing on. A swing whose macro was taken away ends at
   its next point rather than at the row that took it, says nothing of its own and
   leaves the wheel at whatever point of its own the swing had got to, so a release
   row below is still what puts that away. An `STP` spelling beside the vibrato letter
@@ -2228,6 +2278,108 @@ Right tools panel: Transpose, Remapping, Selection Interpolation with scope: Sel
 Tabs on top: Tracker / Macros / Settings; Macros tab for arpeggiator/glide macro setup.
 Testing target: Reaper.
 Decisions
+This round keeps that seventh letter and answers one more thing its row does to the wheel, the
+user's finding that an `R` which takes a vibrato away on its own column stops the wobble but leaves
+the wheel sitting wherever its cycle had got to rather than back at its centre: the answer is spent
+in processRow's vibrato teardown rather than in retrigCommand, since that teardown runs above the
+command's dispatch and by the time retrigCommand runs the swing has already been cleared, so the
+teardown grew to send the letter's own column's wheel back to its exact centre at that row's own
+offset ahead of taking the wobble away, when the row named the retrigger letter and that column was
+swinging - that message being queued at the row's own offset with the same order the strike's note-off
+and note-on are queued at, which is what keeps it ahead of that pair under the sort by offset and
+order and lands all three of them at the one sample of the letter's row. The reading was pinned by
+probing before anything was bent, and the four readings the probes answered are the ones that went:
+a wobble swinging on the letter's column has its swing taken away and the wheel put back at its exact
+centre ahead of that row's own strike, a strike being a fresh articulation of the note the column is
+holding and the pitch a host gives that articulation being the one the wheel is sitting at, so a
+cycle's last point leaving the wheel part way down its swing would otherwise have that strike and the
+ones counted on from it below play the note at wherever in that swing the cycle happened to have got
+to rather than at the pitch the column named; a bend row's own point on that column keeps its pitch
+and the row sends nothing of the wheel there, which is what makes the letter re-strike a note at the
+pitch the column asked to have bent rather than straightening a pitch it was asked to bend; a slide's
+ramp climbing on that same column is left stopped there with the point it had climbed to kept, that
+being the reading the round above already had, and only the wheel's own take-back was missing from it;
+and a ramp another tracker channel's column was climbing is left climbing on to that wheel's own top
+past the letter's row, since the wheel a ramp has in force belongs to the column that armed it rather
+than to one this row has anything to do with. `R OFF` stayed as it was, its release already resetting
+the wheel through stopNote's own endWheel. Left open rather than invented beside it: an `s` spelled
+under a carried letter, the entry still refusing it there, a saved state or a shot's own flag being
+free to leave it, and such a row straightens a swing whatever its argument spells - the user having
+pinned the wobble, the bend and the slide readings rather than that one, which is what leaves the
+take-back answering for the wobble above rather than for the letter.
+The doc comments carry the reading through the places a reader looks rather than only the engine's -
+Model.h's retrigger paragraph, PlaybackEngine.h's over retrigCommand, armRetrig and flushRetrig, and
+PlaybackEngine.cpp's over armRetrig, retrigCommand's STP branch and processRow's retrigger dispatch,
+the teardown's own comment naming which displacements go and which are kept - and the paragraph that
+had refused an `s` beside the letter goes from a retrigger having no move of the wheel to stop to it
+having no ramp of its own to hold at a point, which is what keeps the refusal true under the new
+answer. CoreTest grew 14 checks across four new fixtures written at the end of its retrigger section
+and moved no older expectation (473 to 487, PASS 0 failures): the wobble fixture's full-swing `V 1`
+over a cycle of 6 subticks beside the note entered at row 0 with an `R 3` at row 5 taking 40 wheel
+messages out over 59 blocks, its last point 2399 at the 66th sample of the block starting at 29184
+being followed by that centre message at the 304th sample of the block starting at 29696 ahead of
+that row's own note-off and note-on at that same 304 with 3 note events over those blocks, and taking
+nothing off the wheel over the 20 more blocks that reach 40448 samples while 6 note events answer for
+the three strikes counted on at that period at 33000, 36000 and 39000 samples, the 232nd, 160th and
+88th samples of the blocks starting at 32768, 35840 and 38912; the bend fixture's `B 96` above an
+`R 3` keeping its one wheel message at 12288 of the wheel's positions at 6000 samples and sending no
+centre message anywhere below it, its 3 note events still sitting at that row's own 304th sample; the
+same-column slide fixture's `U 8` above an `R 3` on that column stopping that ramp at its 23rd step
+12116 at 29000 samples with no centre message and the same 3 note events; and the parallel fixture
+of a 2-channel pattern spelling `U 8` on the further column and `R 3` on the letter's own leaving
+that ramp climbing its whole 48 sub-ticks of 8 rows to the wheel's top 16383 at the 240th sample of
+the block starting at 53760 over 106 blocks and 48 wheel messages while its own column keeps striking,
+19 note events over them. UiTest stayed at 846 checks and Smoke at 13 with the serialised state at
+2463 bytes, nothing the entry paints and nothing the saved form holds having moved, and Smoke's 13
+being read against the built bundle with its path as Smoke's own argument from the repo root. Both
+trees rebuilt, the Linux one first: the .so stayed at the 6157928 bytes the tracked tarball holds at
+a new sha256 7d454b2ca22a00959580f5a3d2045ad4377c36d3582d6ba16076461d6290e560 over the ddc11c581ed2d279b83ff28d44a4560f6a4773ed02c16e1c01b06c956d029076
+that round pinned, and the Windows module stayed at the 3762688 bytes its own tarball holds at a new
+066a6036825d6638df5b2dc94fe0bc50ff37ddcb6588beff0602bee042045784 over the f589cad08e07ef5da26d02b4084a4f7838330e38b052e55791ea0d87ef14106d
+that round pinned, link.exe restamping it rather than the code growing, which is what says this round
+answered a wheel message rather than grew the plug-in; moduleinfo.json stayed the same 990 bytes at
+b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee in both bundles, the Windows one
+regenerated over that bundle by the Linux tree's own ReTrektor_vst3_helper since a cross build cannot
+run the Windows helper JUCE would otherwise ask for. The installed bundle at /home/corthax/.vst3/Corthax/Re.Trektor.vst3
+was refreshed by rsync -a --checksum over the bundle's whole directory and the diff -r between the
+built and installed trees read clean rather than needing a second pass, the built and installed
+binaries both at 7d454b2ca22a00959580f5a3d2045ad4377c36d3582d6ba16076461d6290e560; the two tracked
+tarballs the user's own commit f521e2b introduced were regenerated from their own trees, with
+Re.Trektor(linux).tar.gz going from 2576583 to 2576157 bytes at 0c060a9f0e74c489a1d9ea63f147f00b408dfc593ebbd46edc8ed03621f16db0 and Re.Trektor(windows).tar.gz
+from 1679665 to 1679719 at 07bdb0e2607b672596ef09401d8f54141813bc5811cb698db1ea228d6921e422. Twelve shots were taken with DISPLAY=:0 at 1240x760 and dumped and
+every one of them came back byte-identical to the hashes the round above pinned, the eight tracker-band
+dumps still reading 32 OUTSIDE PARENT lines each and the standing tabs still 32, 28, 26 and 14, which
+is what says this reading moved the wheel messages the engine sends rather than anything the window
+paints - the drawn letter and its dim carried period beside an empty note row being what they were.
+README went from 399 lines and 24622 bytes to 408 lines and 25559 bytes, keeping only the user-facing
+claims: its `R` row of the Command-letter table gains the one clause that says where that column had
+a vibrato swinging the letter ends that wobble and puts the wheel back at its exact centre just ahead
+of the strike at its own row, its `STP` claim going from a run, a wobble, a cut and a retrigger having
+no wheel move to stop to having none of their own with that take-back named as the wobble's rather
+than the letter's and happening whatever the row's argument spells, and its carry paragraph gaining
+the sentence that says a strike below that row is played at the pitch the column named rather than at
+wherever in its swing the cycle happened to have got to, that wobble's displacement being the only
+one that goes while a bend's point and the point a slide's ramp had climbed to on that same column
+keep their pitch and a slide spelled on another channel's column keeps climbing. project.md took the
+same reading through its keyboard map's refused-`s` claim, its Command 149 bullet gaining the sub-bullet
+that spells the four readings with their samples - 40 wheel messages over 59 blocks, the 2399 at the
+66th sample of the block starting at 29184 followed by the centre at the 304th of the block starting
+at 29696 ahead of the note-off and note-on at that same 304, 3 note events there and 6 more over the
+blocks reaching 40448 samples, one message at 12288 positions under a bend, a same column's ramp kept
+at 12116 with no centre message and a parallel column's ramp climbing its whole 48 sub-ticks to 16383
+at the 240th sample of the block starting at 53760 in 106 blocks and 48 wheel messages while its own
+column strikes 19 note events - its Known limitations gaining that reading beside the wobble's own
+bullet and beside the refused-`s` paragraph; its Tests section's shot flags, its drawing, default-argument
+and carried-command lists, its pitch-wheel and vibrato bullets, its Settings row and its future-work line
+stayed alone, since none of the twelve shots paints a wheel message and the letter, its lilac drawing,
+its 999 with the 128-and-129 gap and its `OFF` release all kept their readings. That file going from
+6056 lines and 643499 bytes to 6208 lines and 658305 bytes and self-consistent about that count in the
+entry it adds. Dropped rather than carried: the user's own line at f521e2b's body, bug: command cuts
+note until deleted, which the user's words make not a bug at all - its not actually a bug, command
+works better this way - so nothing of this round goes with it; still unaddressed are that `s` beside
+the retrigger letter keeping a swing's displacement rather than straightening it, which was not asked
+for, and a plug-in window at a real Windows host staying unobservable on this box, the user's Windows
+11 VM report being the rest.
 This round keeps that same seventh letter and moves only where its strikes start: an `R` spelled
 beside a row whose note column named no note of its own re-opens the note that channel has still
 been holding at that row's own sample as well as at every period the column carries below it - the
