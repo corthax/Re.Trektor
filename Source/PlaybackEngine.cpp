@@ -1243,9 +1243,14 @@ void PlaybackEngine::flushRetrig (std::vector<PendingEvent>& events, int ch, dou
     rather than from that row, which is what makes them exact for whatever period was named,
     keeps a row a transport jump makes this block play again arming its own strikes at that
     row rather than advancing one twice and leaves a period retargeted by a further row from
-    reaching back into a note above it that had already been armed at its own row. A row
-    that left the channel holding no note at all, or a column with no gate in force, has
-    nothing to strike again. */
+    reaching back into a note above it that had already been armed at its own row. Where that
+    row's column had a wobble swinging above it, the row had already taken that swing away and
+    put the wheel back at its exact centre at its own sample ahead of the strike spelled there,
+    so the strikes counted on from this gate play at the pitch the column named rather than at
+    one the cycle left the wheel part way down its swing; a point a bend row left on the wheel
+    or the point a slide's ramp had climbed to in this column is kept rather than straightened,
+    and a ramp another column was climbing is left climbing on. A row that left the channel
+    holding no note at all, or a column with no gate in force, has nothing to strike again. */
 void PlaybackEngine::armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
                                 int subTicksToFirstStrike, const Song& song)
 {
@@ -1317,15 +1322,29 @@ void PlaybackEngine::armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
     the notes entering there and the rows below rather than re-timing a note the rows
     above had already armed, the strikes of that note carrying on from the strike the
     engine last played at whatever period is in force there. The STP spelling asks for
-    nothing, a retrigger having no move of the wheel to stop, and leaves the period above
+    nothing, a retrigger having no ramp of its own to hold at a point - the wheel such a
+    row puts back at its centre answers for a wobble above it rather than for that row's
+    argument, and goes back whatever the argument spells - and leaves the period above
     still being carried, exactly as a row beside a call's or a vibrato's STP leaves the
     run or the wobble above it alone; the note that row entered, where it entered one, is
     struck again at that period all the same. Either way the note this channel is left
     holding is struck at whatever period is in force there, which is what lets the letter
     gate the notes of the rows under it rather than striking only the row that named it.
-    Like a slide's, a vibrato's and a cut's rows, this row closes an arpeggiator run
-    this column was in, a run and a gate not being two things one column can hold at
-    once. */
+    Where this column has a wobble swinging, processRow took that swing away and sent the
+    wheel back to its exact centre at this row's own sample before this call is made, ahead
+    of the strike spelled here: a strike is a fresh articulation of the note the column is
+    holding and the pitch a host gives that articulation is the one the wheel is sitting at,
+    so a cycle's last point leaving the wheel part way down its swing would have the letter's
+    own strike and the ones counted on from it below play the note at wherever in its swing
+    the cycle happened to have got to rather than at the pitch the column named. A swing's
+    displacement is the only displacement this row takes away: a point a bend row left on the
+    wheel and the point a slide's ramp had climbed to in this column keep their pitch below
+    the letter, which is what lets the letter re-strike a note at the pitch the column asked
+    to have bent rather than straightening a pitch it was asked to bend, and a ramp another
+    column was climbing is left climbing on because the wheel is that column's own state
+    rather than one this row has anything to do with. Like a slide's, a vibrato's and a
+    cut's rows, this row closes an arpeggiator run this column was in, a run and a gate not
+    being two things one column can hold at once. */
 void PlaybackEngine::retrigCommand (std::vector<PendingEvent>& events, int ch, int offset,
                                     double rowPpq, int argument, bool rowNamedLetter,
                                     int enteredNote, bool noteOnRow, int midiCh,
@@ -1346,11 +1365,13 @@ void PlaybackEngine::retrigCommand (std::vector<PendingEvent>& events, int ch, i
 
     if (argument == kArgStp)
     {
-        // the STP spelling beside a retrigger letter: a retrigger has no move of the
-        // wheel to stop, so it asks for nothing at all and leaves the period above still
-        // being carried, exactly as a row beside a call's or a vibrato's STP leaves the
-        // run or the wobble above it alone; the note that row entered, where it entered
-        // one, is struck again at that period all the same
+        // the STP spelling beside a retrigger letter: a retrigger has no ramp of its own to
+        // hold at a point, so it asks for nothing at all and leaves the period above still
+        // being carried - the wheel a row named with the letter puts back at its centre
+        // answers for a wobble above it rather than for this argument, and goes back
+        // whatever the argument spells - exactly as a row beside a call's or a vibrato's
+        // STP leaves the run or the wobble above it alone; the note that row entered, where
+        // it entered one, is struck again at that period all the same
     }
     else if (argument == kArgOff || argument == 0)
     {
@@ -1503,9 +1524,30 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             // every other command's wheel is a point or nothing at all and the swing
             // above it has no rows of its own left to keep swinging under this one;
             // the vibrato row that arms its own wobble does so below, at the point
-            // this left the wheel at, the way a slide row arms its own ramp
+            // this left the wheel at, the way a slide row arms its own ramp. Where the
+            // letter taking the swing away is the retrigger letter, that row also puts
+            // the wheel back at where it took it away from, sent at this row's own
+            // sample ahead of the strike spelled there: a strike is a fresh
+            // articulation of the note the column is holding and the pitch a host gives
+            // that articulation is the one the wheel is sitting at, so a cycle's last
+            // point leaving the wheel part way down its swing would have the letter's
+            // own strike and the ones counted on from it below play the note at
+            // wherever the cycle happened to have got to rather than at the pitch the
+            // column named. A swing's displacement is the only displacement that goes:
+            // a point a bend row left on the wheel and the point a slide's ramp had
+            // climbed to on this column keep their pitch below the letter, which is
+            // what makes the letter re-strike a note at the pitch the column asked to
+            // have bent rather than straightening a pitch it was asked to bend, and a
+            // ramp another column was climbing is left climbing on because the wheel
+            // is that column's own state rather than one this row has anything to do
+            // with
             if (cell.cmd != kBendCmd)
+            {
+                if (cell.cmd == kRetrigCmd && state.vibRunning())
+                    endWheel (events, ch, midiCh + 1, offset);
+
                 state.endVib();
+            }
 
             // a row naming a command that is not the cut letter leaves no gate in force
             // under it either: the letter the column stopped having has no note-length
@@ -1678,7 +1720,11 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // where the row named no note of its own, the strikes the flush below counts
                 // on from either one going on at that period - a period wider than the row's
                 // own sub-ticks reaching past the row and the block that
-                // holds it the way the cut's release and a run's steps do
+                // holds it the way the cut's release and a run's steps do. Where this column
+                // had a wobble swinging, the wheel's take-back above this call had already
+                // put the strike spelled here against a straight wheel, so the letter strikes
+                // a note again at the pitch the column named rather than at one the cycle
+                // had left the wheel part way down its swing
                 retrigCommand (events, ch, offset, rowPpq, cell.cmdVal, true, enteredNote,
                                noteHere, midiCh, song);
             else

@@ -156,15 +156,30 @@ constexpr int kMidiChannelCount = 16;
     for a note entered above it has no gate of its own left to strike it, which is how
     a run's, a ramp's, a wobble's and a cut's waiting points go when the column
     supersedes them lower down - the note entered above is left to whatever ends it
-    below, a strike the gate had already made sounding whatever it is left to below. A
-    retrigger and a cut are two letters of one note's own length, so a column answers
+    below, a strike the gate had already made sounding whatever it is left to below. Where
+    this row's column has a wobble swinging, the letter takes that swing away and puts the
+    wheel back at its exact centre at this row's own sample, ahead of the strike spelled
+    there: a strike is a fresh articulation of the note the column is holding and the pitch
+    a host gives that articulation is the one the wheel is sitting at, so a cycle's last
+    point leaving the wheel part way down its swing would have that strike and the ones
+    counted on from it below play the note at wherever in its swing the cycle happened to
+    have got to rather than at the pitch the column named. A swing's displacement is the
+    only displacement that goes: a point a bend row left on the wheel, and the point a
+    slide's ramp had climbed to on this very column, keep their pitch below the letter,
+    which is what lets the letter re-strike a note at the pitch the column asked to have
+    bent rather than straightening a pitch it was asked to bend, and a ramp another column
+    was climbing is left climbing on because the wheel is that column's own state rather
+    than one this row has anything to do with. A retrigger and a cut are two letters of
+    one note's own length, so a column answers
     whichever of the two it carries and a row naming one leaves the other away below
     it. Like a slide's, a vibrato's and a cut's rows, this row closes an arpeggiator
     run this column was in, a run and a gate not being two things one column can hold
     at once. The two numbers 128 and 129 the argument field holds stay the OFF and STP
     spellings, so a period of 128 or 129 sub-ticks cannot be named, and the s spelling
-    asks for nothing beside a retrigger, since a retrigger has no move of the wheel to
-    stop, and leaves the period above as it was. */
+    asks for nothing beside a retrigger, a retrigger having no ramp of its own to hold at
+    a point - the wheel such a row puts back at its centre answers for a wobble above it
+    rather than for that row's own argument, and goes back whatever the argument spells -
+    and leaves the period above as it was. */
 constexpr int kArgOff = 128;  // the argument that reads OFF: an arpeggiator going off or the wheel's release
 constexpr int kArgStp = 129;  // the argument that reads STP: the wheel held at the point it is at
 constexpr int kMaxArpMacros = 127; // arpeggiator macros, ids 1..127; the id 0 call releases

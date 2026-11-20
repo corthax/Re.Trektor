@@ -524,7 +524,12 @@ private:
         holding there - and a strike that can no longer be placed where it sits, which is
         what a scrub or a jump leaves behind, is dropped the way a run's, a ramp's, a
         wobble's and a cut's waiting points are, the letter keeping the period in force
-        so a note entering under it below re-arms its own. */
+        so a note entering under it below re-arms its own. Below the row that named the
+        letter the wheel needs nothing keeping up with the strikes: where that row's column
+        had a wobble swinging, processRow had already taken that swing away and sent the
+        wheel back to its exact centre at the row's own sample ahead of the strike spelled
+        there, so the strikes counted on from it play at the pitch the column named rather
+        than at one the cycle had left the wheel part way down its swing. */
     void flushRetrig (std::vector<PendingEvent>& events, int ch, double ppqStart,
                       double ppqLimit, double ppqPerSample, int numSamples,
                       const Song& song);
@@ -704,12 +709,27 @@ private:
         is left to whatever ends it below - a note of no length at all cannot be spelled. An
         argument under a carried letter retargets the period for the notes entering there and
         the rows below rather than re-timing one the rows above had already armed at their
-        own rows. The STP spelling asks for nothing, a retrigger having no move of the wheel
-        to stop, and leaves the period above still being carried; either way the note that row
-        entered is left sounding under the period in force there, which is what makes the
+        own rows. The STP spelling asks for nothing, a retrigger having no ramp of its own to
+        hold at a point - the wheel such a row puts back at its centre answers for a wobble
+        above it rather than for that row's argument, and goes back whatever the argument
+        spells - and leaves the period above still being carried; either way the note that
+        row entered is left sounding under the period in force there, which is what makes the
         letter gate the notes of the rows under it rather than only the row that named it.
-        Like a slide's, a vibrato's and a cut's rows, this row closes an arpeggiator run
-        this column was in, a run and a gate not being two things one column can hold at
+        Where this column has a wobble swinging, processRow has taken that swing away and
+        sent the wheel back to its exact centre at this row's own sample before this call is
+        made, ahead of the strike spelled here: a strike is a fresh articulation of the note
+        the column is holding and the pitch a host gives that articulation is the one the
+        wheel is sitting at, so a cycle's last point leaving the wheel part way down its
+        swing would have the letter's own strike and the ones counted on from it below play
+        the note at wherever in its swing the cycle happened to have got to rather than at the
+        pitch the column named. A swing's displacement is the only displacement this row takes
+        away: a point a bend row left on the wheel and the point a slide's ramp had climbed
+        to in this column keep their pitch below the letter, which is what lets the letter
+        re-strike a note at the pitch the column asked to have bent rather than straightening
+        a pitch it was asked to bend, and a ramp another column was climbing is left climbing
+        on because the wheel is that column's own state rather than one this row has anything
+        to do with. Like a slide's, a vibrato's and a cut's rows, this row closes an arpeggiator
+        run this column was in, a run and a gate not being two things one column can hold at
         once. */
     void retrigCommand (std::vector<PendingEvent>& events, int ch, int offset,
                         double rowPpq, int argument, bool rowNamedLetter, int enteredNote,
@@ -731,7 +751,13 @@ private:
         is what makes them exact for whatever period was named, keeps a row a transport jump
         makes this block play again arming its own strikes at that row rather than advancing
         one twice and leaves a period retargeted by a further row from reaching back into a
-        note above it that had already been armed at its own row. */
+        note above it that had already been armed at its own row. Where the column had a wobble
+        swinging above it, the row that armed this gate had already taken that swing away and
+        put the wheel back at its exact centre at its own sample ahead of the strike spelled
+        there, so the strikes counted on from that one play at the pitch the column named rather
+        than at one the cycle left the wheel part way down its swing; a point a bend row left
+        on the wheel or a same column's ramp had climbed to is kept rather than straightened, and
+        a ramp another column was climbing is left climbing on. */
     void armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
                     int subTicksToFirstStrike, const Song& song);
 

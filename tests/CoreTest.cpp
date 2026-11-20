@@ -3195,6 +3195,128 @@ int main()
                               [] (const RawEvent& e) { return e.kind == 0 && e.pitch == 88; }) == 1,
                "the note the run's last step left held is closed exactly once, at the sample this row's own note enters on: this row struck a note, so the note-on above is what released it there and the row asks for no note-off of its own beside it");
     }
+    {
+        std::cout << "A retrigger row taking a wobble away and putting the wheel back\n";
+        Harness h;
+        seedVibRow (h.song, 1, kVibTypeSin, 100, 6, 0, -1, 16); // full swing, a 6-subtick cycle, armed beside the note
+        h.song.patterns[0].cell (5, 0).cmd = kRetrigCmd;
+        h.song.patterns[0].cell (5, 0).cmdVal = 3;
+
+        // 59 blocks reach 30208 samples: the swing's 8 points of a cycle sit 750 samples
+        // apart from 6750, the last of them at 29250, and the letter's row 5 sits at
+        // 30000 samples into the transport, the 304th sample of the block starting at 29696
+        h.runBlocks (59);
+
+        const int centreAt = lastIndexOfKindValue (h, 5, kBendCentrePos);
+        check (h.bends.size() == 40 && h.bends.back() == kBendCentrePos,
+               "the 39 points of the swing the rows above left in force and one message more: the retrigger letter takes the wobble away on its own column and answers for the wheel's exact centre at that row rather than leaving the wheel wherever the cycle happened to have got to, which is what stops a row's own strike and the ones counted on from it below from playing the note at wherever in its swing the cycle happened to have left the wheel");
+
+        check (centreAt >= 0 && centreAt < lastIndexOfKind (h, 0)
+               && lastIndexOfKind (h, 0) < lastIndexOfKind (h, 1)
+               && h.raw[(size_t) centreAt].offset == 304
+               && h.raw[(size_t) lastIndexOfKind (h, 0)].offset == 304
+               && h.raw[(size_t) lastIndexOfKind (h, 1)].offset == 304,
+               "the take-back is sent at the letter's own row's sample, the 304th of the block starting at 29696, and ahead of that row's own note-off and note-on at that same sample: the wheel the letter's strike is played against is one the row has already straightened rather than one the wobble's last point left part way down its swing");
+
+        const int lastSwingAt = lastIndexOfKindValue (h, 5, 2399);
+        check (lastSwingAt >= 0 && lastSwingAt < centreAt
+               && h.raw[(size_t) lastSwingAt].offset == 66,
+               "the swing's last point of its own is the one above the take-back, 29250 samples into the transport at the 66th sample of the block starting at 29184: the cycle's rows are all above the letter, so of the messages at the letter's row the wheel's own is the take-back and nothing of the cycle reaches that row of itself");
+
+        check (h.notes.size() == 3 && h.notes[0].on && h.notes[0].offset == 0 && h.notes[0].note == 60
+               && h.notes[1].on == false && h.notes[1].offset == 304 && h.notes[1].note == 60
+               && h.notes[2].on && h.notes[2].offset == 304 && h.notes[2].note == 60,
+               "three note events over those blocks: the note the wobble's row entered, and the letter's own strike closing and re-opening that pitch at the row's own sample, which is where the letter spelled across a row had already put its strike and what says the wheel's take-back went ahead of it rather than moving where that strike sits");
+
+        h.resetEvents();
+        h.runBlocks (20); // 79 blocks reach 40448 samples
+
+        check (h.bends.empty(),
+               "nothing of the wheel is asked for below the letter after that one take-back: the strikes counted on from the row that named the letter are played at a wheel already left at its centre above them, so a retrigger neither keeps straightening the pitch every period nor leaves it swung");
+        check (h.notes.size() == 6 && h.notes[0].on == false && h.notes[1].on
+               && h.notes[2].on == false && h.notes[3].on && h.notes[4].on == false && h.notes[5].on
+               && h.notes[0].offset == 232 && h.notes[1].offset == 232
+               && h.notes[2].offset == 160 && h.notes[3].offset == 160
+               && h.notes[4].offset == 88 && h.notes[5].offset == 88
+               && h.notes[0].note == 60 && h.notes[5].note == 60,
+               "the three strikes counted on at the period the letter named reach 33000, 36000 and 39000 samples into the transport, the 232nd, 160th and 88th samples of the blocks starting at 32768, 35840 and 38912, each closing and re-opening the pitch the column named rather than a pitch the wobble had left the wheel swinging at");
+    }
+    {
+        std::cout << "A retrigger row leaving a bend's point alone\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (1, 0).cmd = kBendCmd;
+        p.cell (1, 0).cmdVal = 96;
+        p.cell (5, 0).cmd = kRetrigCmd;
+        p.cell (5, 0).cmdVal = 3;
+
+        // 59 blocks reach 30208 samples: the bend row's own point at 6000 samples and the
+        // letter's row at 30000, the 304th sample of the block starting at 29696
+        h.runBlocks (59);
+
+        check (h.bends.size() == 1 && h.bends[0] == 96 * kBendStep,
+               "the one wheel message over those blocks is the point the bend row asked for, 12288 of the wheel's positions: a swing's displacement is the only displacement a retrigger row takes away, so the row spelled under a bend says nothing of its own about the wheel");
+        check (lastIndexOfKindValue (h, 5, kBendCentrePos) < 0,
+               "no centre message anywhere below the bend row: the letter re-strikes the note at the pitch the column asked to have bent rather than straightening a pitch it was asked to bend");
+        check (h.notes.size() == 3 && h.notes[0].on && h.notes[0].offset == 0 && h.notes[0].note == 60
+               && h.notes[1].on == false && h.notes[1].offset == 304 && h.notes[1].note == 60
+               && h.notes[2].on && h.notes[2].offset == 304 && h.notes[2].note == 60,
+               "the note entered at the row above and the letter's own strike at that row's sample, the 304th of the block starting at 29696, all of them played at the bent point the wheel has kept sitting at since 6000 samples into the transport");
+    }
+    {
+        std::cout << "A retrigger row stopping a slide of its own column and leaving its point\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (1, 0).cmd = kSlideUpCmd;
+        p.cell (1, 0).cmdVal = 8;
+        p.cell (5, 0).cmd = kRetrigCmd;
+        p.cell (5, 0).cmdVal = 3;
+
+        // 59 blocks reach 30208 samples: the ramp this column armed climbs one wheel step
+        // every one of the Settings' sub-ticks from 7000 samples, so its 23rd step is at
+        // 29000 and the letter's row sits at 30000, the 304th sample of the block starting at 29696
+        h.runBlocks (59);
+
+        check (h.bends.size() == 23 && h.bends.back() == 12116,
+               "the ramp this column had climbing stops at the letter: its 23 steps reach 29000 samples into the transport and no step is sounded at or past the letter's row, and the wheel is left sitting at the 12116 that ramp's own rows had got to rather than being put back at the centre, the point a slide had climbed to being kept below the letter the way a bend's point is");
+        check (lastIndexOfKindValue (h, 5, kBendCentrePos) < 0,
+               "no centre message beside the retrigger letter even where its own column had a ramp climbing: the row stops that ramp and keeps its pitch rather than trading the climb for a straight note");
+        check (h.notes.size() == 3 && h.notes[0].on && h.notes[0].offset == 0 && h.notes[0].note == 60
+               && h.notes[1].on == false && h.notes[1].offset == 304 && h.notes[1].note == 60
+               && h.notes[2].on && h.notes[2].offset == 304 && h.notes[2].note == 60,
+               "the note entered at the row above and the letter's own strike at that row's sample, the 304th of the block starting at 29696, both of them played at the wheel that ramp had left the column sitting at");
+    }
+    {
+        std::cout << "A retrigger row left another column's ramp climbing\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.setChannels (2);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (1, 1).cmd = kSlideUpCmd;
+        p.cell (1, 1).cmdVal = 8;
+        p.cell (5, 0).cmd = kRetrigCmd;
+        p.cell (5, 0).cmdVal = 3;
+
+        // 106 blocks reach 54272 samples: the other column's ramp takes all 48 of the
+        // Settings' sub-ticks its 8 rows name, its last step at 54000 samples into the
+        // transport, the 240th sample of the block starting at 53760
+        h.runBlocks (106);
+
+        check (h.bends.size() == 48 && h.bends.back() == kBendTopPos,
+               "the other column's ramp climbs its whole 48 sub-ticks of 8 rows past the letter's row, reaching the wheel's own top at 54000 samples into the transport: the wheel a ramp has in force belongs to the column that armed it, and a row another column named has nothing to do with it, which is what leaves a slide spelled in parallel to a retrigger still climbing while a slide spelled in that same column stops there");
+        check (h.notes.size() == 19 && h.notes[0].on && h.notes[0].offset == 0 && h.notes[0].note == 60
+               && h.notes[17].on == false && h.notes[17].offset == 240 && h.notes[17].note == 60
+               && h.notes[18].on && h.notes[18].offset == 240 && h.notes[18].note == 60,
+               "one note entered at the first row and nine strikes at the period the letter named, the last closing and re-opening that pitch at the 240th sample of the block starting at 53760: the letter's own column keeps striking its own note below the row while the other column's ramp keeps climbing above them both");
+    }
     //== Grid snapping ========================================================
     {
         std::cout << "Grid snapping\n";
