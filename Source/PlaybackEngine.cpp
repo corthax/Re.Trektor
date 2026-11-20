@@ -1229,28 +1229,41 @@ void PlaybackEngine::flushRetrig (std::vector<PendingEvent>& events, int ch, dou
 //==============================================================================
 /** Arms the gate this channel's column has in force for the note it is left holding
     at the row that armed it: the pitch that row entered when it entered one of its own,
-    otherwise the pitch the channel has still been holding from the rows above, which is
-    what lets the retrigger letter work across the rows rather than only the row that
-    entered a note and what leaves a row that left the channel holding no note at all
-    ignored rather than armed for nothing at all. The first strike sits subTicksToFirstStrike
+    otherwise the pitch the channel has still been holding from the rows above, or the base
+    of an arpeggiator run that column had in force rather than a note of its own being held
+    - that base being the note the run measured its steps from, read as it was typed in the
+    note column rather than as the run's first step moved it there, which is the same note
+    an id 0 release call of that run goes back to. Either way this is what lets the retrigger
+    letter work across the rows rather than only the row that entered a note, and what leaves
+    a row that left the channel holding no note at all, or a column whose run had already had
+    its base taken away by the note column's own note-off above, ignored rather than armed for
+    nothing at all. The first strike sits subTicksToFirstStrike
     sub-ticks of the Settings' grid past that row: one whole period when the row entered a
-    note of its own, that note's arrival at the row being that note's own first trigger, and
-    no sub-ticks at all when the letter was spelled across a row whose note column named
-    nothing of its own - the row itself re-opening the note it has been holding, which is
-    what makes the retriggering of a note that has been sounding since the rows above start
-    on the row that named the letter rather than a whole period below it. The strikes the
-    gate makes after that one are counted on from the strike the flush below last played
-    rather than from that row, which is what makes them exact for whatever period was named,
-    keeps a row a transport jump makes this block play again arming its own strikes at that
-    row rather than advancing one twice and leaves a period retargeted by a further row from
-    reaching back into a note above it that had already been armed at its own row. Where that
-    row's column had a wobble swinging above it, the row had already taken that swing away and
-    put the wheel back at its exact centre at its own sample ahead of the strike spelled there,
-    so the strikes counted on from this gate play at the pitch the column named rather than at
-    one the cycle left the wheel part way down its swing; a point a bend row left on the wheel
+    note of its own and when the row went back to the base of a run it had just taken away,
+    that row's own arrival or strike of that base being the first trigger of what the gate
+    counts on from, and no sub-ticks at all when the letter was spelled across a row whose
+    note column named nothing of its own and the column had a note still being held rather
+    than a run in force - the row itself re-opening the note it has been holding, since a
+    row that named nothing would otherwise leave that note sustaining until a strike one
+    whole period below the row reached it. The strikes the gate makes after that one are
+    counted on from the strike the flush below last played rather than from that row, which
+    is what makes them exact for whatever period was named, keeps a row a transport jump
+    makes this block play again arming its own strikes at that row rather than advancing
+    one twice and leaves a period retargeted by a further row from reaching back into a
+    note above it that had already been armed at its own row. Where that row's column had a
+    wobble swinging above it, the row had already taken that swing away and put the wheel
+    back at its exact centre at its own sample ahead of the strike spelled there, so the
+    strikes counted on from this gate play at the pitch the column named rather than at one
+    the cycle left the wheel part way down its swing; a point a bend row left on the wheel
     or the point a slide's ramp had climbed to in this column is kept rather than straightened,
-    and a ramp another column was climbing is left climbing on. A row that left the channel
-    holding no note at all, or a column with no gate in force, has nothing to strike again. */
+    and a ramp another column was climbing is left climbing on because the wheel is that
+    column's own state. Where the row armed this gate for a run's base rather than for a note
+    the column has been holding, that run's steps are gone below this row and its jumps belong
+    to the column that called them, so a letter spelled on another column leaves such a run
+    stepping on rather than trading it for its base, that column's own notes being all a
+    retrigger there ever strikes. A row that left the channel holding no note at all, a
+    column whose run had already had its base taken away above this row, or a column with
+    no gate in force has nothing to strike again. */
 void PlaybackEngine::armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
                                 int subTicksToFirstStrike, const Song& song)
 {
@@ -1268,8 +1281,11 @@ void PlaybackEngine::armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
     // never a sum of step widths, so a strike reaching past this row and past the block
     // that holds it lands on the sub-tick the number asked for rather than a hair off it;
     // that number is the period the row named where the row entered a note of its own and
-    // nothing at all where the letter was spelled across a row whose note column named
-    // nothing, that row striking the note it has still been holding at its own sample.
+    // where the row went back to the base of a run it had just taken away, that row's own
+    // arrival or strike of that base being the first trigger of what the gate counts on
+    // from, and nothing at all where the letter was spelled across a bare row whose column
+    // had a note still being held rather than a run in force, that row striking that note
+    // at its own sample.
     // The strikes the flush below counts on from either one are counted the same way off
     // the one the engine last played, which is what keeps them exact over a long clip
     c.retrigTime = rowPpq + (double) juce::jmax (0, subTicksToFirstStrike)
@@ -1293,12 +1309,20 @@ void PlaybackEngine::armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
     holds it the way a run's steps, a ramp's steps, a wobble's points and a cut's
     release do, and reaching as far past it as the entry's own top of kRetrigTopTicks
     sub-ticks. The note the strikes belong to is the one this channel is left holding
-    at that row: the letter beside a row that named no note of its own works across the
-    rows, taking the note the column has been holding from above and re-opening it at
-    this row's own sample as well as striking it again at that many sub-ticks below it
-    rather than leaving it to whatever ends it below, which is what the letter entered
-    beside a row that did strike a note and a bare note row under a carried letter
-    already have. An empty argument beside a letter
+    at that row, or the base of an arpeggiator run that column had in force rather than
+    a note of its own being held: the letter beside a row that named no note of its own
+    works across the rows, taking the note the column has been holding from above and
+    re-opening it at this row's own sample as well as striking it again at that many
+    sub-ticks below it, and where the column instead had a run in force closes the pitch
+    that run was holding there and goes back to the note that run measured its steps
+    from, read as it was typed in the note column rather than as the run's first step
+    moved it, opening that base at this row's own sample and counting the strikes on below
+    at the period named there rather than leaving the column silent at whatever pitch a
+    step happened to have got to - the run's own displacement being what goes beside the
+    letter, that base being the same note an id 0 release call of the run goes back to.
+    Either way the note is re-opened at the letter's row rather than left to whatever ends
+    it below, which is what the letter entered beside a row that did strike a note and
+    a bare note row under a carried letter already have. An empty argument beside a letter
     the row itself named takes the default period rather than no period at all, the
     number the entry writes so the cell spells the retrigger it asks for, and an empty
     one under a carried letter keeps the period that letter is carrying, so a bare note
@@ -1344,7 +1368,13 @@ void PlaybackEngine::armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
     column was climbing is left climbing on because the wheel is that column's own state
     rather than one this row has anything to do with. Like a slide's, a vibrato's and a
     cut's rows, this row closes an arpeggiator run this column was in, a run and a gate not
-    being two things one column can hold at once. */
+    being two things one column can hold at once, and where its own row named no note of
+    its own and that run's steps were what the column was sounding, that run is traded for
+    its own base rather than only taken away. A run another column armed is left alone: the letter
+    spelled on a parallel column reaches nothing across to it, that run's steps belonging to
+    the column that called them, which is what leaves such a run stepping on below a letter
+    spelled elsewhere and keeps a retrigger on striking nothing but the notes of its own
+    column. */
 void PlaybackEngine::retrigCommand (std::vector<PendingEvent>& events, int ch, int offset,
                                     double rowPpq, int argument, bool rowNamedLetter,
                                     int enteredNote, bool noteOnRow, int midiCh,
@@ -1355,10 +1385,25 @@ void PlaybackEngine::retrigCommand (std::vector<PendingEvent>& events, int ch, i
     // the run above is closed here rather than carried into the gate below: the note
     // its last step entered is released at this row, so the gate strikes the note the
     // column named instead of continuing from whatever note that run happened to be
-    // sounding. A row that struck a note of its own had already released it as that
-    // note's own arrival above, so only a bare row has to release it here, and a run
-    // another column of the same MIDI channel was in is left where it is
-    if (c.arpId > 0 && ! noteOnRow)
+    // sounding. Where the letter's row named no note of its own, the note the column
+    // named is the run's own base, read here while the run is still in force: the
+    // note its steps measured from, as it was typed in the note column rather than as
+    // the run's first step moved it, which is the same reading an id 0 release call of
+    // that run goes back to. That base is what this row goes back to as well: the note
+    // the run was holding closes at this row's own sample and the base opens again at
+    // it, so the column is left sounding its own note below the letter rather than
+    // silent, and the gate counts its strikes on from that base rather than from
+    // whatever pitch the run happened to be sounding at the row - the run's own
+    // displacement being what goes beside the letter, the way a wobble's swing is
+    // the only displacement a row's take-back goes. A row that struck a note of its
+    // own had already released it as that note's own arrival above, so only a bare row
+    // has to release it here, and a run another column of the same MIDI channel was in
+    // is left where it is: the letter on a parallel column reaches nothing across to
+    // it, that column's own notes being all a retrigger ever strikes
+    const int runBase = c.columnNote >= 0 ? c.columnNote : c.arpCallNote;
+    const bool runWasInForce = c.arpId > 0;
+
+    if (runWasInForce && ! noteOnRow)
         closeArp (events, offset, ch);
 
     c.endArp();
@@ -1424,6 +1469,25 @@ void PlaybackEngine::retrigCommand (std::vector<PendingEvent>& events, int ch, i
 
     if (enteredNote >= 0)
         armRetrig (ch, enteredNote, midiCh, rowPpq, c.retrigTicks, song);
+    else if (rowNamedLetter && ! noteOnRow && runWasInForce && runBase >= 0 && runBase <= 127)
+    {
+        // the letter beside a row that named no note of its own, on a column whose run was
+        // still in force: the row takes the run away and goes back to the note that run
+        // measured its steps from, as it was typed in the note column rather than as the
+        // run's steps had moved it. That note is opened at this row's own sample, just
+        // behind the release of whatever pitch the run was holding there, and is armed for
+        // the period named at the row a whole period past that row rather than at it: this
+        // row's own strike of the base is that note's first trigger, the way the note a
+        // row entered at its own row is, and the strikes below it are counted on from one
+        // to the next at that period. The run's own displacement is what goes beside the
+        // letter, which is what makes the letter re-strike the note the column asked for
+        // rather than keep stepping through the macro's jumps below it or leave the
+        // column silent at whatever pitch the last step happened to have got to
+        startNote (events, offset, ch, midiCh, runBase,
+                   juce::jlimit (1, 127, c.lastVol > 0 ? c.lastVol : 100));
+
+        armRetrig (ch, runBase, midiCh, rowPpq, c.retrigTicks, song);
+    }
     else if (rowNamedLetter && ! noteOnRow)
         // the letter beside a row that named no note of its own works across the rows: the
         // note this channel has still been holding from the rows above is the one the
@@ -1717,10 +1781,20 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // own arrival at the row being its first trigger and the first strike waiting
                 // for the flush below at the sub-tick the period names past this row, and
                 // closes and re-opens the note it has still been holding at its own sample
-                // where the row named no note of its own, the strikes the flush below counts
-                // on from either one going on at that period - a period wider than the row's
-                // own sub-ticks reaching past the row and the block that
-                // holds it the way the cut's release and a run's steps do. Where this column
+                // where the row named no note of its own. Where the column instead had an
+                // arpeggiator run in force rather than a note of its own being held, this
+                // row closes the pitch that run was holding at its own sample and goes back
+                // to the note that run measured its steps from, read as it was typed in the
+                // note column rather than as the run's first step moved it there, opening
+                // that base again at this row and waiting the whole period named here for
+                // the strike below rather than leaving the column silent at whatever pitch
+                // a step had got to - the run and a gate not being two things one column
+                // can hold at once and the run's own displacement being what goes beside
+                // the letter, a run another column armed being left alone rather than traded
+                // for its base. The strikes the flush below counts on from either one go on
+                // at that period, a period wider than the row's own sub-ticks reaching past
+                // the row and the block that holds it the way the cut's release and a run's
+                // steps do. Where this column
                 // had a wobble swinging, the wheel's take-back above this call had already
                 // put the strike spelled here against a straight wheel, so the letter strikes
                 // a note again at the pitch the column named rather than at one the cycle
@@ -1796,7 +1870,13 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // above had called with, which is what lets a repeated-hit passage be
                 // retargeted row by row, and where the column had a note still being held
                 // from above it rather than one entered here, the period named here moves
-                // the strikes below it rather than the ones the engine had already played
+                // the strikes below it rather than the ones the engine had already played,
+                // and where the column instead had an arpeggiator run in force rather than
+                // a note of its own being held, this row takes that run away and goes back
+                // to the note that run measured its steps from, as it was typed in the note
+                // column rather than as the run's first step moved it, the period named here
+                // striking that base again at the sub-tick below rather than leaving the
+                // column silent at whatever pitch a step had got to
                 retrigCommand (events, ch, offset, rowPpq, cell.cmdVal, false, enteredNote,
                                noteHere, midiCh, song);
             }

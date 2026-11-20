@@ -122,7 +122,11 @@ private:
         int arpNote = -1;          // the note the run last entered, -1 when it entered
                                     // none or its last step opened the note instead
         int arpCallNote = -1;      // the note the run's call answered against, which the
-                                    // column's own note takes over as soon as it has one
+                                    // column's own note takes over as soon as it has one,
+                                    // and which together with that note is what a retrigger
+                                    // letter spelled across a bare row goes back to as the
+                                    // run's base, read as it was typed rather than as a
+                                    // step moved it
         juce::Uuid arpClip;        // clip whose rows own the run, so its end closes it
         double arpRowEnd = -1.0;   // end of the row the engine last processed
 
@@ -730,23 +734,41 @@ private:
         on because the wheel is that column's own state rather than one this row has anything
         to do with. Like a slide's, a vibrato's and a cut's rows, this row closes an arpeggiator
         run this column was in, a run and a gate not being two things one column can hold at
-        once. */
+        once; where the letter's row named no note of its own and that run's steps were what the
+        column was sounding, the row goes back to the note that run measured them from as well,
+        read as it was typed in the note column rather than as the run's first step moved it there
+        - the same note an id 0 release call of that run goes back to. The pitch that run was
+        holding closes at this row's own sample and that base opens again at it, so the strike
+        spelled here and the ones counted on below it land on the note the column named rather
+        than on silent rows or on whatever pitch a step happened to have got to; that base is
+        what the gate below is armed for as well, the strikes counted on from it rather than from
+        a step's jump, the run's own displacement being what goes beside the letter. A run another
+        column armed is left alone rather than traded for its base: a letter spelled on a parallel
+        column reaches nothing across to it, a column's own notes being all its retrigger ever
+        strikes. */
     void retrigCommand (std::vector<PendingEvent>& events, int ch, int offset,
                         double rowPpq, int argument, bool rowNamedLetter, int enteredNote,
                         bool noteOnRow, int midiCh, const Song& song);
 
     /** Arms the gate this channel's column has in force for the note it is left holding
         at the row that armed it: the pitch that row entered when it entered one of its own,
-        otherwise the pitch the channel has still been holding from the rows above, which is
-        what lets the retrigger letter work across the rows rather than only the row that
-        entered a note, and what leaves a row that left the channel holding no note at all
-        ignored rather than armed for nothing at all. The first strike sits subTicksToFirstStrike
+        otherwise the pitch the channel has still been holding from the rows above, or the base
+        of an arpeggiator run that column had in force rather than a note of its own being held
+        - that base being the note the run measured its steps from, read as it was typed in the
+        note column rather than as the run's first step moved it there, which is the same note
+        an id 0 release call of that run goes back to. Either way this is what lets the
+        retrigger letter work across the rows rather than only the row that entered a note,
+        and what leaves a row that left the channel holding no note at all, and a column whose
+        run had already taken its base away at a row's own note-off above, ignored rather than
+        armed for nothing at all. The first strike sits subTicksToFirstStrike
         sub-ticks of the Settings' grid past that row: one whole period when the row entered a
-        note of its own, that note's arrival at the row being the note's own first trigger, and
-        no sub-ticks at all when the letter was spelled across a row whose note column named
-        nothing of its own - the row itself re-opening the note it has been holding, since a
-        row that named nothing would otherwise leave that note sustaining until a strike one
-        whole period below the row reached it. The strikes the gate makes after that one are
+        note of its own and when the row instead went back to the base of a run it had just taken
+        away, that row's own arrival or strike of the base being the first trigger of what the
+        gate counts on from, and no sub-ticks at all when the letter was spelled across a row
+        whose note column named nothing of its own and the column had a note still being held
+        rather than a run in force - the row itself re-opening the note it has been holding,
+        since a row that named nothing would otherwise leave that note sustaining until a strike
+        one whole period below the row reached it. The strikes the gate makes after that one are
         counted on from the strike the flush below last played rather than from that row, which
         is what makes them exact for whatever period was named, keeps a row a transport jump
         makes this block play again arming its own strikes at that row rather than advancing
@@ -757,7 +779,11 @@ private:
         there, so the strikes counted on from that one play at the pitch the column named rather
         than at one the cycle left the wheel part way down its swing; a point a bend row left
         on the wheel or a same column's ramp had climbed to is kept rather than straightened, and
-        a ramp another column was climbing is left climbing on. */
+        a ramp another column was climbing is left climbing on. Where the row armed the gate for
+        a run's base rather than for a note the column has been holding, that run's steps are
+        gone below the row and its jumps belong to the column that called them: a letter spelled
+        on another column leaves such a run stepping on rather than trading it for its base,
+        that column's own notes being all a retrigger there ever strikes. */
     void armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
                     int subTicksToFirstStrike, const Song& song);
 

@@ -3317,6 +3317,175 @@ int main()
                && h.notes[18].on && h.notes[18].offset == 240 && h.notes[18].note == 60,
                "one note entered at the first row and nine strikes at the period the letter named, the last closing and re-opening that pitch at the 240th sample of the block starting at 53760: the letter's own column keeps striking its own note below the row while the other column's ramp keeps climbing above them both");
     }
+    {
+        std::cout << "A retrigger row ending a run on its own column and going back to the note it measured from\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kArpCmd;
+        p.cell (0, 0).cmdVal = 1;
+        seedSteps (h.song, 1, 4); // steps of 0, 4, 8 ... 28 semitones over the sub-row grid
+        h.song.setArpLooped (1, true); // the run would keep cycling past its last step
+        p.cell (5, 0).cmd = kRetrigCmd;
+        p.cell (5, 0).cmdVal = 3; // the letter beside a row that named no note of its own
+
+        // 78 blocks reach 39936 samples: the letter's own row sits at 30000 samples into
+        // the transport, and the three strikes counted on from its own base at the period
+        // named there reach 33000, 36000 and 39000 samples
+        h.runBlocks (78);
+
+        check (h.notes.end() != std::find_if (h.notes.begin(), h.notes.end(),
+                                              [] (const NoteEvent& n) { return n.on && n.note == 60 && n.offset == 304; }),
+               "the letter's own row opens the note the run measured its steps from again at its own sample rather than leaving the column silent below it: the 60 the note column named at the row above the run, not the pitch the macro's last step was holding under the rows above");
+        check (h.notes.end() != std::find_if (h.notes.begin(), h.notes.end(),
+                                              [] (const NoteEvent& n) { return n.on == false && n.note == 80 && n.offset == 304; }),
+               "and the pitch that run was holding is what closes at that very sample, ahead of the base the letter opens there - the run's own displacement being the one that goes beside the letter, a note-off being sorted ahead of the note-on entered at one sample");
+        check (std::count_if (h.notes.begin(), h.notes.end(),
+                              [] (const NoteEvent& n) { return n.on && n.note == 60
+                                                          && (n.offset == 232 || n.offset == 160 || n.offset == 88); }) == 3,
+               "the strikes counted on below the letter go back to that base as well rather than to the macro's jumps: the 232nd, 160th and 88th samples of the blocks starting at 32768, 35840 and 38912, so the letter's own strike of the base is that note's first trigger and the period named at the row is counted on from it rather than being spent one period below the row");
+        check (std::count_if (h.notes.begin(), h.notes.end(),
+                              [] (const NoteEvent& n) { return n.on && n.note == 84; }) == 3,
+               "the looped run's steps below this row are gone rather than carried under the gate: its own cycle would have sounded 84 again at 30000 and at 38000 samples, and only the three its cycle reached above the letter are there, which is what makes the letter re-strike the note the column named rather than keep stepping through the macro below it");
+    }
+    {
+        std::cout << "A retrigger row going back to the note as it was typed rather than as a step moved it\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kArpCmd;
+        p.cell (0, 0).cmdVal = 2;
+        h.song.defineArp (2);
+        h.song.setArpLength (2, 4);
+        h.song.setArpStep (2, 0, 12); // the run's first step moves the note entered at its call
+        h.song.setArpStep (2, 1, 16);
+        h.song.setArpStep (2, 2, 20);
+        h.song.setArpStep (2, 3, 24);
+        p.cell (5, 0).cmd = kRetrigCmd;
+        p.cell (5, 0).cmdVal = 3;
+
+        h.runBlocks (78); // the run's 4 steps sound over rows 0 and 1 and leave 84 held on
+
+        check (std::count_if (h.notes.begin(), h.notes.end(),
+                              [] (const NoteEvent& n) { return n.on && n.note == 60; }) == 4
+               && std::count_if (h.notes.begin(), h.notes.end(),
+                                 [] (const NoteEvent& n) { return n.on && n.note == 72; }) == 1,
+               "the note the letter goes back to is the pitch the note column named as it was typed, 60, rather than the 72 that same row's note was sounded as once the run's first step moved it there: that pitch never sounded at all on its own, so the letter is what opens it, three times more below the row at the period named there");
+        check (h.notes.end() == std::find_if (h.notes.begin(), h.notes.end(),
+                                              [] (const NoteEvent& n) { return n.on && n.note == 72 && n.offset == 304; }),
+               "the row spelled under a run re-strikes nothing of the macro's own jumps beside it: the step the run's cycle was holding is closed at that sample and the note the column named opens there instead, which is what leaves a letter going back to a note rather than trading the column for another of the macro's steps");
+        check (h.notes.end() != std::find_if (h.notes.begin(), h.notes.end(),
+                                              [] (const NoteEvent& n) { return n.on == false && n.note == 84 && n.offset == 304; }),
+               "and an unlooped run whose steps are over but still leave their last pitch held is taken over the same way: 84 closes at the letter's own sample, that pitch having waited the whole rows between the run's last step and this row rather than being closed by anything above it");
+    }
+    {
+        std::cout << "A release spelled beside a letter whose column was in a run\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kArpCmd;
+        p.cell (0, 0).cmdVal = 1;
+        seedSteps (h.song, 1, 4);
+        h.song.setArpLooped (1, true);
+        p.cell (5, 0).cmd = kRetrigCmd;
+        p.cell (5, 0).cmdVal = 0; // the release, spelled the way a call's and a slide's are
+
+        h.runBlocks (70); // 35840 samples, past this row and past the run's own steps
+
+        check (h.notes.back().on == false && h.notes.back().note == 80 && h.notes.back().offset == 304
+               && h.notes.size() == 82,
+               "the release spelled beside the letter asks for nothing of its own where a run was in force: the pitch that run was holding closes at the letter's own sample and nothing is opened there, the last thing these blocks send being that release rather than a strike below it");
+        check (std::count_if (h.notes.begin(), h.notes.end(),
+                              [] (const NoteEvent& n) { return n.on && n.note == 60 && n.offset == 304; }) == 0,
+               "and the column goes silent below the letter rather than back to its base: that spelling is the note column's own note-off drawn OFF rather than a period, and a release has no period to strike a note again at, whether or not a run was in force on that column");
+    }
+    {
+        std::cout << "An STP-spelled letter row still ending a run and going back to its base\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kArpCmd;
+        p.cell (0, 0).cmdVal = 1;
+        seedSteps (h.song, 1, 4);
+        h.song.setArpLooped (1, true);
+        p.cell (5, 0).cmd = kRetrigCmd;
+        p.cell (5, 0).cmdVal = kArgStp; // the STP spelling, above the argument field's own top
+
+        h.runBlocks (70); // 35840 samples, past this row
+
+        check (h.notes.back().on && h.notes.back().note == 60 && h.notes.back().offset == 304,
+               "the take-back of a run goes whatever the row's argument spells, the way a wobble's does: the STP row asks nothing of the period above it yet still ends this column's run and opens the note that run measured from at its own sample, that going answering for the run rather than for the argument");
+        check (std::count_if (h.notes.begin(), h.notes.end(),
+                              [] (const NoteEvent& n) { return n.on && n.note == 60 && n.offset == 232; }) == 0,
+               "and nothing is counted on below that row at all: no period was told above the letter, so the column goes back to sounding its own note until something below ends it rather than leaving a strike waiting at the sub-tick of a period that was never named");
+    }
+    {
+        std::cout << "A retrigger row ignored where a note-off took the run's base away\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kArpCmd;
+        p.cell (0, 0).cmdVal = 1;
+        seedSteps (h.song, 1, 4);
+        h.song.setArpLooped (1, true);
+        p.cell (1, 0).note = kNoteOff; // the note column takes the base away at the row below
+        p.cell (5, 0).cmd = kRetrigCmd;
+        p.cell (5, 0).cmdVal = 3;
+
+        h.runBlocks (70); // 35840 samples, reaching the letter's row many times over
+
+        check (h.notes.size() == 12 && h.notes.back().on == false && h.notes.back().note == 80
+               && h.notes.back().offset == 368,
+               "the run's steps go silent under the row that took the column's note away and the letter beside a further empty row arms nothing there: the 12 events are the run's own 6 notes and the note-off at 6000 samples into the transport, the 368th sample of the block starting at 5632, and nothing is opened at or below the letter's own row");
+        check (std::count_if (h.notes.begin(), h.notes.end(),
+                              [] (const NoteEvent& n) { return n.on && n.note == 60; }) == 1,
+               "the letter does not reach back for a note the note column no longer names either: the pitch the run measured from was taken away above this row rather than left held there, so the column is left silent below the note-off rather than going back to a pitch the column has stopped naming");
+    }
+    {
+        std::cout << "A retrigger row left a run on another column stepping and struck only its own note\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.setChannels (2);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kArpCmd;
+        p.cell (0, 0).cmdVal = 1;
+        seedSteps (h.song, 1, 4);
+        h.song.setArpLooped (1, true);
+        p.cell (2, 1).note = 64;
+        p.cell (2, 1).inst = 1; // that column's own note, on another MIDI output channel
+        p.cell (5, 1).cmd = kRetrigCmd;
+        p.cell (5, 1).cmdVal = 3;
+
+        // 78 blocks reach 39936 samples: the letter's row at 30000 samples, and its
+        // column's note struck again at 33000, 36000 and 39000 samples
+        h.runBlocks (78);
+
+        check (std::count_if (h.notes.begin(), h.notes.end(),
+                              [] (const NoteEvent& n) { return n.channel == 2; }) == 9
+               && std::count_if (h.notes.begin(), h.notes.end(),
+                                 [] (const NoteEvent& n) { return n.channel == 2 && n.note == 64; }) == 9,
+               "the letter spelled on a parallel column strikes only that column's own note: the 64 that column entered at its row 2, opened again at the letter's own sample, the 304th of the block starting at 29696, and at the period named there, the 232nd, 160th and 88th samples of the blocks starting at 32768, 35840 and 38912, all 9 events of those blocks on that MIDI output channel being that one pitch");
+        check (h.notes.end() != std::find_if (h.notes.begin(), h.notes.end(),
+                                              [] (const NoteEvent& n) { return n.on && n.channel == 1 && n.note == 84 && n.offset == 304; })
+               && h.notes.end() != std::find_if (h.notes.begin(), h.notes.end(),
+                                                 [] (const NoteEvent& n) { return n.on && n.channel == 1 && n.note == 88 && n.offset == 280; }),
+               "the run on the other column keeps its steps: 84 at the letter's own row and 88 at the sub-tick below it, which is what says a parallel letter reaches nothing across to a run another column armed - a run is only ever taken away by a letter spelled in the column that has it in force, the way a ramp another column was climbing is left climbing on");
+        check (std::count_if (h.notes.begin(), h.notes.end(),
+                              [] (const NoteEvent& n) { return n.channel == 2 && n.note != 64; }) == 0,
+               "and none of the macro's steps comes out on the letter's column: the run's jumps belong to the column that called them, so a retrigger on another column cannot be pointed at them and the two columns keep nothing in common but the rows of the same clip");
+    }
     //== Grid snapping ========================================================
     {
         std::cout << "Grid snapping\n";

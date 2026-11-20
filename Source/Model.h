@@ -117,7 +117,17 @@ constexpr int kMidiChannelCount = 16;
     that channel has still been holding from the rows above it, which is what lets the
     letter work across the rows rather than only the one that entered a note; where that
     row named no note of its own and nothing was being held, the letter is ignored,
-    there being no note to strike again. A letter entered beside a row that did enter a
+    there being no note to strike again. Where instead that column has an arpeggiator
+    run in force rather than a note it has been holding from above, the run's own base
+    is what the letter strikes: the note that run measured its steps from, read as it
+    was typed in the note column rather than as the run's first step moved it there,
+    which is the same note an id 0 release call of that run goes back to. The pitch that
+    run was holding closes at this row's own sample and that base opens again at it, so
+    the column is left sounding its own note below the letter rather than silent at
+    whatever pitch a step happened to have got to, and the gate counts its strikes on
+    from that base rather than from a step's jump - the run's own displacement being
+    what goes beside the letter, the way a wobble's swing is the only displacement a
+    row's take-back of a wheel goes. A letter entered beside a row that did enter a
     note of its own arms its first strike that many sub-ticks past that row, that note's
     own arrival at the row being the first trigger; the letter spelled across a row whose
     note column named nothing of its own strikes the note that channel has still been
@@ -174,7 +184,13 @@ constexpr int kMidiChannelCount = 16;
     whichever of the two it carries and a row naming one leaves the other away below
     it. Like a slide's, a vibrato's and a cut's rows, this row closes an arpeggiator
     run this column was in, a run and a gate not being two things one column can hold
-    at once. The two numbers 128 and 129 the argument field holds stay the OFF and STP
+    at once; where that run's steps were what the column was sounding, the letter goes
+    back to the base that run measured them from as well rather than leaving the column
+    silent below it, so the run is traded for its own note rather than only taken away,
+    while a run another column armed is left where it is - a letter spelled on a parallel
+    column reaches nothing across to it, a column's own notes being all its retrigger
+    ever strikes, the way a ramp another column was climbing is left climbing on. The
+    two numbers 128 and 129 the argument field holds stay the OFF and STP
     spellings, so a period of 128 or 129 sub-ticks cannot be named, and the s spelling
     asks for nothing beside a retrigger, a retrigger having no ramp of its own to hold at
     a point - the wheel such a row puts back at its centre answers for a wobble above it
