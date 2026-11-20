@@ -175,7 +175,7 @@ and Command.
   | `D` | 146 | slides the wheel to its bottom, same argument |
   | `V` | 147 | runs a vibrato macro; the argument is the macro id `1`–`127` |
   | `C` | 148 | cuts a note's length; the argument is that length in subticks (a subtick being a row over the Settings' "Subticks per row", default 6) — the note being one that row entered or one that column has still been holding |
-  | `R` | 149 | strikes a note again every so many subticks; the argument is that period in subticks on the same grid — the note being one that row entered or one that column has still been holding |
+  | `R` | 149 | strikes a note again every so many subticks; the argument is that period in subticks on the same grid — the note being one that row entered, or one that column has still been holding and gets struck at the letter's own row as well when that row named no note of its own |
 
   `A` and the wheel letters, the cut and the retrigger are drawn orange and lilac, and an
   argument carried from above is drawn dim beside the letter. Every letter leaves an
@@ -196,16 +196,19 @@ and Command.
   the row named no note of its own, is released that many subticks past the row that named
   the letter, or struck again — a note-off and a note-on at one sample, which is what
   re-articulates it rather than restarting it — every period the column carries, a note
-  entering one of the rows under a carried `R` being struck again from its own row. A row
-  naming only a number retargets that length or period for the notes entering there and the
-  rows under it, and `0` or `o` writes `OFF`, which closes the note that column has been
-  holding at that row and leaves the notes entering the rows under it sustained — a note
-  entered at the very row the `OFF` is spelled beside is left sounding, since a note of no
-  length at all cannot be spelled. A `C` whose counter has not reached its note-off yet, or
-  an `R` whose counter has not reached its next strike yet, is discarded, its waiting
-  release or strike with it, when another command appears under it; where nothing was being
-  held and nothing enters at an `R`'s row, that letter is ignored, there being no note to
-  strike again.
+  entering one of the rows under a carried `R` being struck again from its own row. An `R`
+  spelled beside a row that named no note of its own strikes the note that column has still
+  been holding at that row's own sample as well, so the retriggering of a note that has been
+  sounding since the rows above starts where the letter was spelled rather than one period
+  below it. A row naming only a number retargets that length or period for the notes
+  entering there and the rows under it, and `0` or `o` writes `OFF`, which closes the note
+  that column has been holding at that row and leaves the notes entering the rows under it
+  sustained — a note entered at the very row the `OFF` is spelled beside is left sounding,
+  since a note of no length at all cannot be spelled. A `C` whose counter has not reached
+  its note-off yet, or an `R` whose counter has not reached its next strike yet, is
+  discarded, its waiting release or strike with it, when another command appears under it;
+  where nothing was being held and nothing enters at an `R`'s row, that letter is ignored,
+  there being no note to strike again.
 * `` ` `` enters a note-off, drawn `===`.
 * A tracker pattern can use up to 127 tracker channels, independent of the 16 MIDI
   output channels; identical notes triggered on several tracker channels in one row

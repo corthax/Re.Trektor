@@ -699,9 +699,10 @@ cmake --build tests/build -j"$(nproc)"
   `--retrig=8 --retrig-ticks=0` shows that note-off spelled at its own row rather than a period
   carried under it; a `--retrig=ROW` entered where the demo's channel 0 names no note — its notes
   sitting at rows 0, 4, 8 and 12 — paints the letter across the rows, the period then belonging
-  to the note that channel has still been holding from the row above and that note being struck
-  again every period the column carries rather than cut, so a `--retrig=9 --retrig-ticks=8` and
-  a `--retrig=9 --retrig-ticks=0` shot show that reading.
+  to the note that channel has still been holding from the row above and that note being re-opened
+  at that row's own sample as well as struck again every period the column carries below it rather
+  than left sustaining until a strike one whole period below the row reached it, so a
+  `--retrig=9 --retrig-ticks=8` and a `--retrig=9 --retrig-ticks=0` shot show that reading.
 
 Example:
 
@@ -1759,14 +1760,22 @@ removed leaves five points of the line rather than one.
   row that entered a note — a letter entered where the channel was holding nothing arms
   nothing there and only gates the notes entering the rows below, and a row where nothing is
   being held and nothing enters there is ignored rather than armed for a pitch that was never
-  there. The row that named the letter sends nothing of its own there: the note entered at
-  that row sounds and is re-articulated, each strike being that note column's own note-off and
-  note-on at one sample rather than a note of no length at all — the two being sorted off-before-on
-  there, which is what a host reads as the note being opened again rather than as one closed
-  before it opened. The first strike sits at rowPpq + ticks/(rowsPerBeat*subticks), never a sum
-  of step widths, the same count a cut's release, a run's steps, a ramp's steps and a wobble's
-  points are made on, and each strike after it is counted on from the one the engine last played
-  at whatever period is in force there — so a row under a carried letter naming only a number
+  there. Where that row entered a note of its own the row sends nothing of its own there, that
+  note's arrival at the row being its own first trigger and the first strike waiting for the flush
+  below at the sub-tick the period names past it, while where that row named no note of its own
+  this row instead re-opens the note it has still been holding at its own sample — that pair being
+  that note column's own note-off and note-on at one sample rather than a note of no length at
+  all, the two being sorted off-before-on there, which is what a host reads as the note being
+  opened again rather than as one closed before it opened, and which is what makes the
+  retriggering of a note that has been sounding since the rows above start where the letter was
+  spelled rather than one whole period below it. Only the row that named the letter gets that
+  own-sample strike, a row naming only a number under a carried letter and a bare note row under
+  that letter keeping their counts where they were. The first strike sits at rowPpq plus the period
+  the row named where that row entered a note of its own and at that row's own sample where it
+  named none, never a sum of step widths, the same count a cut's release, a run's steps, a ramp's
+  steps and a wobble's points are made on, and each strike after it is counted on from the one the
+  engine last played at whatever period is in force there — so a row under a carried letter naming
+  only a number
   moves where the next strike is counted from rather than re-timing one the row above had
   already armed, and a bare note row under that letter plays that note and restarts the count
   from that row. A period narrower than a block's own samples strikes more than once inside one
@@ -2219,7 +2228,93 @@ Right tools panel: Transpose, Remapping, Selection Interpolation with scope: Sel
 Tabs on top: Tracker / Macros / Settings; Macros tab for arpeggiator/glide macro setup.
 Testing target: Reaper.
 Decisions
-This round adds a seventh letter, the letter `R` at command value 149, which strikes a note
+This round keeps that same seventh letter and moves only where its strikes start: an `R` spelled
+beside a row whose note column named no note of its own re-opens the note that channel has still
+been holding at that row's own sample as well as at every period the column carries below it - the
+row itself closing and re-opening that note rather than leaving it sustaining until a strike one
+whole period below the row reached it, which is what makes the retriggering of a note that has been
+sounding since the rows above start on the row that named the letter - while a row that entered a
+note of its own keeps the reading it already had, that note's arrival at the row being that note's
+own first trigger and the first strike waiting one whole period past that row, and only the row that
+named the letter gets the own-sample strike: a row naming only an argument under a carried letter
+and a bare note row under a carried letter arm nothing there and keep their counts where they were,
+which is what leaves a retarget to the notes entering there and to the rows below. armRetrig gains
+a parameter rather than the arming being duplicated or a fifth piece of ChannelState being added:
+int subTicksToFirstStrike, retrigCommand passing c.retrigTicks where the row entered a note of its
+own and 0 where the letter was spelled across a row whose note column named nothing, and armRetrig's
+arithmetic going from rowPpq + c.retrigTicks/(rowsPerBeat*subticks) to rowPpq + jmax (0,
+subTicksToFirstStrike)/(rowsPerBeat*subticks) so the count stays one absolute transport position
+plus a number of the Settings' sub-ticks rather than a sum of step widths, which is what keeps a
+strike reaching past this row and past the block that holds it on the sub-tick the number asked for.
+No noteOff or noteOnRow parameter was needed beside it: stopNote sets c.activeNote to -1, so the
+guard flushRetrig already makes against c.activeNote == c.retrigNote && c.activeMidiCh ==
+c.retrigMidiCh already keeps an immediate strike from closing and re-opening a note the row above
+took away, which is what leaves a === spelled at the row above an `R` striking nothing there.
+flushRetrig's while-loop, retrigWaiting, endRetrig, the period the column carries, the strike still
+waiting and the bound a cut's still-waiting release already shares all stayed as they were, so a
+period retold between two strikes still moves the strikes counted on from the one the engine last
+played there and a strike more than a row behind where a block starts is still left behind rather
+than fired at that block's own first sample. The doc comments carried the two readings rather than
+the one count both rows had shared before - Model.h's retrigger paragraph, PlaybackEngine.h's over
+retrigCommand, armRetrig and flushRetrig, and PlaybackEngine.cpp's over armRetrig, retrigCommand's
+two arm call sites and processRow's retrigger dispatch. CoreTest grew 4 checks across one new
+fixture and moved 2 fixtures' expectations (469 to 473, PASS 0 failures): the across-row harness
+going from 7 events to 9 with the pitch held above closed at the 368th, 296th and 224th samples of
+the blocks starting at 5632, 8704 and 11776 rather than only at the 296th and 224th, its note-offs
+of pitch 60 growing from 2 to 3, and the `C 9` above an `R 3` cutFirst harness going from 7 events
+with 3 notes off and 4 on to 9 with 4 off and 5 on, that pitch still being open at the end of those
+blocks with one more note-on than note-off either way; the new fixture spells `R 3` 9 rows under
+the note entered at row 0, so its strike waits at that row's own 54000 samples into the transport,
+the 240th sample of the block starting at 53760, in 110 blocks reaching 56320 samples, and after
+resetEvents() and 8 more blocks the two counted on from there reach 57000 and 60000 samples, the
+168th of the block starting at 56832 and the 96th of the one starting at 59904, the note being left
+sounding. Unaffected were the entered-note fixtures, the retarget fixture - whose second row names
+only an argument of 6 there and so arms nothing, that being what pins the own-sample strike to the
+row naming the letter - the bare and none harnesses, both release spellings, the note-off-row
+fixture, the CC-under-strike fixture, the `R 9` above a `C 3`, `R 130` in a 64-row pattern and the
+retrigger row ending an arpeggiator run. UiTest stayed at 846 checks and Smoke at 13 with the
+serialised state at 2463 bytes, nothing the entry paints and nothing the saved form holds having
+moved; the 13 checks were read against the built bundle with its path as Smoke's own argument from
+the repo root rather than against the installed one. Both
+trees rebuilt, the Linux one first: both modules stayed the same bytes the tracked tarballs still
+hold, 6157928 for the Linux .so and 3762688 for the Windows module, at new sha256s ddc11c581ed2d279b83ff28d44a4560f6a4773ed02c16e1c01b06c956d029076
+and f589cad08e07ef5da26d02b4084a4f7838330e38b052e55791ea0d87ef14106d, which is what says this round
+moved where the engine places a strike rather than grew the code; moduleinfo.json stayed the same
+990 bytes at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee in both bundles, the
+Windows one regenerated over that bundle by the Linux tree's own ReTrektor_vst3_helper rather than
+carried over from the Linux bundle. The installed bundle at /home/corthax/.vst3/Corthax/Re.Trektor.vst3
+was refreshed by rsync -a --checksum over the bundle's whole directory rather than its single .so -
+that being what an earlier attempt asked of it and rsync answering the file spelling with Not a
+directory - and the diff -r between the built and installed trees read clean rather than needing a
+second pass, the built and installed binaries both at ddc11c581ed2d279b83ff28d44a4560f6a4773ed02c16e1c01b06c956d029076,
+and the two tracked tarballs were regenerated from their own trees - Re.Trektor(linux).tar.gz from
+2575516 to 2576583 bytes at ce01a2ef4156b15b7aa85399a8211d5769a8f00e24ae01da7f3dc85b85ff2428 and
+Re.Trektor(windows).tar.gz from 1679635 to 1679665 at 146d6059abc1b42ee107a6ead16519a62ce47ea415af161b33122e3ec21fc4a6.
+Twelve shots were taken with DISPLAY=:0 at 1240x760 and dumped and every one of them came back
+byte-identical to the hashes the round above pinned - the four standing ones, the four carried cut
+ones and the four retrigger ones, the eight tracker-band dumps still reading 32 OUTSIDE PARENT lines
+each and the standing tabs still 32, 28, 26 and 14 - which is what says this reading moved the
+samples the engine plays rather than anything the window paints, the drawn letter and period being
+what they were beside an empty note row. README went from 396 lines and 24241 bytes to 399 lines and
+24622 bytes, keeping only the user-facing claims: its `R` row of the Command-letter table names the
+note that column has still been holding being struck at the letter's own row as well where that row
+named no note of its own, and its argument paragraph gains that one sentence about where the
+retriggering of a note that has been sounding since the rows above starts rather than a whole period
+below the letter. project.md took the same reading through its Tests section's `--retrig=9
+--retrig-ticks=8` and `--retrig=9 --retrig-ticks=0` shot claims - the across-row letter re-opening
+the note at that row's own sample as well as every period below it - and through its Command 149
+bullet, which now says where the first strike sits rather than that the row named nothing of its own
+and the note entered there was re-articulated: the period the row named there where that row entered
+a note of its own, that row's own sample where it named none, and the own-sample strike being only
+the naming row's; its keyboard map, its drawing and default-argument lists and its Known limitations
+stayed alone, since the letter, its lilac drawing, its 999 with the 128-and-129 gap, its `OFF`
+release, its refused `s` and its supersession against the cut's letter all kept their readings. That
+file going from 5961 lines and 634354 bytes to 6056 lines and 643499 bytes. Still unaddressed from
+the user's
+own commit f521e2b cut note command C is its body line bug: command cuts note until deleted, this
+round having moved a retrigger's first strike rather than what a cut leaves held, and a plug-in
+window at a real Windows host stays unobservable on this box, the user's Windows 11 VM report being
+the rest.
 again every so many of the Settings' sub-row subticks rather than holding one for a length:
 what the request asks is that a note entering that column's row plays and restarts the
 striking if the letter was already running there or above it, that the letter works across
