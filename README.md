@@ -175,7 +175,7 @@ and Command.
   | `D` | 146 | slides the wheel to its bottom, same argument |
   | `V` | 147 | runs a vibrato macro; the argument is the macro id `1`–`127` |
   | `C` | 148 | cuts a note's length; the argument is that length in subticks (a subtick being a row over the Settings' "Subticks per row", default 6) — the note being one that row entered or one that column has still been holding |
-  | `R` | 149 | strikes a note again every so many subticks; the argument is that period in subticks on the same grid — the note being one that row entered, or one that column has still been holding and gets struck at the letter's own row as well when that row named no note of its own. Where that column had a vibrato swinging, the letter ends that wobble and puts the wheel back at its exact centre, just ahead of the strike at its own row |
+  | `R` | 149 | strikes a note again every so many subticks; the argument is that period in subticks on the same grid — the note being one that row entered, one that column has still been holding and gets struck at the letter's own row as well when that row named no note of its own, or, where that column had an arpeggiator run in force instead, the note that run measured its steps from, that run being ended at the letter's row. Where that column had a vibrato swinging, the letter ends that wobble and puts the wheel back at its exact centre, just ahead of the strike at its own row |
 
   `A` and the wheel letters, the cut and the retrigger are drawn orange and lilac, and an
   argument carried from above is drawn dim beside the letter. Every letter leaves an
@@ -203,7 +203,14 @@ and Command.
   spelled beside a row that named no note of its own strikes the note that column has still
   been holding at that row's own sample as well, so the retriggering of a note that has been
   sounding since the rows above starts where the letter was spelled rather than one period
-  below it. Where that column had a vibrato swinging, the letter ends that wobble and puts
+  below it. Where that column had an arpeggiator run in force rather than a note of its own
+  still being held, the letter ends that run and goes back to the note that run measured its
+  steps from, as it was typed in the note column rather than as its first step moved it,
+  striking that note at the letter's own sample and again every period below it rather than
+  leaving the column silent at whatever pitch a step had got to — that note being the one an
+  `A 0` release of that run goes back to. A run another column has in force is left alone,
+  since a retrigger only ever strikes the notes of its own column. Where that column had a
+  vibrato swinging, the letter ends that wobble and puts
   the wheel back at its exact centre just ahead of the strike at its own row, so a strike
   below it is played at the pitch the column named rather than at wherever in its swing the
   cycle happened to have got to — a wobble's own displacement being the only one that goes,

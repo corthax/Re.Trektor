@@ -1224,8 +1224,13 @@ entered a note — rather than where on a wheel or in a macro the command goes. 
 and means `149`, the retrigger, whose argument names every how many subticks of the Settings'
 grid a note that is already sounding is struck again at — the note entered at the row the
 letter is spelled beside, or, where that row named no note of its own, the note that column has
-still been holding from the rows above it, which is what lets the letter strike across the rows
-rather than only the row that entered a note — a strike being that note column's own note-off and
+still been holding from the rows above it, or the base of an arpeggiator run that column had in
+force rather than a note of its own being held, that run being ended at the letter's own row and
+traded for that base rather than the column being left silent below the letter - that base being
+the note that run measured its steps from, read as it was typed in the note column rather than as
+the run's first step moved it there and the same note an `A 0` release call of that run goes back
+to, while a run another tracker channel's column armed is left alone rather than traded for its
+base since a letter spelled on a parallel column reaches nothing across to it — a strike being that
 note-on at one sample, which is what re-articulates the note rather than restarting it, and a row
 where nothing was being held and where nothing enters having no note to strike again, so that
 letter is ignored rather than armed for a pitch that was never there — rather than where on a
@@ -1763,11 +1768,18 @@ removed leaves five points of the line rather than one.
   period of 3 strikes the note a third of a row after it was entered and again a third of a
   row after that. The note the period belongs to is the one the letter's row entered, or,
   where that row named no note of its own, the one that channel has still been holding from
-  the rows above, which is what lets the letter strike across the rows rather than only the
-  row that entered a note — a letter entered where the channel was holding nothing arms
-  nothing there and only gates the notes entering the rows below, and a row where nothing is
-  being held and nothing enters there is ignored rather than armed for a pitch that was never
-  there. Where that row entered a note of its own the row sends nothing of its own there, that
+  the rows above, or the base of an arpeggiator run that column had in force rather than a note of
+  its own being held, which is what lets the letter strike across the rows rather than only the row
+  that entered a note and what ends that run there and trades it for that base rather than leaving
+  the column silent below the letter - that base being the note that run measured its steps from,
+  read as it was typed in the note column rather than as the run's first step moved it there, the
+  same note an `A 0` release call of that run goes back to, while a run another tracker channel's
+  column armed is left alone rather than traded for its base, a letter spelled on a parallel column
+  reaching nothing across to it. A letter entered where the channel was holding nothing and had no
+  run in force arms nothing there and only gates the notes entering the rows below, and a row where
+  nothing is being held and nothing enters there is ignored rather than armed for a pitch that was
+  never there. Where that row entered a note of its own or went back to such a base the row sends
+  nothing of its own there beyond that base's own arrival, that
   note's arrival at the row being its own first trigger and the first strike waiting for the flush
   below at the sub-tick the period names past it, while where that row named no note of its own
   this row instead re-opens the note it has still been holding at its own sample — that pair being
@@ -1778,8 +1790,9 @@ removed leaves five points of the line rather than one.
   spelled rather than one whole period below it. Only the row that named the letter gets that
   own-sample strike, a row naming only a number under a carried letter and a bare note row under
   that letter keeping their counts where they were. The first strike sits at rowPpq plus the period
-  the row named where that row entered a note of its own and at that row's own sample where it
-  named none, never a sum of step widths, the same count a cut's release, a run's steps, a ramp's
+  the row named where that row entered a note of its own or went back to a run's base and at that
+  row's own sample where it named none and the column had a note still being held there rather than a
+  run in force, never a sum of step widths, the same count a cut's release, a run's steps, a ramp's
   steps and a wobble's points are made on, and each strike after it is counted on from the one the
   engine last played at whatever period is in force there — so a row under a carried letter naming
   only a number
@@ -1869,7 +1882,56 @@ removed leaves five points of the line rather than one.
     run at once, that run's last step's note being released at the sample this row's own note enters
     on, and a row that struck a note of its own asks for no note-off of its own beside it, its own
     note-on having released that pitch there already — the gate then striking the note the column
-    named there rather than continuing from whatever note the run happened to be sounding;
+    named there rather than continuing from whatever note the run happened to be sounding. Where
+    that letter's own row named no note of its own and that run's steps were what the column was
+    sounding, the row goes back to the run's base as well rather than leaving the column silent: the
+    note that run measured its steps from, read as it was typed in the note column rather than as
+    the run's first step moved it there and the same note an `A 0` release call of that run goes
+    back to, that base opening at this row's own sample just behind the release of whatever pitch
+    the run was holding there and the gate then being armed for it a whole period past that row
+    rather than at it - that row's own strike of the base being that note's first trigger, the way
+    the note a row entered at its own row is, and the strikes below it counted on from one to the
+    next at the period named at the row. The run's own displacement is what goes beside the letter,
+    the way a wobble's swing is the only displacement a row's take-back of a wheel goes, and the
+    looped cycle's steps below the letter are gone rather than carried under the gate. A run another
+    tracker channel's column armed is left alone rather than traded for its base, a letter spelled
+    on a parallel column reaching nothing across to it and leaving that run stepping on, that
+    column's own notes being all a retrigger there ever strikes, the way a ramp another column was
+    climbing is left climbing on. Six fixtures pin the reading at the Settings' 6 sub-ticks to a row
+    over 512-sample blocks at 48 kHz and 120 bpm, a row being 6000 samples and a sub-tick 1000 of
+    them and the letter's row 5 sitting at 30000 samples into the transport at the 304th sample of
+    the block starting at 29696: a note entered as 60 at row 0 beside a looped run of the 8 steps 0,
+    4 ... 28 semitones and an `R 3` spelled there closing that run's held 80 at that 304 ahead of
+    the base 60 opening at it and striking that base again at 33000, 36000 and 39000 samples at the
+    232nd, 160th and 88th samples of the blocks starting at 32768, 35840 and 38912 over 78 blocks,
+    34 note-ons and 56 note-offs there and the looped cycle's own 84 sounding exactly 3 times rather
+    than a 4th at the letter's row, which is what says the letter re-strikes the note the column
+    named rather than keeping the macro's jumps below it; the same note entered beside an unlooped
+    run of 4 steps of 12, 16, 20 and 24 over 78 blocks closing the 84 that run's last step left held
+    at that 304 and opening 60 there with no stuck-key note-off of a pitch that had never sounded,
+    its 15 note events reading 8 ons and 7 offs and 4 of them of 60 and one of 72 - that 72 being
+    what the note entered at the call row was sounded as once the run's first step moved it there,
+    never sounding on its own, and the letter going back to the 60 as it was typed rather than to
+    that 72; an `R 0` release spelled there closing the run's held 80 at that 304 and opening nothing
+    at all over 70 blocks, its 82 note events reading 30 ons and 52 offs and its last one being that
+    release rather than a strike below it, a release having no period to strike a note again at
+    whatever spelling of it was in force; an `R STP` row spelled there ending the run and opening
+    that base 60 at that 304 - that row's argument asking nothing of the period above it - while
+    nothing is counted on below it, the 60 struck again at the 232nd sample of the block starting at
+    32768 being absent since no period was ever told above the letter, so the column is left
+    sounding its own note until something below ends it and that take-back of the run goes whatever
+    the argument spells; a note-off spelled at row 1 under that looped run taking the base away
+    there and leaving 12 note events over 70 blocks, the run's own 6 and that note-off of 80 at the
+    368th sample of the block starting at 5632, with the 60 entered at row 0 sounding exactly once
+    over them, so the letter beside a further bare row arms nothing there and reaches back for no
+    pitch the note column has stopped naming; and a run looped on tracker channel 0 beside a note
+    entered as 64 on the further channel at row 2 with an `R 3` at row 5 on that further column
+    striking only that column's own 64 over 78 blocks, that pitch opened at the 304th sample of the
+    block starting at 29696 and at the 232nd, 160th and 88th samples of the blocks starting at 32768,
+    35840 and 38912, all 9 of that column's note events over them being that one pitch on that
+    MIDI output channel, while channel 0's run keeps its steps - that column's 84 at the letter's
+    own row and its 88 at the 280th sample of the block starting at 30720 - 45 note-ons and 75 note-offs
+    over those blocks and no step of that run's macro ever coming out on the letter's column;
   * a transport re-arm leaves the period the column carries in force the way it leaves a carried
     volume, pan or command number, so the note entering the row a seek landed inside is struck again
     every period still carried there and waits for that period counted from that row on the new pass,
@@ -2064,7 +2126,12 @@ removed leaves five points of the line rather than one.
   leaving the period above still striking the rows below it — an `R` row named with that letter
   still ending a swing above it on the same column and sending the wheel back to its exact centre
   at that row ahead of the strike spelled there, that take-back answering for the wobble rather
-  than for the letter and happening whatever the argument spells, and a row naming only a number
+  than for the letter and happening whatever the argument spells, and an `R` row spelled there under
+  a run that column was in still ending that run and going back to the note that run measured its
+  steps from at that row, that take-back answering for the run rather than for the argument and
+  nothing being counted on below that row where no period was ever told above it, while a run another
+  tracker channel's column has in force is left stepping on rather than traded for its base, and a
+  row naming only a number
   under a carried letter asking nothing of a swing above it, that take-back being only the naming
   row's — and an `s` beside a plain CC is refused
   the same way, and a `0`
@@ -2278,6 +2345,123 @@ Right tools panel: Transpose, Remapping, Selection Interpolation with scope: Sel
 Tabs on top: Tracker / Macros / Settings; Macros tab for arpeggiator/glide macro setup.
 Testing target: Reaper.
 Decisions
+This round keeps that same seventh letter and answers what its row does to an arpeggiator run that
+column had in force rather than a note of its own being held, the user's finding that an `R` there
+only stopped the run and left the column silent below it rather than going back to the note that run
+measured its steps from, and asking that a letter spelled on a parallel column couple nothing across
+columns: the answer is spent in retrigCommand rather than anywhere else, since that answer already
+closes a run this column was in and puts it away below itself, so the run's own base had to be read
+while the run was still in force - two locals rather than a new piece of ChannelState or a new
+parameter, c.columnNote where the note field still names a pitch and c.arpCallNote under it being that
+base, read as it was typed in the note column rather than as the run's first step moved it there, which
+is the same reading an `A 0` release call of that run goes back to and the reading that run's own steps
+were already measured from, and arpId read above the closeArp and the c.endArp() below it naming whether
+a run was in force at all - the run's clip needing nothing carried beside it since c.activeClip already
+names it. The branch that answers it sits between the row that entered a note of its own and the plain
+across-row path rather than replacing either: the run's held pitch closes at this row's own sample, the
+base opens again at that same sample through startNote at the column's own carried velocity, and armRetrig
+is then asked for that base a whole period past the row rather than at it, this row's own strike of the
+base being that note's first trigger the way a note entered at its own row is - the same count the
+entered-note path keeps, while the across-row path keeps its own armRetrig of the note the channel has
+still been holding with nothing told to first strike, that one untouched. flushRetrig cannot send that
+own-sample strike itself, its guard needing c.activeNote to still be the pitch the gate was armed for and
+closeArp having just taken the run's held pitch away, which is why the strike is spelled out at the row
+rather than left to the flush, and startNote closes the note it opens on its own, closeArp and stopNote
+having set the stuck-key guard's own record there so no second note-off of that pitch sits beside that
+note-on. The run's own displacement is what goes beside the letter, the way a wobble's swing is the only
+displacement a row's take-back of a wheel goes, and a run another tracker channel armed is left alone
+rather than traded for its base - a letter on a parallel column reaching nothing across to it, that
+column's own notes being all a retrigger there ever strikes, which is the reading the user pinned rather
+than the one the first probe had offered. Six readings were probed before anything was bent and six
+fixtures went at the end of CoreTest's retrigger section, moving no older expectation and adding 16
+checks at the Settings' 6 sub-ticks to a row over 512-sample blocks at 48 kHz and 120 bpm, a row being
+6000 samples and a sub-tick 1000 of them and the letter's row 5 sitting at 30000 samples into the
+transport at the 304th sample of the block starting at 29696: a note entered as 60 at row 0 beside a
+looped run of the 8 steps 0, 4 ... 28 semitones and an `R 3` spelled at a bare row 5 closing that run's
+held 80 at that 304 ahead of the base 60 opening at it and striking that base again at 33000, 36000 and
+39000 samples at the 232nd, 160th and 88th samples of the blocks starting at 32768, 35840 and 38912 over
+78 blocks, 34 note-ons and 56 note-offs there, and the looped cycle's own 84 sounding exactly 3 times
+over them rather than a 4th at the letter's row, which is what says the letter re-strikes the note the
+column named rather than keeping the macro's jumps below it; the same note entered beside an unlooped
+run of 4 steps of 12, 16, 20 and 24 leaving its last step's 84 held on to the letter's row, that row
+answering there with an off of 84 and an on of 60 at that 304 with no stuck-key note-off beside it since
+the 60 had never sounded, its 15 events over 78 blocks reading 8 ons and 7 offs and 4 of them 60 and one
+72 - that 72 being what the note entered at the call row was sounded as once the run's first step moved
+it there and never having sounded on its own, which is what pins the base as the note as typed rather
+than as a step moved it; the release spelled there by a 0 closing the run's held 80 at that 304 and
+opening nothing at all over 70 blocks, its 82 events reading 30 ons and 52 offs and its last one being
+that release rather than a strike below it, a release having no period to strike a note again at; an
+`STP` argument spelled there, a spelling the entry refuses beside the letter and a saved state or a shot's
+own flag is free to leave, ending the run and opening that base 60 at that 304 while counting nothing
+on below it since no period was ever told above the letter, the 60 at the 232nd sample of the block
+starting at 32768 being absent, so the column is left sounding its own note until something below ends
+it and that take-back of the run goes whatever the argument spells the way a wobble's does; a note-off
+spelled at row 1 under that looped run taking the base away there and leaving 12 events over 70 blocks,
+the run's own 6 and that note-off of 80 at the 368th sample of the block starting at 5632, with the 60
+entered at row 0 sounding exactly once over them so the letter beside a further bare row arms nothing
+there and reaches back for no pitch the note column has stopped naming; and a run looped on tracker
+channel 0 beside a note entered as 64 on the further column at row 2 and an `R 3` at row 5 on that
+further column striking only that column's own 64 over 78 blocks, all 9 of that column's events over
+them being that one pitch on that MIDI output channel - opened at the 304th sample of the block starting
+at 29696 and struck at the 232nd, 160th and 88th samples of the blocks starting at 32768, 35840 and
+38912 - while that other column's run keeps its steps, its 84 at the letter's own row and its 88 at the
+280th sample of the block starting at 30720, 45 note-ons and 75 note-offs over those blocks and no step
+of that run's macro ever coming out on the letter's column. The doc comments carry the reading through
+the places a reader looks rather than only where the engine keeps it: Model.h's retrigger paragraph
+gaining that run's base as what a bare letter's row strikes and that no letter reaches across to another
+column's run, PlaybackEngine.h's over retrigCommand and armRetrig - that one's first sentence naming the
+base as a third note a gate is armed for and its timing sentence separating a run's own base from a note
+still being held - and its arpCallNote field's own comment naming that note and the column's own as what
+a bare letter's row goes back to, PlaybackEngine.cpp's over armRetrig and retrigCommand and the two
+processRow dispatches beside the named letter and beside a carried one, the inline comment above the new
+branch spelling the base and the period beside it. CoreTest came back at 503 checks and 0 failures,
+UiTest stayed at 846 and Smoke at 13 with the serialised state still at 2463 bytes, and the twelve shots
+retaken at 1240x760 with DISPLAY=:0 came back byte-identical to the pins the round above kept, the eight
+tracker-band dumps still reading 32 OUTSIDE PARENT lines each and the standing tabs still 32, 28, 26 and
+14 - the drawn letter and its dim carried period beside an empty note row being what they were, this
+reading moving note events rather than pixels. Both trees rebuilt, the Linux one first: its .so came back
+byte-identical at 2041934d67d736e17227f415d2f42c18ccad30f01f54162899787ee08202aa1e over the 7d454b2ca22a00959580f5a3d2045ad4377c36d3582d6ba16076461d6290e560
+the round above pinned at the same 6157928 bytes, the branch sitting within the margins that build
+already had rather than growing the plug-in, and the Windows module restamped at the same 3762688 bytes
+at 428b9e39e62eea8ba6c6e8de574442cc7390efa2943264c0b13353eecac60b09 over the 066a6036825d6638df5b2dc94fe0bc50ff37ddcb6588beff0602bee042045784
+that round kept, link.exe restamping its own line info as the doc comments moved lines rather than the
+code growing; moduleinfo.json stayed the same 990 bytes at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee
+in both bundles, the Windows one regenerated over that bundle by the Linux tree's own ReTrektor_vst3_helper
+since a cross build cannot run the Windows helper JUCE would otherwise ask for. The installed bundle at
+/home/corthax/.vst3/Corthax/Re.Trektor.vst3 was refreshed by rsync -a --checksum over the bundle's whole
+directory and the diff -r between the built and installed trees read clean rather than needing a second
+pass, both binaries at 2041934d67d736e17227f415d2f42c18ccad30f01f54162899787ee08202aa1e; the two tracked
+tarballs the user's own commit f521e2b introduced were regenerated from their own trees, with Re.Trektor(linux).tar.gz
+going from 2576157 to 2576626 bytes at c0e233fd603c38851b8c104dc508b93a3edd0373430c32796fbccab2c8a6291a and Re.Trektor(windows).tar.gz
+from 1679719 to 1680590 at efbed436e3b86456f5ba4506a21119cd37a9de6315a1949f9f5e35a7d96c7d25. README went from
+408 lines and 25559 bytes to 415 lines and 26313 bytes, keeping only the user-facing claims: its `R` row
+of the Command-letter table gaining the clause that says where that column had an arpeggiator run in force
+rather than a note of its own being held the letter ends that run and goes back to the note it measured its
+steps from, that run being ended at the letter's row, and its carry paragraph gaining the sentences that say
+that note is struck at the letter's own sample and again every period below it rather than the column being
+left silent at whatever pitch a step had got to, that note being the one an `A 0` release of that run goes
+back to, and that a run another column has in force is left alone since a retrigger only ever strikes the
+notes of its own column; its `STP` claim, its argument-field and carrying wording, its Command-letter table's
+other rows and its Known limitations stayed alone, since nothing this round bends is a limit a user meets and
+the letter, its lilac drawing, its 999 with the 128-and-129 gap and its `OFF` release all kept their readings.
+project.md took the same reading through its own model paragraph's retrigger sentence, its Command 149 bullet
+gaining the run's base among the notes a period belongs to and its first-strike sentence separating a run's
+own base from a note still being held, its retrigger bullet's run sub-bullet gaining the six readings with
+their samples - 34 note-ons and 56 note-offs over 78 blocks, 15 events reading 8 ons and 7 offs, 82 events
+reading 30 ons and 52 offs, 12 events over 70 blocks, 45 note-ons and 75 note-offs over them and all 9 of a
+parallel column's events being one pitch - its Known limitations gaining that take-back of the run beside the
+refused-`s` paragraph's wobble reading and its arpCallNote naming; its Tests section's shot flags, its drawing
+and default-argument lists, its pitch-wheel and vibrato bullets, its Settings row and its future-work line
+stayed alone, since none of the twelve shots paints these events and the letter's period and release kept
+their readings. That file going from 6208 lines and 658305 bytes to 6392 lines and 677124 bytes and
+self-consistent about that count in the entry it adds. Left open rather than invented: the entry still
+refusing an `s` beside or under the retrigger letter, such a row ending the run and going back to its base
+whatever the argument spells while arming nothing where no period was ever told above the letter, that
+take-back answering for the run rather than for that argument, which is what keeps the refusal true under
+this answer; and a plug-in window at a real Windows host staying unobservable on this box, the user's
+Windows 11 report being the rest. Dropped rather than carried: the user's own line at f521e2b's body, bug:
+command cuts note until deleted, which the user's words make not a bug at all - its not actually a bug,
+command works better this way - so nothing of this round goes with it.
 This round keeps that seventh letter and answers one more thing its row does to the wheel, the
 user's finding that an `R` which takes a vibrato away on its own column stops the wobble but leaves
 the wheel sitting wherever its cycle had got to rather than back at its centre: the answer is spent
