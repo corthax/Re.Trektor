@@ -1232,14 +1232,22 @@ void PlaybackEngine::flushRetrig (std::vector<PendingEvent>& events, int ch, dou
     otherwise the pitch the channel has still been holding from the rows above, which is
     what lets the retrigger letter work across the rows rather than only the row that
     entered a note and what leaves a row that left the channel holding no note at all
-    ignored rather than armed for nothing at all. The strikes the gate makes are counted
-    from that row rather than from the rows below it, which is what makes the sub-tick the
-    first one sits on exact for whatever period was named, keeps a row a transport jump
-    makes this block play again arming its own strikes at that row rather than advancing
-    one twice and leaves a period retargeted by a further row from reaching back into a
-    note above it that had already been armed at its own row. A row that left the channel
-    holding no note at all, or a column with no gate in force, has nothing to strike again. */
-void PlaybackEngine::armRetrig (int ch, int heldNote, int midiCh, double rowPpq, const Song& song)
+    ignored rather than armed for nothing at all. The first strike sits subTicksToFirstStrike
+    sub-ticks of the Settings' grid past that row: one whole period when the row entered a
+    note of its own, that note's arrival at the row being that note's own first trigger, and
+    no sub-ticks at all when the letter was spelled across a row whose note column named
+    nothing of its own - the row itself re-opening the note it has been holding, which is
+    what makes the retriggering of a note that has been sounding since the rows above start
+    on the row that named the letter rather than a whole period below it. The strikes the
+    gate makes after that one are counted on from the strike the flush below last played
+    rather than from that row, which is what makes them exact for whatever period was named,
+    keeps a row a transport jump makes this block play again arming its own strikes at that
+    row rather than advancing one twice and leaves a period retargeted by a further row from
+    reaching back into a note above it that had already been armed at its own row. A row
+    that left the channel holding no note at all, or a column with no gate in force, has
+    nothing to strike again. */
+void PlaybackEngine::armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
+                                int subTicksToFirstStrike, const Song& song)
 {
     auto& c = channels[(size_t) ch];
 
@@ -1251,12 +1259,16 @@ void PlaybackEngine::armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
     const double rowsPerBeat = (double) juce::jmax (1, song.settings.rowsPerBeat);
     const int subticks = juce::jmax (1, song.settings.subticksPerRow);
 
-    // the row's own position plus the named period over the Settings' grid, never a
-    // sum of step widths, so a strike reaching past this row and past the block that
-    // holds it lands on the sub-tick the argument asked for rather than a hair off it;
-    // the strikes the flush below counts on from it are counted the same way off the
-    // one the engine last played, which is what keeps them exact over a long clip
-    c.retrigTime = rowPpq + (double) c.retrigTicks / (rowsPerBeat * (double) subticks);
+    // the row's own position plus subTicksToFirstStrike sub-ticks of the Settings' grid,
+    // never a sum of step widths, so a strike reaching past this row and past the block
+    // that holds it lands on the sub-tick the number asked for rather than a hair off it;
+    // that number is the period the row named where the row entered a note of its own and
+    // nothing at all where the letter was spelled across a row whose note column named
+    // nothing, that row striking the note it has still been holding at its own sample.
+    // The strikes the flush below counts on from either one are counted the same way off
+    // the one the engine last played, which is what keeps them exact over a long clip
+    c.retrigTime = rowPpq + (double) juce::jmax (0, subTicksToFirstStrike)
+                                        / (rowsPerBeat * (double) subticks);
     c.retrigNote = heldNote;
     c.retrigMidiCh = midiCh;
 }
@@ -1267,17 +1279,21 @@ void PlaybackEngine::armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
     letter the column carries: the argument counts the sub-ticks apart a note that is
     already sounding in this column is struck again at, on the same sub-row grid an
     arpeggiator's steps, a slide's ramp, a wobble's points and a cut's length use, so
-    the row itself sends nothing of its own and leaves the note it is holding sounding
-    until the strike below reaches the sub-tick the period names past it - a period
-    wider than the row's own sub-ticks reaching past that row and past the block that
+    a row that entered a note of its own sends nothing of its own there and leaves that
+    note sounding until the strike below reaches the sub-tick the period names past it,
+    that note's own arrival at the row being its first trigger, while a row that named
+    no note of its own instead re-opens the note it has still been holding at its own
+    sample as well as striking it again at that many sub-ticks below it - a period wider
+    than the row's own sub-ticks reaching past that row and past the block that
     holds it the way a run's steps, a ramp's steps, a wobble's points and a cut's
     release do, and reaching as far past it as the entry's own top of kRetrigTopTicks
     sub-ticks. The note the strikes belong to is the one this channel is left holding
     at that row: the letter beside a row that named no note of its own works across the
-    rows, taking the note the column has been holding from above and striking it again
-    at that many sub-ticks past this row rather than leaving it to whatever ends it
-    below, which is what the letter entered beside a row that did strike a note and a
-    bare note row under a carried letter already do. An empty argument beside a letter
+    rows, taking the note the column has been holding from above and re-opening it at
+    this row's own sample as well as striking it again at that many sub-ticks below it
+    rather than leaving it to whatever ends it below, which is what the letter entered
+    beside a row that did strike a note and a bare note row under a carried letter
+    already have. An empty argument beside a letter
     the row itself named takes the default period rather than no period at all, the
     number the entry writes so the cell spells the retrigger it asks for, and an empty
     one under a carried letter keeps the period that letter is carrying, so a bare note
@@ -1386,21 +1402,24 @@ void PlaybackEngine::retrigCommand (std::vector<PendingEvent>& events, int ch, i
     }
 
     if (enteredNote >= 0)
-        armRetrig (ch, enteredNote, midiCh, rowPpq, song);
+        armRetrig (ch, enteredNote, midiCh, rowPpq, c.retrigTicks, song);
     else if (rowNamedLetter && ! noteOnRow)
         // the letter beside a row that named no note of its own works across the rows: the
         // note this channel has still been holding from the rows above is the one the
-        // period named there belongs to, struck again at that many sub-ticks past this row
-        // rather than left to whatever ends it below, the way the letter entered beside
-        // a row that did strike a note already has that note to hold open. A row naming
-        // only an argument under a carried letter keeps its strikes where they were, the
-        // notes entered above having been armed at their own rows, which is what leaves a
-        // retarget to the notes entering there and the ones below, and a row whose note
-        // duplicated another channel's on the same MIDI output channel in this row sent
-        // nothing of its own, so it leaves nothing armed here either. A row that left this
-        // channel holding no note at all has nothing to strike again, which is what makes
-        // the letter ignored rather than armed for nothing where nothing is sounding
-        armRetrig (ch, c.activeNote, c.activeMidiCh, rowPpq, song);
+        // period named there belongs to, and this row re-opening it at its own sample
+        // rather than leaving it sustaining until a strike one whole period below the row
+        // reached it is what makes the retriggering of a note that has been sounding since
+        // the rows above start on the row that named the letter. The strikes that follow
+        // are then counted from one to the next at that period. Only the row that named the
+        // letter gets that own-sample strike: a row naming only an argument under a carried
+        // letter keeps its strikes where they were, the notes entered above having been
+        // armed at their own rows, which is what leaves a retarget to the notes entering
+        // there and the ones below, and a row whose note duplicated another channel's on
+        // the same MIDI output channel in this row sent nothing of its own, so it leaves
+        // nothing armed here either. A row that left this channel holding no note at all
+        // has nothing to strike again, which is what makes the letter ignored rather than
+        // armed for nothing where nothing is sounding
+        armRetrig (ch, c.activeNote, c.activeMidiCh, rowPpq, 0, song);
 }
 
 //==============================================================================
@@ -1652,11 +1671,14 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             else if (cell.cmd == kRetrigCmd)
                 // the letter's own argument counts the sub-ticks apart a note that row
                 // entered or has been held in this column is struck again at, so the row
-                // sends nothing of its own either: the first strike waits for the flush
-                // below, which reaches the sub-tick the period names past this row and
-                // counts the ones after it from it, a period wider than the row's own
-                // sub-ticks reaching past the row and the block that holds it the way the
-                // cut's release and a run's steps do
+                // sends nothing there of its own where the row entered a note, that note's
+                // own arrival at the row being its first trigger and the first strike waiting
+                // for the flush below at the sub-tick the period names past this row, and
+                // closes and re-opens the note it has still been holding at its own sample
+                // where the row named no note of its own, the strikes the flush below counts
+                // on from either one going on at that period - a period wider than the row's
+                // own sub-ticks reaching past the row and the block that
+                // holds it the way the cut's release and a run's steps do
                 retrigCommand (events, ch, offset, rowPpq, cell.cmdVal, true, enteredNote,
                                noteHere, midiCh, song);
             else

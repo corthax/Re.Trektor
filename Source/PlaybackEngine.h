@@ -505,7 +505,10 @@ private:
         at the one sample its period names: they are sorted off-before-on there, which
         is what re-articulates the note that is still being held rather than restarting
         it or spelling a note of no length at all. The strikes are placed at absolute
-        transport positions counted from the row that armed the gate and then from one
+        transport positions counted from the row that armed the gate - that row's own
+        sample where the letter was spelled across a row whose note column named nothing
+        of its own, the first sub-tick the period names past it where that row entered a
+        note of its own - and then from one
         strike to the next at whatever period is in force where the engine played it,
         the way a run's steps, a ramp's steps, a wobble's points and a cut's release
         wait rather than being read off the rows below, so a period narrower than a
@@ -664,17 +667,23 @@ private:
         letter the column carries: the argument counts the sub-ticks apart a note that
         is already sounding in this column is struck again at, on the same sub-row grid
         an arpeggiator's steps, a slide's ramp, a wobble's points and a cut's length use,
-        so the row itself sends nothing of its own and leaves the note it is holding
-        sounding, the first strike waiting for the flush below at the sub-tick the period
-        names past this row - a period wider than the row's own sub-ticks reaching past
-        that row and past the block that holds it the way a run's steps, a ramp's steps,
-        a wobble's points and a cut's release do, and reaching as far past it as the
-        entry's own top of kRetrigTopTicks sub-ticks. The strikes belong to the note this
-        channel is left holding at that row: the letter beside a row that named no note
-        of its own works across the rows, taking the note the column has been holding from
-        above and striking it again at that many sub-ticks past this row rather than leaving
-        it to whatever ends it below, which is what the letter entered beside a row that did
-        strike a note and a bare note row under a carried letter already do, and a row whose
+        so a row that entered a note of its own sends nothing of its own there and leaves
+        that note sounding, its arrival at the row being the note's own first trigger and
+        the first strike waiting for the flush below at the sub-tick the period names past
+        it - a period wider than the row's own sub-ticks reaching past that row and past
+        the block that holds it the way a run's steps, a ramp's steps, a wobble's points
+        and a cut's release do, and reaching as far past it as the entry's own top of
+        kRetrigTopTicks sub-ticks. A letter spelled across a row that named no note of its
+        own instead strikes the note this channel has still been holding from the rows
+        above at that row's own sample as well, the row itself re-opening that note rather
+        than leaving it sounding until the strike one whole period below the row reached
+        it, and every strike after that one - at either row - is counted from the strike
+        the engine last played at whatever period is in force there. The strikes belong to
+        the note this channel is left holding at that row: the letter beside a row that
+        named no note of its own works across the rows, taking the note the column has been
+        holding from above and re-opening it there rather than leaving it to whatever
+        ends it below, which is what the letter entered beside a row that did strike a note
+        and a bare note row under a carried letter already have, and a row whose
         note column held nothing and entered nothing is ignored, there being no note to
         strike again. An empty argument beside a letter the row itself named takes the
         default period rather than no period at all, the number the entry writes so the cell
@@ -711,13 +720,20 @@ private:
         otherwise the pitch the channel has still been holding from the rows above, which is
         what lets the retrigger letter work across the rows rather than only the row that
         entered a note, and what leaves a row that left the channel holding no note at all
-        ignored rather than armed for nothing at all. The strikes the gate makes are counted
-        from that row rather than from the rows below it, which is what makes the sub-tick the
-        first one sits on exact for whatever period was named, keeps a row a transport jump
+        ignored rather than armed for nothing at all. The first strike sits subTicksToFirstStrike
+        sub-ticks of the Settings' grid past that row: one whole period when the row entered a
+        note of its own, that note's arrival at the row being the note's own first trigger, and
+        no sub-ticks at all when the letter was spelled across a row whose note column named
+        nothing of its own - the row itself re-opening the note it has been holding, since a
+        row that named nothing would otherwise leave that note sustaining until a strike one
+        whole period below the row reached it. The strikes the gate makes after that one are
+        counted on from the strike the flush below last played rather than from that row, which
+        is what makes them exact for whatever period was named, keeps a row a transport jump
         makes this block play again arming its own strikes at that row rather than advancing
         one twice and leaves a period retargeted by a further row from reaching back into a
         note above it that had already been armed at its own row. */
-    void armRetrig (int ch, int heldNote, int midiCh, double rowPpq, const Song& song);
+    void armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
+                    int subTicksToFirstStrike, const Song& song);
 
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,

@@ -2889,25 +2889,28 @@ int main()
         p.cell (2, 0).note = 62; // a bare note row, under the letter still being carried
 
         // the note entered at row 0 is still sounding at the row that named the letter, so
-        // the letter has that note to strike: its strikes sit 3 subticks of the Settings' 6 to
-        // that row, at 9000, 12000 and 15000 samples into the transport, the 296th, 224th and
-        // 152nd samples of the blocks starting at 8704, 11776 and 14848, and the note entering
-        // at row 2 restarts the striking from its own row
+        // this row re-opens it at its own sample, 6000 samples into the transport at the 368th
+        // sample of the block starting at 5632, and the strikes counted on from there reach
+        // 9000 and 12000 samples, the 296th and 224th samples of the blocks starting at 8704
+        // and 11776, where the note entering at row 2 closes the pitch above and restarts the
+        // striking from its own row
         h.runBlocks (30);
 
-        check (h.notes.size() == 7 && h.notes[0].on && h.notes[0].note == 60 && h.notes[0].offset == 0
-               && h.notes[1].on == false && h.notes[1].note == 60 && h.notes[1].offset == 296
-               && h.notes[2].on && h.notes[2].note == 60 && h.notes[2].offset == 296
-               && h.notes[3].on == false && h.notes[3].note == 60 && h.notes[3].offset == 224
-               && h.notes[4].on && h.notes[4].note == 62 && h.notes[4].offset == 224
-               && h.notes[5].on == false && h.notes[5].note == 62 && h.notes[5].offset == 152
-               && h.notes[6].on && h.notes[6].note == 62 && h.notes[6].offset == 152,
-               "the retrigger letter works across the rows: where the row named no note of its own, the note this channel has still been holding from the rows above is the one the period named there belongs to, struck again at that many subticks past this row rather than left to whatever ends it below, and the note entering the row under the letter still carried there plays and restarts the striking from its own row");
+        check (h.notes.size() == 9 && h.notes[0].on && h.notes[0].note == 60 && h.notes[0].offset == 0
+               && h.notes[1].on == false && h.notes[1].note == 60 && h.notes[1].offset == 368
+               && h.notes[2].on && h.notes[2].note == 60 && h.notes[2].offset == 368
+               && h.notes[3].on == false && h.notes[3].note == 60 && h.notes[3].offset == 296
+               && h.notes[4].on && h.notes[4].note == 60 && h.notes[4].offset == 296
+               && h.notes[5].on == false && h.notes[5].note == 60 && h.notes[5].offset == 224
+               && h.notes[6].on && h.notes[6].note == 62 && h.notes[6].offset == 224
+               && h.notes[7].on == false && h.notes[7].note == 62 && h.notes[7].offset == 152
+               && h.notes[8].on && h.notes[8].note == 62 && h.notes[8].offset == 152,
+               "the retrigger letter works across the rows and starts where it was spelled: where the row named no note of its own, the note this channel has still been holding from the rows above is the one the period named there belongs to, re-opened at this row's own sample rather than left sustaining until a strike one whole period below the row reached it, and the strikes counted on from there at that period, the note entering the row under the letter still carried there playing and restarting the striking from its own row");
         check (std::count_if (h.raw.begin(), h.raw.end(),
-                              [] (const RawEvent& e) { return e.kind == 0 && e.pitch == 60; }) == 2
+                              [] (const RawEvent& e) { return e.kind == 0 && e.pitch == 60; }) == 3
                && std::count_if (h.raw.begin(), h.raw.end(),
                                  [] (const RawEvent& e) { return e.kind == 0 && e.pitch == 62; }) == 1,
-               "and the letter entered beside a row that struck no note sends nothing of its own at that row: the note held above keeps sounding through it and is closed only at the subtick its own strike reaches, the note entering the row below closing it once more as its own note-on opens the pitch above there, while the note entering under the carried letter is itself closed only by a strike of its own, which is what says the strike armed there belongs to the note rather than to the row");
+               "and the letter spelled across a row that named no note of its own re-opens the note it has been holding rather than sending a note of its own there: that pitch is closed at the row's own sample, at the subtick the period names below it and once more as the note entering the row below opens over it, which is what says the strike armed there belongs to the note rather than to the row and is what keeps the note held above from sustaining through the letter's own row");
 
         // the same letter entered where nothing was being held: there is no note to strike
         // again, so the row is ignored rather than armed for nothing at all
@@ -2921,6 +2924,42 @@ int main()
                && std::count_if (none.raw.begin(), none.raw.end(),
                                  [] (const RawEvent& e) { return e.kind == 0 || e.kind == 1; }) == 0,
                "a letter entered where nothing was being held and where nothing enters is ignored: there is no note to strike again, so the row sends nothing of its own rather than arming a gate for a pitch that was never there or releasing one that is not sounding");
+    }
+    {
+        std::cout << "A letter spelled across a row whose note column named nothing striking the held note at its own sample\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (9, 0).cmd = kRetrigCmd; // the letter alone, far below the note it belongs to
+        p.cell (9, 0).cmdVal = 3;
+
+        // rows 0 to 8 name no letter so nothing is struck above row 9, and that row sits
+        // 54000 samples into the transport: the note held from row 0 is re-opened there at
+        // the 240th sample of the block starting at 53760 rather than a whole period below
+        // at 57000 samples, and 110 blocks reach 56320 samples, past that row's own strike
+        h.runBlocks (110);
+
+        check (h.notes.size() == 3 && h.notes[0].on && h.notes[0].note == 60 && h.notes[0].offset == 0
+               && h.notes[1].on == false && h.notes[1].note == 60 && h.notes[1].offset == 240
+               && h.notes[2].on && h.notes[2].note == 60 && h.notes[2].offset == 240,
+               "a letter spelled across a row that named no note of its own strikes the note that channel has still been holding at that row's own sample: the row sits 54000 samples into the transport, 9 rows below the row that entered the note, and closes and re-opens it there at the 240th sample of the block starting at 53760 rather than leaving that note sustaining until a strike one whole period below the row reached it");
+        check (std::count_if (h.raw.begin(), h.raw.end(),
+                              [] (const RawEvent& e) { return e.kind == 0 && e.pitch == 60; }) == 1,
+               "and nothing was spent above that row: the note entered at row 0 sustains through the rows naming nothing and is closed exactly once, at the row that named the letter, rather than at a sub-tick of a period counted from a row above it");
+
+        h.resetEvents();
+        h.runBlocks (8); // 60416 samples in all, past the two strikes counted on from that row
+
+        check (h.notes.size() == 4 && h.notes[0].on == false && h.notes[0].note == 60
+               && h.notes[0].offset == 168 && h.notes[1].on && h.notes[1].note == 60
+               && h.notes[1].offset == 168 && h.notes[2].on == false && h.notes[2].note == 60
+               && h.notes[2].offset == 96 && h.notes[3].on && h.notes[3].note == 60
+               && h.notes[3].offset == 96,
+               "the strikes counted on from that row's own one at the period named there reach 57000 and 60000 samples into the transport, the 168th sample of the block starting at 56832 and the 96th of the one starting at 59904, which is what keeps the grid counted from the row that named the letter rather than from the row that entered the note");
+        check (h.notes.back().on && h.notes.back().note == 60,
+               "and the note is left sounding at the end of these blocks, each strike having been a note-off sorted ahead of its own note-on at one sample rather than a release of the pitch that was left holding");
     }
     {
         std::cout << "A 0 spelled as the note column's own note-off across the rows\n";
@@ -3072,14 +3111,14 @@ int main()
         cutFirst.song.patterns[0].cell (0, 0).cmdVal = 9; // its note-off waits at 9000 samples
         cutFirst.song.patterns[0].cell (1, 0).cmd = kRetrigCmd;
         cutFirst.song.patterns[0].cell (1, 0).cmdVal = 3; // the retrigger under it, bare row
-        cutFirst.runBlocks (30); // 15360 samples, past the two strikes below it
+        cutFirst.runBlocks (30); // 15360 samples, past the row's own strike and the ones below
 
-        check (cutFirst.notes.size() == 7
+        check (cutFirst.notes.size() == 9
                && std::count_if (cutFirst.notes.begin(), cutFirst.notes.end(),
-                                 [] (const NoteEvent& n) { return n.on == false; }) == 3
+                                 [] (const NoteEvent& n) { return n.on == false; }) == 4
                && std::count_if (cutFirst.notes.begin(), cutFirst.notes.end(),
-                                 [] (const NoteEvent& n) { return n.on; }) == 4,
-               "a retrigger and a cut are two letters of one note's own length, so a column answers whichever of the two it carries and a row naming one leaves the other away below it: the cut's still-waiting note-off goes when the retrigger letter takes the column over, and the note held above is re-struck at the period named there rather than cut, that pitch still being open at the end of these blocks with one more note-on than note-off");
+                                 [] (const NoteEvent& n) { return n.on; }) == 5,
+               "a retrigger and a cut are two letters of one note's own length, so a column answers whichever of the two it carries and a row naming one leaves the other away below it: the cut's still-waiting note-off goes when the retrigger letter takes the column over, and the note held above is re-struck from the very row that named the letter rather than cut, that pitch still being open at the end of these blocks with one more note-on than note-off");
 
         Harness retriggerFirst;
         retriggerFirst.song.patterns[0].setLength (16);

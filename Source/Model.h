@@ -117,10 +117,15 @@ constexpr int kMidiChannelCount = 16;
     that channel has still been holding from the rows above it, which is what lets the
     letter work across the rows rather than only the one that entered a note; where that
     row named no note of its own and nothing was being held, the letter is ignored,
-    there being no note to strike again. The first strike sits that many sub-ticks past
-    the row the note was armed at rather than past the strike below it, and each one
-    after that is counted from the strike the engine last played at whatever period is
-    in force there, which is what keeps the beat exact for whatever length was named,
+    there being no note to strike again. A letter entered beside a row that did enter a
+    note of its own arms its first strike that many sub-ticks past that row, that note's
+    own arrival at the row being the first trigger; the letter spelled across a row whose
+    note column named nothing of its own strikes the note that channel has still been
+    holding at that row's own sample as well - the row itself re-opening the note it has
+    been holding rather than leaving it sustaining until the strike one period below the
+    row reached it - and every strike after that, at either row, is counted from the
+    strike the engine last played at whatever period is in force there, which is what
+    keeps one note struck many times exact for whatever period was named,
     what lets a period be retargeted between the strikes rather than leaving them to
     the one the arming row called with and what leaves a row a transport jump makes
     this block play again arming its own strikes at that row. Like the cut's letter,
