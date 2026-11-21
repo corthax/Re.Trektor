@@ -355,14 +355,14 @@ int main()
         check (p.cell (5, 0).vol == 100, "three decimal digits enter a volume above 99");
 
         const auto volMidi = playRowAt (5);
-        check (controllerValue (volMidi, 7) == 100, "a volume without a note emits CC7");
+        check (controllerValue (volMidi, 7) == -1, "a volume without a note sends no controller at all");
 
-        // with a note the volume also drives the note-on velocity
+        // with a note the volume only drives the note-on velocity
         p.cell (0, 0).vol = 42;
         proc.syncPlaybackModel();
 
         const auto noteMidi = playRowAt (0);
-        check (controllerValue (noteMidi, 7) == 42, "a volume next to a note emits CC7 too");
+        check (controllerValue (noteMidi, 7) == -1, "a volume next to a note sends no controller either");
         check (noteVelocity (noteMidi, 60) == 42, "and sets the note-on velocity");
 
         // the Settings tab names the controllers the columns drive
@@ -382,7 +382,7 @@ int main()
             proc.syncPlaybackModel();
 
             const auto ccMidi = playRowAt (5);
-            check (controllerValue (ccMidi, 5) == 100, "the volume column follows its configured CC");
+            check (controllerValue (ccMidi, 5) == -1, "the volume column drives no controller, configured or not");
             check (controllerValue (ccMidi, 11) == 77, "the pan column follows its configured CC");
             check (controllerValue (ccMidi, 7) == -1 && controllerValue (ccMidi, 10) == -1,
                    "no CC7/CC10 once the settings name other controllers");
@@ -867,13 +867,14 @@ int main()
         check (p.showColumn (0, 3) && p.showColumn (1, 3), "the command stays visible on the other channels");
 
         // hidden columns are only hidden on screen: they still play
-        p.cell (8, 1).vol = 90;
         p.cell (8, 1).pan = 60;
+        p.cell (8, 2).cmd = rtr::kLevelCmd;
+        p.cell (8, 2).cmdVal = 90; // the command column of the channel whose command is hidden
         proc.syncPlaybackModel();
 
         const auto visMidi = playRowAt (8);
         check (controllerValue (visMidi, 7) == 90 && controllerValue (visMidi, 10) == 60,
-               "hidden columns still play their controllers");
+               "hidden columns still play their controllers, the level letter of a channel whose command is hidden and the pan of one whose volume is");
 
         // and they come back when their chip is clicked again
         tracker->refresh();
@@ -1275,11 +1276,13 @@ int main()
                 check (p.cell (11, 0).vol == 85 && p.cell (14, 0).vol == 50,
                        "the anchors on either side of the hole keep their values");
 
-                // both channels now hold 60 at row 13, so the CC7 the row plays
-                // proves the filled cells reached the playback snapshot
+                // both channels now hold 60 at row 13, so the note entered there takes
+                // its velocity from the filled cell rather than from one the column
+                // carried above it
+                p.cell (13, 0).note = 60;
                 proc.syncPlaybackModel();
-                check (controllerValue (playRowAt (13), 7) == 60,
-                       "the filled volumes play CC7 60 instead of the carried 10");
+                check (noteVelocity (playRowAt (13), 60) == 60,
+                       "the filled volume sets that row's note-on velocity instead of the carried 10");
 
                 tracker->clearSelection();
                 scope->setSelectedId (1); // back to the scope a fresh panel opens on

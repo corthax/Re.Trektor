@@ -105,7 +105,7 @@ SettingsPanel::SettingsPanel (ReTrektorAudioProcessor& processor)
                                      refresh();
                                  });
 
-    volumeCcSlider = addSlider ("Volume column CC", "Controller driven by the volume column (0-127, CC7 is channel volume)",
+    volumeCcSlider = addSlider ("Volume letter CC", "Controller the L, I and O commands drive (0-127, CC7 is channel volume)",
                                 0.0, 127.0, 1.0, (double) song.settings.volumeCc,
                                 [this, refresh] (double v)
                                 {

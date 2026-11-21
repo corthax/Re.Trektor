@@ -19,10 +19,11 @@ constexpr int kMidiChannelCount = 16;
     above that the command letters: the letter A names kArpCmd, the letter B
     names kBendCmd, the letters U and D name a slide of the pitch wheel to
     its top and to its bottom, the letter V runs a vibrato, the letter C
-    cuts a note's length and the letter R strikes one again every so many of
-    those sub-ticks, whether the note any of them is spelled beside has been
-    entered at that row or has been held by that column from the rows above, all
-    seven claimed as
+    cuts a note's length, the letter R strikes one again every so many of
+    those sub-ticks and the letters L, I and O say what volume the MIDI output
+    channel its instrument names sounds at, whether the note any of them is
+    spelled beside has been entered at that row or has been held by that column
+    from the rows above, all ten claimed as
     the field's first character rather than typed as a number, which is what stops
     a typed digit run from inventing a letter - a decimal field spells CC 10 as
     10, so nothing about a number's spelling reaches one of the letters. kBendCmd,
@@ -195,7 +196,40 @@ constexpr int kMidiChannelCount = 16;
     asks for nothing beside a retrigger, a retrigger having no ramp of its own to hold at
     a point - the wheel such a row puts back at its centre answers for a wobble above it
     rather than for that row's own argument, and goes back whatever the argument spells -
-    and leaves the period above as it was. */
+    and leaves the period above as it was.
+
+    The volume a MIDI output channel sounds at is a state of that channel rather than
+    of the tracker column a row sits in, which is what lets the letter L, I or O spelled
+    on any column whose instrument names that channel reach one level and one ramp rather
+    than each column keeping its own: a fade armed from one column and answered from
+    another naming the same instrument counts on the same grid and lands on the same
+    values. The letter L names that level outright and sends it at its own row, the
+    argument being the volume the channel's controller is set to; a row naming only an
+    argument under a carried L sets and sends a new level the same way, which is what makes
+    L a command the column carries down like a plain CC rather than one answering only its
+    own row. The letters I and O ramp that controller instead: I starts at nothing and
+    climbs toward the level L set, O starts at that level and falls to nothing, and both
+    send one value every sub-tick of the Settings' grid - the value at the letter's own
+    row being the ramp's first one, I sending nothing there and O sending the whole level,
+    the way a run's first step sits at a row that named a note. The argument says how far
+    a step moves, so a wider one reaches its target sooner, and it reaches that target
+    exactly and sends it once rather than overshooting it or re-stating it below, which is
+    what stops a fade there rather than leaving the controller named over every row under
+    it. The two letters are one-shots: they arm a ramp at their own row and leave nothing
+    in force below it, so a row naming only an argument under one answers nothing, and a
+    further I or O row arms a fresh ramp of its own. An argument of 0 says no step at all,
+    which puts any ramp that was counting on away and leaves the volume the last value had
+    got to in force rather than sending one more. The three letters only ever say something
+    about that channel's volume controller, so a row naming one of them leaves a run, a ramp
+    of the wheel, a wobble's swing, a cut's gate and a retrigger's gate where they are -
+    the three work in parallel with the other seven - and I stops a ramp the O had running
+    and O stops one the I had, while L stops either of the two and forces the new level
+    instead. A ramp whose values have not all been sent yet when its arming clip ends is put
+    away there rather than finishing its fade over the rows of the clip below, and no ramp is
+    what sends nothing: unlike the wheel, a controller has no neutral state a row can put a
+    channel back to, so a fade that stopped by itself, at a clip's end or under a 0 leaves
+    the volume its last value reached rather than a level of its own. Where no L has ever
+    named a level for a channel, the level its ramps fade to and from is kVolDefaultLevel. */
 constexpr int kArgOff = 128;  // the argument that reads OFF: an arpeggiator going off or the wheel's release
 constexpr int kArgStp = 129;  // the argument that reads STP: the wheel held at the point it is at
 constexpr int kMaxArpMacros = 127; // arpeggiator macros, ids 1..127; the id 0 call releases
@@ -232,6 +266,12 @@ constexpr int kCutDefaultTicks = 3; // subticks a note is held for when the row 
 constexpr int kRetrigCmd = 149; // command value 149 retriggers a note, entered as R
 constexpr int kRetrigTopTicks = 999; // the widest retrigger the entry can name, in subticks on the Settings' grid; 128 and 129 below it stay the OFF and STP spellings
 constexpr int kRetrigDefaultTicks = 3; // sub-ticks apart a note is struck again at when the row leaves the argument empty
+constexpr int kLevelCmd = 150; // command value 150 names a MIDI output channel's volume, entered as L
+constexpr int kFadeInCmd = 151; // command value 151 ramps that volume up toward the level, entered as I
+constexpr int kFadeOutCmd = 152; // command value 152 ramps it down to nothing, entered as O
+constexpr int kVolDefaultLevel = 127; // the volume an L, I or O fades to or from when no L set one
+constexpr int kFadeDefaultStep = 10; // volume a bare I or O moves every sub-tick
+constexpr int kVolDefaultVel = 127; // velocity a note is struck at when the volume column never named one
 constexpr int kMaxUndoSteps = 200; // most undo steps the undo line can be asked for
 
 /** Column visibility bits: the chips above a channel toggle one field of one
@@ -248,10 +288,10 @@ struct Cell
 {
     int note = kEmpty;    // kEmpty, kNoteOff (===), or 0..127
     int inst = kEmpty;    // kEmpty or 0..15 (MIDI output channel)
-    int vol = kEmpty;     // kEmpty or 0..127
+    int vol = kEmpty;     // kEmpty or 0..127 (the velocity a note entered in this cell is struck at, kVolDefaultVel until the column named one; never a controller)
     int pan = kEmpty;     // kEmpty or 0..127
-    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D); 147 = vibrato (V); 148 = cut (C); 149 = retrigger (R)
-    int cmdVal = kEmpty;  // kEmpty, 0..127 or a cut's or a retrigger's own subticks to kRetrigTopTicks: a macro id, a point on the wheel, a slide's rows, a vibrato macro id, a cut's subticks or a retrigger's sub-ticks; kArgOff = OFF and kArgStp = STP above the field's own top
+    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D); 147 = vibrato (V); 148 = cut (C); 149 = retrigger (R); 150 = MIDI channel volume level (L); 151/152 = volume ramp in/out (I/O)
+    int cmdVal = kEmpty;  // kEmpty, 0..127 or a cut's or a retrigger's own subticks to kRetrigTopTicks: a macro id, a point on the wheel, a slide's rows, a vibrato macro id, a cut's subticks, a retrigger's sub-ticks, an L's level or an I's or an O's step; kArgOff = OFF and kArgStp = STP above the field's own top
 
     bool empty() const noexcept
     {
@@ -639,9 +679,12 @@ struct Settings
     int recordOctave = 4;
     int stepSkip = 1;
 
-    /** Controller numbers the volume and pan columns drive. They are emitted
-        whenever such a cell is written explicitly, so the tracker can feed
-        anything a synth listens to (CC7 channel volume by default, CC10 pan). */
+    /** Controller numbers the Command column's volume letters and the Pan column
+        drive. The letters L, I and O set or ramp the controller volumeCc names
+        (CC7 channel volume by default) on the MIDI output channel their
+        instrument names, and an explicit pan cell sends the controller panCc
+        names (CC10 pan). The volume column itself drives no controller at all:
+        it names the velocity a note entered beside it is struck at. */
     int volumeCc = 7;
     int panCc = 10;
 

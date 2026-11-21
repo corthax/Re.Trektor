@@ -71,7 +71,7 @@ private:
     struct ChannelState
     {
         int lastInst = -1;
-        int lastVol = -1;
+        int lastVol = kVolDefaultVel; // the velocity a note this column enters is struck at, none yet being the default
         int lastPan = -1;
         int lastCmd = -1;
         int lastCmdVal = -1;
@@ -424,6 +424,48 @@ private:
         }
     };
 
+    /** What one MIDI output channel sounds its notes at: the volume level its
+        L, I and O rows named and the ramp one of the two last letters left in
+        force. This belongs to the channel rather than to a tracker column, which
+        is what lets a letter spelled on any column naming that instrument reach
+        the same level and lets a fade armed from one column and a letter
+        answered from another count the same values. */
+    struct VolState
+    {
+        int level = kVolDefaultLevel; // the volume an L last set (the default until one does)
+        bool fadingIn = false;        // which way the running ramp moves: up toward level or down toward nothing
+        int step = 0;                 // volume a ramp moves every sub-tick, 0 being no ramp in force
+        int steps = 0;                // values that ramp has to send, its first at the row that armed it
+        int sent = 0;                 // values of it already sent, so the next one's position is counted not summed
+        double origin = -1.0;         // where the ramp's first value sits, in transport beats
+        double rowEnd = -1.0;         // end of the last row the engine owned that ramp over
+        juce::Uuid rampClip;          // the clip whose row armed that ramp
+
+        /** Leaves no ramp in force and leaves the channel's volume at whatever
+            value its last sub-tick had sent: unlike the wheel, a controller has
+            no neutral state to put it back to, so putting a fade away sends
+            nothing of its own. The level an L set is kept, which is what lets
+            a further I or O row fade to or from it again. */
+        void endFade() noexcept
+        {
+            step = 0;
+            steps = 0;
+            sent = 0;
+            fadingIn = false;
+            origin = -1.0;
+            rampClip = juce::Uuid();
+        }
+
+        /** Whether the ramp this channel has in force still has values of its own
+            left to send: a fade that reached its target sent it once and has
+            nothing more to say, which is what makes a stopped ramp one the
+            flush below still has to reach. */
+        bool fadeRunning() const noexcept
+        {
+            return step > 0 && sent < steps;
+        }
+    };
+
     struct PendingEvent
     {
         int offset = 0;
@@ -535,6 +577,26 @@ private:
         there, so the strikes counted on from it play at the pitch the column named rather
         than at one the cycle had left the wheel part way down its swing. */
     void flushRetrig (std::vector<PendingEvent>& events, int ch, double ppqStart,
+                      double ppqLimit, double ppqPerSample, int numSamples,
+                      const Song& song);
+
+    /** Sends the volume controller values of the ramp one MIDI output channel has
+        in force that belong to the position range [ppqStart, ppqLimit). A volume
+        fade's values are one sub-row wide, the sub-row being a row over the Settings
+        row "Subticks per row" like an arpeggiator's steps, a slide's ramp, a wobble's
+        points and a retrigger's strikes, which is what fades the controller over that
+        grid rather than naming a new value once per row: the value's position is the
+        arming row plus its count rather than a sum of sub-tick widths, so a fade stays
+        exact however many blocks it spread over. Unlike a wheel's ramp, every value is
+        spoken even the one the channel's volume is already at, so a host hears the
+        controller rather than only its own change of it, and a fade stops at its target
+        exactly and sends it once, which is what leaves no value of a stopped fade to
+        place below it. `ppqLimit` never passes the end of the row the engine last owned,
+        which is what leaves the values of a row that spills past this block waiting for
+        the block that reaches them, the way a run's steps, a ramp's, a wobble's points
+        and a cut's release do, and a ramp whose next value sits more than a row behind
+        where this block starts is put away rather than arriving late. */
+    void flushVolume (std::vector<PendingEvent>& events, int midiCh, double ppqStart,
                       double ppqLimit, double ppqPerSample, int numSamples,
                       const Song& song);
 
@@ -787,6 +849,28 @@ private:
     void armRetrig (int ch, int heldNote, int midiCh, double rowPpq,
                     int subTicksToFirstStrike, const Song& song);
 
+    /** A row naming the letter L, an argument-only row under a carried L, or a row
+        naming the letter I or O: what it says is about the volume controller of the
+        MIDI output channel this row's instrument names, not about the column the row
+        sits in, which is what lets a letter spelled on another column naming that
+        same instrument reach the same level and the same ramp. The L letter sets a
+        level outright, sends it at this row's own sample and puts any ramp away
+        rather than leaving one counting on below it; a bare argument under a carried
+        L does the same, which is what makes L a command the column carries down
+        further. The I and O letters arm a ramp of their own and put the other letter's
+        away: I sends nothing at this row's own sample and climbs toward the level by
+        the step named, O sends that level there and falls toward nothing, both naming
+        one value every sub-tick of the Settings' grid below it, the values waiting in
+        that channel's state for flushVolume the way a run's steps, a ramp's, a wobble's
+        points and a cut's release do. A step of 0 arms nothing and puts any ramp away,
+        which leaves the volume the last value sent had got to in force rather than
+        sending one more, and both letters leave nothing in force below their own row,
+        so a bare argument under one answers nothing. None of the three says anything
+        about a run, a wheel's ramp, a wobble's swing, a cut's gate or a retrigger's,
+        which is what lets them work in parallel with the other seven letters. */
+    void volCommand (std::vector<PendingEvent>& events, int midiCh, int cmd, int argument,
+                     int offset, double rowPpq, const juce::Uuid& clipUid);
+
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,
                      const Song& song, double rowPpq);
@@ -796,9 +880,16 @@ private:
 
     std::array<ChannelState, kMaxTrackerChannels> channels;
 
-    /** Controller numbers the volume and pan columns drive. They are refreshed
-        from the song settings at the start of every block, so the Settings
-        tab can point the columns at any CC a synth listens to. */
+    /** What the MIDI output channels sound their notes at: the level an L, I or O
+        row last named and the ramp such a row left counting on. These belong to the
+        output channels rather than to the tracker columns, which is what lets a letter
+        spelled on any column naming an instrument reach that instrument's level. */
+    std::array<VolState, kMidiChannelCount> vols {};
+
+    /** Controller numbers the volume letters and the pan column drive. They are refreshed
+        from the song settings at the start of every block, so the Settings tab can point
+        the L, I and O commands at any controller a synth listens to (CC7 channel volume
+        by default) and the pan column at any other. */
     int volumeCc = 7;
     int panCc = 10;
 

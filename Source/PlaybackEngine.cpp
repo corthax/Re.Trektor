@@ -19,13 +19,16 @@ void PlaybackEngine::reset()
         auto& c = channels[(size_t) i];
         c = ChannelState();
         c.lastInst = juce::jmin (i, kMidiChannelCount - 1);
-        c.lastVol = 100;
+        c.lastVol = kVolDefaultVel;
         uiRow[(size_t) i].store (-1);
         uiMidiChannel[(size_t) i].store (c.lastInst);
     }
 
     for (int i = 0; i < kMidiChannelCount; ++i)
+    {
+        vols[(size_t) i] = VolState();
         everPlayed[(size_t) i].reset();
+    }
 
     wasPlaying = false;
     previousPpq = -1.0;
@@ -298,7 +301,7 @@ void PlaybackEngine::flushArp (std::vector<PendingEvent>& events, int ch, double
     }
 
     const int midiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst);
-    const int vel = juce::jlimit (1, 127, c.lastVol > 0 ? c.lastVol : 100);
+    const int vel = juce::jlimit (1, kCcTop, c.lastVol);
 
     while (macro->looped || c.arpCount < len)
     {
@@ -413,7 +416,7 @@ void PlaybackEngine::arpCommand (std::vector<PendingEvent>& events, int ch, int 
         if (! noteOnRow && ! noteOffRow && base >= 0 && base <= 127)
         {
             const int baseMidiCh = juce::jlimit (0, kMidiChannelCount - 1, c.lastInst);
-            const int baseVel = juce::jlimit (1, 127, c.lastVol > 0 ? c.lastVol : 100);
+            const int baseVel = juce::jlimit (1, kCcTop, c.lastVol);
             startNote (events, offset, ch, baseMidiCh, base, baseVel);
             c.activeClip = clipUid; // the re-struck base belongs to the rows this clip has
         }
@@ -1186,7 +1189,7 @@ void PlaybackEngine::flushRetrig (std::vector<PendingEvent>& events, int ch, dou
                 // bent under that note is left where it is, the pitch not having moved. The
                 // strike opens the note at the velocity the column carries, the way a run's
                 // steps do, the letter having no velocity of its own to name
-                const int vel = juce::jlimit (1, 127, c.lastVol > 0 ? c.lastVol : 100);
+                const int vel = juce::jlimit (1, kCcTop, c.lastVol);
                 startNote (events, offset, ch, c.retrigMidiCh, c.retrigNote, vel);
 
                 // the next strike is counted from this one rather than from the row that
@@ -1484,7 +1487,7 @@ void PlaybackEngine::retrigCommand (std::vector<PendingEvent>& events, int ch, i
         // rather than keep stepping through the macro's jumps below it or leave the
         // column silent at whatever pitch the last step happened to have got to
         startNote (events, offset, ch, midiCh, runBase,
-                   juce::jlimit (1, 127, c.lastVol > 0 ? c.lastVol : 100));
+                   juce::jlimit (1, kCcTop, c.lastVol));
 
         armRetrig (ch, runBase, midiCh, rowPpq, c.retrigTicks, song);
     }
@@ -1505,6 +1508,160 @@ void PlaybackEngine::retrigCommand (std::vector<PendingEvent>& events, int ch, i
         // has nothing to strike again, which is what makes the letter ignored rather than
         // armed for nothing where nothing is sounding
         armRetrig (ch, c.activeNote, c.activeMidiCh, rowPpq, 0, song);
+}
+
+//==============================================================================
+/** A row naming one of the three volume letters or an argument under a carried
+    level letter: what it asks for belongs to the MIDI output channel this row's
+    instrument names rather than to the column the row sits in, which is what lets
+    a letter spelled on any other column naming that instrument reach the same
+    level and the same ramp, and lets the three work beside a run, a wheel's ramp,
+    a wobble's swing and the two gates rather than trading any of them away. The
+    level letter sends its level at this row's own sample and puts any ramp away
+    rather than leaving one stepping toward the level above had called with; the
+    two fade letters arm a ramp of their own at this row and put the other letter's
+    away, that ramp's first value sitting at this row's own sample - nothing for a
+    fade in and the whole level for a fade out, the way a run's first step sits at
+    a row that named a note - and the rest of its values waiting for flushVolume
+    below at one sub-tick of the Settings' grid apart. A step of 0 arms no ramp and
+    puts any ramp away, which leaves the volume the last value had got to in force
+    rather than sending one more, and a bare letter takes the default step the entry
+    writes so the cell spells a fade rather than a hold. Where no level has been
+    named for this channel yet, the level its ramps fade to and from is the default. */
+void PlaybackEngine::volCommand (std::vector<PendingEvent>& events, int midiCh, int cmd,
+                                 int argument, int offset, double rowPpq,
+                                 const juce::Uuid& clipUid)
+{
+    const int idx = juce::jlimit (0, kMidiChannelCount - 1, midiCh);
+    auto& v = vols[(size_t) idx];
+
+    if (cmd == kLevelCmd)
+    {
+        // the level letter says what that controller is set to, ahead of anything the
+        // ramp above had still got to say: the level is what a further I or O row fades
+        // to or from, whether or not this row put a ramp away on the way
+        // an argument the row left empty is the default level rather than silence,
+        // the way the entry writes one beside a bare letter: only a spelled 0 asks
+        // for the channel to be set to nothing
+        const int level = argument == kEmpty ? kVolDefaultLevel
+                                              : juce::jlimit (0, kCcTop, argument);
+        v.level = level;
+        v.endFade();
+
+        events.push_back ({ offset, 3,
+                            juce::MidiMessage::controllerEvent (idx + 1, volumeCc, level) });
+        return;
+    }
+
+    // a step named by the row, a bare letter taking the default step the entry writes
+    // so the cell spells a fade rather than a hold, and the argument of a letter the
+    // entry could not clamp, such as one an older state left, staying inside the field's
+    // own top rather than reading as the OFF or STP spellings those letters refuse
+    const int step = argument == kEmpty ? kFadeDefaultStep
+                                       : juce::jlimit (0, kCcTop, argument);
+
+    if (step == 0)
+    {
+        // a step of no volume at all says no ramp: it stops the ramping, whichever
+        // letter is spelled beside it, and leaves the volume the last value reached
+        // still in force rather than sending one more of it
+        v.endFade();
+        return;
+    }
+
+    const bool fadingIn = cmd == kFadeInCmd;
+
+    // the ramp of the other letter is over before this one starts: I stops an O
+    // that was counting down and O stops an I that was counting up, so one channel
+    // only ever has one ramp of its own counting at a time
+    v.endFade();
+
+    v.fadingIn = fadingIn;
+    v.step = step;
+    v.origin = rowPpq;
+    v.rampClip = clipUid;
+
+    // the values that ramp has to send: its first at the row that armed it and one
+    // more every sub-tick until it reaches its target, that target being landed on
+    // exactly, so a fade over the whole level at a step of 10 sends 13 values at the
+    // default of 6 sub-ticks to the row rather than one a hair short of it and a
+    // further one past it
+    v.steps = 1 + (v.level + step - 1) / step;
+    v.sent = 1;
+
+    // the letter's own row carries the ramp's first value: nothing for a fade in and
+    // the whole level for a fade out, the way a run's first step sits at a row that
+    // named a note rather than a sub-row below it
+    events.push_back ({ offset, 3,
+                        juce::MidiMessage::controllerEvent (idx + 1, volumeCc,
+                                                            fadingIn ? 0 : v.level) });
+}
+
+//==============================================================================
+/** The values of the volume ramp one MIDI output channel has in force that belong
+    to the position range [ppqStart, ppqLimit): they wait in that channel's state
+    with where each sits counted from the row that armed the ramp over the Settings'
+    grid, the way an arpeggiator's steps, a slide's ramp, a wobble's points, a cut's
+    release and a retrigger's strikes do, which is what leaves the values of a row
+    that spills past this block waiting for the block that reaches them rather than
+    bunched onto the row that named the letter or dropped, and what keeps a fade
+    reaching its target exactly however many blocks it spread over. A value is sent
+    whether or not it is the one the channel's volume is already at, since unlike a
+    wheel's position a controller has nothing that says a value is already in force.
+    `ppqLimit` never passes the end of the row the engine last owned, and a ramp
+    whose next value sits more than a row behind where this block starts is put away
+    rather than arriving late, which is what a scrub or a jump leaves behind. */
+void PlaybackEngine::flushVolume (std::vector<PendingEvent>& events, int midiCh,
+                                  double ppqStart, double ppqLimit, double ppqPerSample,
+                                  int numSamples, const Song& song)
+{
+    auto& v = vols[(size_t) midiCh];
+
+    if (! v.fadeRunning())
+        return;
+
+    const double rowsPerBeat = (double) juce::jmax (1, song.settings.rowsPerBeat);
+    const double rowSpanPpq = 1.0 / rowsPerBeat;
+    const int subticks = juce::jmax (1, song.settings.subticksPerRow);
+    const double stepPpq = rowSpanPpq / (double) subticks;
+
+    if (v.origin + (double) v.sent * stepPpq < ppqStart - rowSpanPpq)
+    {
+        v.endFade(); // the next value sits more than a row behind where this block
+                     // starts, so it cannot be placed any more, which is what a scrub
+                     // or a jump leaves behind: the volume is left at whatever value
+                     // had been sent, there being no message that puts a controller
+                     // back, the way a run's, a ramp's, a wobble's and a cut's waiting
+                     // steps are left behind there
+        return;
+    }
+
+    while (v.sent < v.steps)
+    {
+        // the value's position is the arming row plus its count, never a sum of
+        // sub-tick widths, so a fade spread over many blocks stays exact
+        const double valueTime = v.origin + (double) v.sent * stepPpq;
+
+        if (valueTime >= ppqLimit)
+            break; // it waits for the rows below or for the block that reaches it
+
+        if (valueTime >= ppqStart - kRowAlignEps)
+        {
+            const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
+                                             (int) std::llround ((valueTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
+
+            // the value counts from the level rather than from the one the row above
+            // reached, which is what lands the target exactly on the sub-tick the step
+            // names rather than a hair off it and leaves nothing of this ramp to send
+            // below that
+            events.push_back ({ offset, 3,
+                                juce::MidiMessage::controllerEvent (midiCh + 1, volumeCc,
+                                                                    v.fadingIn ? juce::jmin (v.level, v.sent * v.step)
+                                                                             : juce::jmax (0, v.level - v.sent * v.step)) });
+        }
+
+        ++v.sent;
+    }
 }
 
 //==============================================================================
@@ -1563,6 +1720,16 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             state.lastCmd = cell.cmd;
             state.lastCmdVal = cell.cmdVal;
 
+            // the volume letters only ever say something about the volume controller
+            // of the MIDI output channel this row's instrument names, so a row naming
+            // one of them leaves this column's run, the wheel's ramp, a wobble's swing,
+            // a cut's gate and a retrigger's gate where they are: the three work in
+            // parallel with the other seven rather than trading anything for anything,
+            // and a letter spelled on another column naming the same instrument reaches
+            // that instrument's level without saying anything about this column either
+            const bool volumeLetter = cell.cmd == kLevelCmd || cell.cmd == kFadeInCmd
+                                         || cell.cmd == kFadeOutCmd;
+
             if (cell.cmd == kArpCmd)
             {
                 // an arpeggiator call on the column a pitch wheel was bent in ends
@@ -1572,7 +1739,7 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // same ending, its own rows not being the ones a run steps over
                 endWheel (events, ch, midiCh + 1, offset);
             }
-            else if (cell.cmd != kSlideUpCmd && cell.cmd != kSlideDownCmd)
+            else if (! volumeLetter && cell.cmd != kSlideUpCmd && cell.cmd != kSlideDownCmd)
             {
                 // a row naming a command that is not a slide leaves no ramp in
                 // force: the wheel such a row asks for is a point rather than a
@@ -1605,7 +1772,7 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             // ramp another column was climbing is left climbing on because the wheel
             // is that column's own state rather than one this row has anything to do
             // with
-            if (cell.cmd != kBendCmd)
+            if (! volumeLetter && cell.cmd != kBendCmd)
             {
                 if (cell.cmd == kRetrigCmd && state.vibRunning())
                     endWheel (events, ch, midiCh + 1, offset);
@@ -1626,7 +1793,7 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             // of its own does so below, at the note it entered or at the note it has been
             // holding, the way a slide row arms its own ramp at the point this left the
             // wheel at
-            if (cell.cmd != kCutCmd)
+            if (! volumeLetter && cell.cmd != kCutCmd)
                 state.endCut();
 
             // a row naming a command that is not the retrigger letter leaves no retrigger
@@ -1643,18 +1810,32 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             // or at the note it has been holding, and a retrigger row leaves the cut's gate
             // away beside it, a cut and a retrigger not being two gates one column can hold
             // at once
-            if (cell.cmd != kRetrigCmd)
+            if (! volumeLetter && cell.cmd != kRetrigCmd)
                 state.endRetrig();
+
+            // a row naming one of the two fade letters leaves nothing in force below
+            // it: the ramp it armed belongs to the MIDI output channel rather than to
+            // this column, so it has no letter of this column left to answer the rows
+            // under it, which is what makes a row naming only an argument there name
+            // nothing at all, and what stops the tracker drawing a carried letter and
+            // a step over the rows below. The level letter is not one-shot: it sits with
+            // the plain CC numbers the column answers, so an argument named under a
+            // carried one sets and sends a new level further down
+            if (cell.cmd == kFadeInCmd || cell.cmd == kFadeOutCmd)
+            {
+                state.lastCmd = -1;
+                state.lastCmdVal = -1;
+            }
         }
 
-        // An explicit volume or pan cell always drives its configured controller
-        // (CC7 and CC10 by default, named in the Settings tab). This happens
-        // before the note handling, so a note-off row still applies them.
-        if (cell.vol != kEmpty)
-            events.push_back ({ offset, 2,
-                                juce::MidiMessage::controllerEvent (midiCh + 1, volumeCc,
-                                                                    juce::jlimit (0, 127, cell.vol)) });
-
+        // An explicit volume cell no longer drives a controller at all: it names the
+        // velocity a note entered in this row is struck at, which the note handling
+        // below reads, so the row having only one says nothing on its own. A pan
+        // cell still sends its configured controller (CC10 by default, named in the
+        // Settings tab), and this happens before the note handling, so a row holding
+        // only a note-off still applies it. The volume a MIDI output channel sounds
+        // at is what the L, I and O letters of the Command column send instead, to
+        // the controller the Settings name for them (CC7 channel volume by default)
         if (cell.pan != kEmpty)
             events.push_back ({ offset, 2,
                                 juce::MidiMessage::controllerEvent (midiCh + 1, panCc,
@@ -1725,7 +1906,7 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             }
             else if (notesThisRow.insert (key).second)
             {
-                const int velocity = cell.vol != kEmpty ? cell.vol : juce::jlimit (1, 127, state.lastVol > 0 ? state.lastVol : 100);
+                const int velocity = cell.vol != kEmpty ? cell.vol : juce::jlimit (1, kCcTop, state.lastVol);
                 startNote (events, offset, ch, midiCh, enterNote, velocity);
                 state.activeClip = clip.uid;
                 enteredNote = enterNote; // the pitch this channel sent, which is what a
@@ -1801,6 +1982,13 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // had left the wheel part way down its swing
                 retrigCommand (events, ch, offset, rowPpq, cell.cmdVal, true, enteredNote,
                                noteHere, midiCh, song);
+            else if (cell.cmd == kLevelCmd || cell.cmd == kFadeInCmd || cell.cmd == kFadeOutCmd)
+                // one of the three volume letters: what it says is about the volume
+                // controller of the MIDI output channel this row's instrument names,
+                // which is the same level and the same ramp a further column naming
+                // that instrument reaches, and one that is nothing at all to do with
+                // this column's run, wheel, wobble or gates
+                volCommand (events, midiCh, cell.cmd, cell.cmdVal, offset, rowPpq, clip.uid);
             else
                 events.push_back ({ offset, 3, juce::MidiMessage::controllerEvent (midiCh + 1,
                                                                                   juce::jlimit (0, kCcTop, cell.cmd),
@@ -1880,6 +2068,16 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 retrigCommand (events, ch, offset, rowPpq, cell.cmdVal, false, enteredNote,
                                noteHere, midiCh, song);
             }
+            else if (state.lastCmd == kLevelCmd)
+            {
+                // under a carried level letter the argument is a new level rather than
+                // anything the row itself names: the row sets that level on the
+                // instrument's own volume controller and sends it there, an argument
+                // being as much a level as the row that named the L spelled one, and
+                // puts any ramp that was still counting on away rather than leaving
+                // one stepping toward the level above had called with
+                volCommand (events, midiCh, kLevelCmd, cell.cmdVal, offset, rowPpq, clip.uid);
+            }
             else
             {
                 // the argument of an arpeggiator call is its macro id, so a row
@@ -1917,10 +2115,12 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             state.columnNote = -1;
 
         // the ramp this channel's column has in force is not moved here, and neither
-        // is the swing of a wobble it has in force or the release of a cut it has in
-        // force: their steps, points and subticks are nearer than a row, so process()
-        // flushes them after the row it has processed, up to that row's end, which is
-        // what leaves a row's own steps, points and waiting note-offs waiting for the
+        // is the swing of a wobble it has in force, the release of a cut it has in
+        // force, the strikes a retrigger has waiting or the values of a volume fade
+        // this row armed on the MIDI output channel: their steps, points, subticks,
+        // strikes and values are nearer than a row, so process() flushes them after
+        // the row it has processed, up to that row's end, which is what leaves a row's
+        // own steps, points, waiting note-offs and fade values waiting for the
         // block that reaches them rather than being bunched onto this row's samples
 
         uiRow[(size_t) ch].store (row);
@@ -2034,6 +2234,19 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
             flushRetrig (events, ch, ppqStart, juce::jmin (ppqEnd, c.cutRowEnd), ppqPerSample, numSamples, song);
     }
 
+    // a volume ramp counts on the same grid rather than on one per column, so its
+    // values wait between blocks the way a run's steps, a ramp's, a wobble's points
+    // and a cut's release do, and they belong to the MIDI output channel rather than
+    // to the column that armed them, which is why this loop goes over the channels
+    // the tracker's does
+    for (int m = 0; m < kMidiChannelCount; ++m)
+    {
+        auto& v = vols[(size_t) m];
+
+        if (v.fadeRunning())
+            flushVolume (events, m, ppqStart, juce::jmin (ppqEnd, v.rowEnd), ppqPerSample, numSamples, song);
+    }
+
     for (auto& clip : song.clips)
     {
         const auto* pattern = song.findPattern (clip.patternId);
@@ -2127,6 +2340,25 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
 
                 flushRetrig (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
             }
+
+            // the ramp a volume letter armed at this row counts its values from this
+            // row too, so its values sit at their own sub-ticks of the Settings' grid
+            // up to this row's end rather than being bunched onto it, a ramp wider than
+            // the row's own sub-ticks waiting for the rows below or for the next block
+            // the way a run's steps, a slide's ramp, a wobble's points, a cut's release
+            // and a retrigger's strikes do, and they are owned by the MIDI output
+            // channel rather than by the column that armed them, which is why this loop
+            // goes over the channels rather than sitting inside the tracker's one
+            for (int m = 0; m < kMidiChannelCount; ++m)
+                vols[(size_t) m].rowEnd = rowEnd;
+
+            for (int m = 0; m < kMidiChannelCount; ++m)
+            {
+                auto& v = vols[(size_t) m];
+
+                if (v.fadeRunning())
+                    flushVolume (events, m, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+            }
         }
 
         // A row the transport starts inside. A fresh start and a forward seek
@@ -2187,6 +2419,20 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
 
                         flushRetrig (events, ch, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
                     }
+
+                    // a ramp a volume letter armed at this row counts from this row as
+                    // well, which is what a fade written at the row a seek landed inside
+                    // starts sending its values from that row rather than a row below it
+                    for (int m = 0; m < kMidiChannelCount; ++m)
+                        vols[(size_t) m].rowEnd = rowEnd;
+
+                    for (int m = 0; m < kMidiChannelCount; ++m)
+                    {
+                        auto& v = vols[(size_t) m];
+
+                        if (v.fadeRunning())
+                            flushVolume (events, m, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+                    }
                 }
             }
         }
@@ -2239,6 +2485,21 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                     c.endBend();
                 }
             }
+
+            // a volume ramp this clip's own row armed has no rows below the clip left
+            // to keep counting its sub-ticks either, so it is put away at that clip's
+            // end rather than finishing its fade over the rows of the clip below. Unlike
+            // a wheel's ramp there is no message that says a channel's volume is back at
+            // some neutral value, so putting the ramp away sends nothing of its own: the
+            // volume stays at whatever value had been sent, the way a wobble this clip
+            // armed is left at the pitch its last point had got to
+            for (int m = 0; m < kMidiChannelCount; ++m)
+            {
+                auto& v = vols[(size_t) m];
+
+                if (v.rampClip == clip.uid)
+                    v.endFade();
+            }
         }
     }
 
@@ -2248,6 +2509,11 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     // its waiting steps end as well, and nothing below it can swing a wobble whose
     // clip is gone either, which is what leaves the wheel that wobble had left off
     // the centre returned rather than bent over the clips that are still under it.
+    // A volume ramp is deliberately left alone here: a level belongs to the output
+    // channel rather than to a column's rows, and unlike the wheel no controller
+    // has a state such a block could put that channel back to, so a fade whose
+    // arming clip was taken away keeps counting toward its level rather than leaving
+    // the channel stuck at wherever that fade had got to
     for (int ch = 0; ch < kMaxTrackerChannels; ++ch)
     {
         auto& c = channels[(size_t) ch];

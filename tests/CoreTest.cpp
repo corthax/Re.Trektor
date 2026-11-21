@@ -1240,9 +1240,14 @@ int main()
 
         auto& c0 = p.cell (0, 0);
         c0.inst = 1;
-        c0.vol = 100;
+        c0.vol = 100; // the note velocity the column now names: it sends nothing of its own
         c0.cmd = kBendCmd;
         c0.cmdVal = 96; // the row asks for a point on the wheel and strikes nothing
+
+        auto& c1 = p.cell (1, 0);
+        c1.inst = 1;
+        c1.cmd = kLevelCmd;
+        c1.cmdVal = 100; // the level letter is what reaches that MIDI output channel
 
         // the clip is 16 rows long at four rows a beat: its end sits at 4.0 ppq,
         // which block 187 straddles
@@ -1454,9 +1459,14 @@ int main()
 
         auto& c0 = p.cell (0, 0);
         c0.inst = 0;
-        c0.vol = 100;
+        c0.vol = 100; // the note velocity the column now names: it sends nothing of its own
         c0.cmd = kSlideUpCmd;
         c0.cmdVal = 8; // a slide wider than the clip that named it, striking no note of its own
+
+        auto& c1 = p.cell (1, 0);
+        c1.inst = 0;
+        c1.cmd = kLevelCmd;
+        c1.cmdVal = 100; // the level letter is what reaches that MIDI output channel
 
         // block 46 straddles 1.0 ppq, the clip's own end
         h.runBlocks (47);
@@ -3840,11 +3850,28 @@ int main()
                                             && h.raw[i - 1].pitch == 60;
             const bool notTwoAheads = i < 2
                                         || ! (h.raw[i - 2].kind == 0 && h.raw[i - 2].pitch == 60);
-            const bool notOpenedAfter = i + 1 >= (int) h.raw.size()
-                                          || ! (h.raw[i + 1].kind == 0 && h.raw[i + 1].pitch == 60);
+
+            // what follows that note-on in the order a host reads it is no longer
+            // pinned to one slot: a volume cell used to name a controller there and
+            // the volume column sends nothing of its own now, so the release of a
+            // pitch asked for here is asked for by sample rather than by position
+            // in the stream
+            bool noReleaseAtThatSample = true;
+
+            for (int j = i + 1; j < (int) h.raw.size (); ++j)
+            {
+                if (h.raw[(size_t) j].offset == h.raw[(size_t) i].offset)
+                {
+                    if (h.raw[(size_t) j].kind == 0 && h.raw[(size_t) j].pitch == 60)
+                        noReleaseAtThatSample = false;
+                }
+                else
+                    break;
+            }
+
             check (oneReleaseAhead && notTwoAheads,
                    "the note the second clip enters at its row 0 has one release ahead of it rather than two, the shape a note change inside one clip already sends, so a host that answers the sample rather than its order does not open the note at once");
-            check (notOpenedAfter, "nothing opens that note right after striking it, so it still sounds over the rows below its row 0");
+            check (noReleaseAtThatSample, "no release of that pitch is asked for at the very sample it was opened at, so it still sounds over the rows below its row 0");
             boundaryHeard = true;
             break;
         }
@@ -3970,9 +3997,9 @@ int main()
         check (firstOf (h, 1, 60) < 0, "a seek forward into that row still honours the setting");
     }
 
-    //== Volume + pan controllers =============================================
+    //== Volume velocity + level + pan controllers ============================
     {
-        std::cout << "Volume + pan controllers\n";
+        std::cout << "Volume velocity, level letter and pan controllers\n";
         Harness h;
         auto& p = h.song.patterns[0];
         p.setLength (8);
@@ -3980,10 +4007,13 @@ int main()
         auto& c0 = p.cell (0, 0);
         c0.note = 60;
         c0.inst = 0;
-        c0.vol = 127; // three decimal digits: the largest volume
+        c0.vol = 127; // three decimal digits: the largest velocity the column holds
 
         p.cell (1, 0).pan = 120;
-        p.cell (2, 0).vol = 64; // volume without a note
+        p.cell (2, 0).vol = 64; // a velocity with no note beside it
+        p.cell (3, 0).inst = 0;
+        p.cell (3, 0).cmd = kLevelCmd;
+        p.cell (3, 0).cmdVal = 100; // what that MIDI output channel sounds at
 
         h.runBlocks (40);
 
@@ -4002,9 +4032,29 @@ int main()
                 ++velocity127;
 
         check (p.cell (0, 0).vol == 127, "volume holds a three-digit decimal value");
-        check (cc7 >= 2, "both volume cells drive CC7, with and without a note");
+        check (cc7 == 0, "a volume cell sends no controller at all, with or without a note beside it");
         check (cc10 >= 1, "the pan cell drives CC10");
-        check (velocity127 >= 1, "the volume also sets the note-on velocity");
+        check (velocity127 >= 1, "the volume sets the note-on velocity");
+
+        // the level letter is what drives the channel volume, and it carries down
+        // the column like a plain CC: an argument-only row under it names a new
+        // level there
+        int levelSends = 0;
+        for (auto& cc : h.controllers)
+            if (cc.number == 7 && cc.value == 100)
+                ++levelSends;
+
+        p.cell (4, 0).cmdVal = 40; // an argument alone under the carried L
+        h.runBlocks (8);
+
+        int carriedLevel = 0;
+        for (auto& cc : h.controllers)
+            if (cc.number == 7 && cc.value == 40)
+                ++carriedLevel;
+
+        check (levelSends >= 1 && carriedLevel >= 1,
+               "the level letter sends the level it named on its own row and an argument named under a carried one sets a new level there");
+        p.cell (4, 0).cmdVal = kEmpty;
 
         // the controllers also apply on a row that only says "stop the note"
         Harness hOff;
@@ -4013,8 +4063,10 @@ int main()
         pOff.cell (0, 0).note = 60;
         pOff.cell (0, 0).inst = 0;
         pOff.cell (1, 0).note = kNoteOff;
-        pOff.cell (1, 0).vol = 33;
         pOff.cell (1, 0).pan = 110;
+        pOff.cell (1, 0).cmd = kLevelCmd;
+        pOff.cell (1, 0).cmdVal = 33;
+        pOff.cell (1, 0).vol = 33; // a velocity the row's own note-off leaves nothing to strike
 
         hOff.runBlocks (40);
 
@@ -4029,7 +4081,7 @@ int main()
         }
 
         check (cc7Off >= 1 && cc10Off >= 1,
-               "a note-off row still applies its explicit volume and pan controllers");
+               "a note-off row still applies its level letter and its pan controller");
 
         // the columns drive whatever CC the settings name
         Harness h2;
@@ -4039,6 +4091,9 @@ int main()
         p2.cell (0, 0).inst = 0;
         p2.cell (0, 0).vol = 100;
         p2.cell (1, 0).pan = 30;
+        p2.cell (2, 0).inst = 0;
+        p2.cell (2, 0).cmd = kLevelCmd;
+        p2.cell (2, 0).cmdVal = 100;
         h2.song.settings.volumeCc = 5;
         h2.song.settings.panCc = 11;
 
@@ -4055,7 +4110,7 @@ int main()
                 ++stray;
         }
 
-        check (cc5 >= 1, "volume drives the configured CC5");
+        check (cc5 >= 1, "the level letter drives the configured CC5");
         check (cc11 >= 1, "pan drives the configured CC11");
         check (stray == 0, "no CC7/CC10 once the settings name other controllers");
 
@@ -4088,6 +4143,169 @@ int main()
                "the property does not come back on a reload of it, which leaves the older state a one-way read");
         check (! then.toValueTree().toXmlString().contains ("hexDisplay"),
                "nor does the older state's hex spelling, which the current build has no setting to put it back into");
+    }
+
+    //== The volume letters ===================================================
+    {
+        std::cout << "A fade in over a level never named\n";
+        {
+            Harness h;
+            auto& p = h.song.patterns[0];
+            p.setLength (8);
+            p.cell (0, 0).inst = 0;
+            p.cell (0, 0).cmd = kFadeInCmd;
+            p.cell (0, 0).cmdVal = 10; // I 10 with no L above: the level is the default
+            h.runBlocks (100);
+
+            std::vector<int> values;
+            for (auto& cc : h.controllers)
+                if (cc.number == 7)
+                    values.push_back (cc.value);
+
+            const std::vector<int> ramped { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 127 };
+            check (values == ramped,
+                   "an I with no L above fades the default level up one value every sub-tick of the Settings' grid, a sub-tick being 1000 samples of the 6000-sample row at the Settings' 6 to a row, the ramp's first value being nothing at the letter's own sample");
+            check (values.size() == ramped.size(),
+                   "and it says its 14 values rather than one a hair short of the level and another past it");
+            check (values.back() == kVolDefaultLevel,
+                   "the last value is the level itself, landed on exactly and sent once, which is what stops a fade there rather than leaving the controller named over every row under it");
+        }
+        std::cout << "A level letter then a fade out\n";
+        {
+            Harness h;
+            auto& p = h.song.patterns[0];
+            p.setLength (8);
+            p.cell (0, 0).inst = 0;
+            p.cell (0, 0).cmd = kLevelCmd;
+            p.cell (0, 0).cmdVal = 80; // L 80 at row 0
+            p.cell (2, 0).cmd = kFadeOutCmd;
+            p.cell (2, 0).cmdVal = 10; // O 10 two rows below
+            h.runBlocks (100);
+
+            std::vector<int> values;
+            for (auto& cc : h.controllers)
+                if (cc.number == 7)
+                    values.push_back (cc.value);
+
+            const std::vector<int> levelThenRamp { 80, 80, 70, 60, 50, 40, 30, 20, 10, 0 };
+            check (values == levelThenRamp,
+                   "the level letter sends 80 at its own row and the O below it starts at that level and falls to nothing one sub-tick apart, 0 at the 20000th sample of the transport");
+            check (values[1] == values[0],
+                   "the letter's own row re-states the level the ramp starts from rather than its first step, which is what lets a host hear the controller rather than only its own change of it");
+            check (values.back() == 0, "and the fade lands on nothing exactly");
+        }
+        std::cout << "A fade wider than the clip that armed it, put away at that clip's end\n";
+        {
+            Harness h;
+            auto& p = h.song.patterns[0];
+            p.setLength (4); // the clip ends at 1.0 ppq, the 24000th sample
+            p.cell (0, 0).inst = 0;
+            p.cell (0, 0).cmd = kFadeInCmd;
+            p.cell (0, 0).cmdVal = 1; // I 1: 128 values, a whole row's worth of them past the clip
+            h.runBlocks (60);
+
+            std::vector<int> values;
+            for (auto& cc : h.controllers)
+                if (cc.number == 7)
+                    values.push_back (cc.value);
+
+            bool stepped = (int) values.size() == 24;
+            for (size_t i = 0; i < values.size(); ++i)
+                if (values[i] != (int) i)
+                    stepped = false;
+
+            check (stepped,
+                   "the ramp counts 0 to 23 at one value per 1000 samples and stops at the 23000th: only the values inside the clip's own rows are asked for");
+            check (values.size() == 24,
+                   "and no value of that ramp is asked for at or past the clip's end, the ramp being put away there rather than finishing its fade over the rows of the clip below");
+        }
+        std::cout << "An O taken over by an I and a step of 0 that only holds\n";
+        {
+            Harness h;
+            auto& p = h.song.patterns[0];
+            p.setLength (8);
+            p.cell (0, 0).inst = 0;
+            p.cell (0, 0).cmd = kFadeOutCmd;
+            p.cell (0, 0).cmdVal = 10;
+            p.cell (2, 0).cmd = kFadeInCmd;
+            p.cell (2, 0).cmdVal = 10;
+            h.runBlocks (100);
+
+            std::vector<int> values;
+            for (auto& cc : h.controllers)
+                if (cc.number == 7)
+                    values.push_back (cc.value);
+
+            check (values.size() == 26 && values[11] == 17,
+                   "the O counts 127 down to 17, its ramp being taken away at the I's own row rather than finishing its fade to nothing beside the new letter");
+            check (values[12] == 0 && values.back() == kVolDefaultLevel,
+                   "and the I arms a ramp of its own at that row, sending nothing there and climbing to the level again at the 25000th sample");
+        }
+        {
+            std::cout << "A step of 0 stopping the ramping rather than ramping\n";
+            Harness h;
+            auto& p = h.song.patterns[0];
+            p.setLength (8);
+            p.cell (0, 0).inst = 0;
+            p.cell (0, 0).cmd = kLevelCmd;
+            p.cell (0, 0).cmdVal = 66;
+            p.cell (2, 0).cmd = kFadeInCmd;
+            p.cell (2, 0).cmdVal = 0; // I 0: no step at all
+            h.runBlocks (100);
+
+            int sent = 0;
+            for (auto& cc : h.controllers)
+                if (cc.number == 7)
+                    ++sent;
+
+            check (sent == 1,
+                   "the level letter's 66 is the only controller over those blocks: an argument of 0 arms no ramp, sends nothing of its own and leaves that 66 in force rather than stating it once more");
+        }
+        std::cout << "A fade armed from one column and a level named from another of the same instrument\n";
+        {
+            Harness h;
+            auto& p = h.song.patterns[0];
+            p.setChannels (2);
+            p.cell (0, 0).inst = 0;
+            p.cell (0, 0).cmd = kFadeInCmd;
+            p.cell (0, 0).cmdVal = 1;
+            p.cell (4, 1).inst = 0; // the other tracker channel, the same instrument
+            p.cell (4, 1).cmd = kLevelCmd;
+            p.cell (4, 1).cmdVal = 40;
+            p.cell (6, 0).inst = 0;
+            p.cell (6, 0).cmd = kFadeInCmd;
+            p.cell (6, 0).cmdVal = 10;
+            h.runBlocks (100);
+
+            std::vector<int> values;
+            for (auto& cc : h.controllers)
+                if (cc.number == 7)
+                    values.push_back (cc.value);
+
+            check ((int) values.size() == 30 && values[23] == 23 && values[24] == 40,
+                   "the level named on the parallel column reaches the same channel: it stops the first column's ramp at its 23 and states 40 at its own row, the 24000th sample, rather than the two columns each keeping a level of their own");
+            bool secondRamp = values.size() >= 30;
+            for (int i = 0; i < 5 && secondRamp; ++i)
+                if (values[25 + i] != i * 10)
+                    secondRamp = false;
+            check (secondRamp,
+                   "and a further I spelled on the first column fades to the level the other column named, its 0 at the 36000th sample and its 40 landed on exactly at the 40000th, which is what says the level belongs to the MIDI output channel rather than to the column a row sits in");
+        }
+        std::cout << "A volume letter beside a wheel left bent\n";
+        {
+            Harness h;
+            auto& p = h.song.patterns[0];
+            p.setLength (8);
+            p.cell (0, 0).inst = 0;
+            p.cell (0, 0).cmd = kBendCmd;
+            p.cell (0, 0).cmdVal = 96;
+            p.cell (1, 0).cmd = kLevelCmd;
+            p.cell (1, 0).cmdVal = 50;
+            h.runBlocks (40);
+
+            check (h.bends.size() == 1 && h.bends[0] == 12288,
+                   "the one wheel message over those blocks is the point the bend row asked for: a row naming a volume letter says nothing of its own about the wheel, so it leaves the point bent above it rather than trading it for a straight one, the way a row naming any other command kind does");
+        }
     }
 
     //== A command argument without a command number ===========================
@@ -4210,16 +4428,15 @@ int main()
         hp.cell (0, 0).pan = 40;
         h.runBlocks (40);
 
-        int cc7 = 0, cc10 = 0;
+        int velocity90 = 0, cc10 = 0;
         for (auto& cc : h.controllers)
-        {
-            if (cc.number == 7 && cc.value == 90)
-                ++cc7;
             if (cc.number == 10 && cc.value == 40)
                 ++cc10;
-        }
+        for (auto& n : h.notes)
+            if (n.on && n.note == 60 && n.velocity == 90)
+                ++velocity90;
 
-        check (cc7 >= 1 && cc10 >= 1, "hidden columns still play: visibility is display only");
+        check (velocity90 >= 1 && cc10 >= 1, "hidden columns still play: visibility is display only");
     }
 
     //== Interpolation ========================================================

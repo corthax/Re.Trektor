@@ -90,7 +90,16 @@ namespace
         wheel at its own point. */
     bool commandLeavesCarry (const Cell& cell)
     {
-        return cell.cmd != kEmpty && ! commandArgumentReleases (cell.cmd, cell.cmdVal);
+        if (cell.cmd == kEmpty || commandArgumentReleases (cell.cmd, cell.cmdVal))
+            return false;
+
+        // the two volume fades are one-shots: the ramp they armed belongs to the
+        // MIDI output channel rather than to this column, so there is no letter of
+        // this column left in force under them and a row naming only an argument
+        // there answers nothing - the level letter does keep being carried, sitting
+        // with the plain CC numbers the column answers, so an argument named under
+        // it below sets and sends a new level there
+        return cell.cmd != kFadeInCmd && cell.cmd != kFadeOutCmd;
     }
 
     /** Steps what a column carries for its command by the row it is carried into,
@@ -903,6 +912,43 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     // every period the column carries rather than sounding
                                     // once and being left held until something else ends them
                                     text = "R";
+                                    colour = theme::cmdOther;
+                                }
+                                else if (cmdNum == kLevelCmd)
+                                {
+                                    // the level letter is drawn as its letter too, in
+                                    // the same lilac: it names the volume the MIDI
+                                    // output channel its instrument names sounds at
+                                    // rather than calling anything, so its argument
+                                    // beside it is that volume, 0..127. Unlike the
+                                    // two fade letters this one keeps being carried
+                                    // down under it, so the rows below a named one
+                                    // draw the letter and their carried level dim,
+                                    // which is what says that an argument named
+                                    // there sets a new level on that channel rather
+                                    // than being a plain CC the column answers with
+                                    text = "L";
+                                    colour = theme::cmdOther;
+                                }
+                                else if (cmdNum == kFadeInCmd || cmdNum == kFadeOutCmd)
+                                {
+                                    // the two fades are drawn as their letters too, in
+                                    // the same lilac: they ramp the volume controller
+                                    // of the MIDI output channel this row's instrument
+                                    // names rather than calling anything, so their
+                                    // argument beside them is how much that controller
+                                    // moves every sub-tick of the Settings' grid - I
+                                    // climbing from nothing toward the level L set and
+                                    // O falling from that level toward nothing, the
+                                    // value at this row being the ramp's first one.
+                                    // Unlike the level letter and the two gates, these
+                                    // two are one-shots: their ramp belongs to that
+                                    // channel rather than to this column, so the rows
+                                    // under them draw neither letter nor step, which
+                                    // is what says a further row naming only an argument
+                                    // there answers nothing rather than retargeting a
+                                    // fade that is already counting on
+                                    text = cmdNum == kFadeInCmd ? "I" : "O";
                                     colour = theme::cmdOther;
                                 }
                                 else
@@ -2056,11 +2102,14 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
         // letters, a digit already being typed having been appended by the
         // editing path above, and the argument typed next names what that
         // letter's own field means: a macro id for A, a point on the wheel for B,
-        // a span in rows for U and D, a vibrato macro id for V and a count of
-        // subticks for C or a count of the sub-ticks apart a note is struck again
-        // at for R. The note column's own r still types the octave-up F natural
-        // beside it, since a letter only claims the field the cursor is on, the
-        // same way the cut letter's c types an E natural there
+        // a span in rows for U and D, a vibrato macro id for V, a count of
+        // subticks for C, a count of the sub-ticks apart a note is struck again
+        // at for R, the volume a MIDI output channel's controller is set to for
+        // L and the volume one sub-tick moves for I or O. The note column's own
+        // r still types the octave-up F natural beside it, since a letter only
+        // claims the field the cursor is on, the same way the cut letter's c
+        // types an E natural there and the o the argument field spells the wheel's
+        // release with stays the argument field's alone
         if (cursorField == Field::cmdNum)
         {
             const int letterCmd = text == 'a' || text == 'A' ? kArpCmd
@@ -2070,6 +2119,9 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
                                 : text == 'v' || text == 'V' ? kVibCmd
                                 : text == 'c' || text == 'C' ? kCutCmd
                                 : text == 'r' || text == 'R' ? kRetrigCmd
+                                : text == 'l' || text == 'L' ? kLevelCmd
+                                : text == 'i' || text == 'I' ? kFadeInCmd
+                                : text == 'o' || text == 'O' ? kFadeOutCmd
                                                              : kEmpty;
 
             if (letterCmd != kEmpty)
@@ -2084,18 +2136,23 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
                 // release, id 0, a bend starts at the wheel's centre and a slide
                 // starts at the default span of rows its extreme is counted over,
                 // a cut starts at the default count of subticks its note is held
-                // for and a retrigger starts at the default count of sub-ticks
-                // apart its note is struck again at, so a row that names only the
-                // letter spells the command it asks for rather than locking the
-                // wheel to its bottom, bending nowhere, sliding over no rows at all,
-                // holding a note for no subticks or striking a note again at the
-                // sample it was entered at, which would read as the release instead
+                // for, a retrigger starts at the default count of sub-ticks apart
+                // its note is struck again at, a level letter starts at the default
+                // level the channel's controller is set to and the two fade letters
+                // start at the default volume one sub-tick moves, so a row that
+                // names only the letter spells the command it asks for rather than
+                // locking the wheel to its bottom, bending nowhere, sliding over no
+                // rows at all, holding a note for no subticks, striking a note again
+                // at the sample it was entered at, setting the channel to silence
+                // or fading over no volume at all, which would read as a hold
                 if (claim.cmdVal == kEmpty)
                     claim.cmdVal = letterCmd == kBendCmd ? kBendCentreVal
                                  : letterCmd == kSlideUpCmd || letterCmd == kSlideDownCmd ? kSlideDefaultSpan
                                  : letterCmd == kCutCmd ? kCutDefaultTicks
                                  : letterCmd == kRetrigCmd ? kRetrigDefaultTicks
-                                                           : 0;
+                                 : letterCmd == kLevelCmd ? kVolDefaultLevel
+                                 : letterCmd == kFadeInCmd || letterCmd == kFadeOutCmd ? kFadeDefaultStep
+                                                                                       : 0;
 
                 markChanged();
                 repaint();
@@ -2123,13 +2180,13 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
         // own either, and an o beside or under the retrigger letter stops its striking
         // rather than re-hitting a note at the sample it was entered at: the note the
         // column has been holding is closed there and the gate is put away below, the
-        // note entering a row under it sustaining again until something else ends it. An
-        // s asks for nothing beside a call, a vibrato, a cut or a retrigger, since none
-        // of them has a move of the wheel to stop - a cut's and a retrigger's letters
-        // gate the notes below them rather than making the wheel climb, so there is
-        // nothing there to hold - so a letter neither claim owns where the cursor sits
-        // is left alone rather than writing a value or typing a note beside it, and the
-        // cell's value stays as it was
+        // note entering a row under it sustaining again until something else ends it.
+        // The three volume letters take neither spelling either: the level letter has
+        // no move to stop and nothing to go off, and the two fade letters hold at the
+        // volume their last value reached rather than at a point of a wheel, their own
+        // stopping being the 0 their field already spells. So a letter neither claim
+        // owns where the cursor sits is left alone rather than writing a value or
+        // typing a note beside it, and the cell's value stays as it was
         if (cursorField == Field::cmdVal)
         {
             const int kind = commandKindAt (cursorRow, cursorChannel);
