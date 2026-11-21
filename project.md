@@ -123,8 +123,13 @@ cmake --build tests/build -j"$(nproc)"
   row once at the first sample when the reported start sits a hair past it rather
   than a whole block inside it and playing it once only there, and
   keeping a fresh start inside a row and a seek forward into it honouring the
-  mid-row setting while the wrap ignores it, the volume/pan columns' controller numbers, per-channel column
-  visibility (and that hidden columns still play), interpolation of one column
+  mid-row setting while the wrap ignores it, the volume column setting only the velocity a note entered
+  beside it is struck at and sending no controller with or without that note while the Pan column
+  drives its configured one and the level letter drives the configured volume CC, an argument named
+  under a carried one setting a new level there, per-channel column visibility (and that hidden
+  columns still play, a hidden volume column still setting the velocity and a hidden pan column
+  still sending its controller),
+  interpolation of one column
   between the values that already exist (the tool is handed a predicate over
   (row, channel) rather than a row and channel range, so the checks drive it with
   a rectangle mask helper and a selection with a hole in it: the ramp restarting
@@ -369,7 +374,21 @@ cmake --build tests/build -j"$(nproc)"
   of its own having nothing to release so the wheel being all that is left to put away, and the
   only all-notes-offs there the ones the transport's own start asks for, one per channel, which is
   what leaves the clip's end sending only the wheel's take-back rather than releasing anything of
-  its own.
+  its own; and the three volume letters at that layer too, a fade in over a level never named saying
+  the default's fourteen values one sub-tick apart from the letter's own sample and landing on 127
+  exactly once rather than naming the controller over the rows under it, a level letter then a fade
+  out re-stating that level at the ramp's head rather than at its first step and falling to nothing
+  at the 20000th sample of the transport, a ramp wider than the clip that armed it counted 0 to 23
+  and put away at that clip's end with nothing asked for at or past it, an `O` taken over at an
+  `I`'s own row stopping at its 17 rather than finishing its fade beside the new letter and that
+  `I` arming a ramp of its own and climbing back to the level at the 25000th sample, an argument of
+  `0` arming no ramp, sending nothing of its own and leaving the level letter's one controller the
+  only one sent over those blocks, a level named on a parallel tracker channel of the same
+  instrument reaching the same output channel - stopping one column's ramp at its 23, stating 40 at
+  its own row and letting a further `I` spelled on the first column fade to that 40 rather than to a
+  level of that column's own - and a row naming a volume letter beside a wheel left bent saying
+  nothing of its own about that wheel, the bend's 12288 being the one wheel message over those
+  blocks, the way a row naming any other command kind does.
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column chips
   clicked per channel, selection gestures — a click selecting one cell, a drag
@@ -418,8 +437,11 @@ cmake --build tests/build -j"$(nproc)"
   default dropped outright so the panel exposes no toggle under that name and the
   saved settings block no longer carries the property the undo line and the host's
   blocks save,
-  volume column entering three decimal digits and emitting
-  CC7, the settings volume/pan CC sliders driving those columns, tools
+  volume column entering three decimal digits and setting only the velocity a note entered beside it
+  is struck at rather than sending any controller, with that note or without one and whatever the
+  Settings name, the Pan column following its configured CC while nothing is played on CC7 or CC10
+  once the two sliders name other controllers, the Settings tab's volume letter and Pan column CC
+  sliders driving those, tools
   transpose with its semitone amount field and its two direction buttons (one
   amount moving both ways, notes stopping at the edge of the note range, a
   `===` row having no number to move), instrument remap with its source and
@@ -582,7 +604,10 @@ cmake --build tests/build -j"$(nproc)"
   own `+` button still costs one step of its interval and one undo point, and that the row
   leaves the depth where the round's other checks read it, the tab being put back on the
   tracker for the sections below) and confirms which MIDI channel and which
-  controller value the notes and columns end up on
+  controller value the notes and columns end up on, the volume column driving no controller at all
+  beside those two - a level letter spelled in a channel whose command column is hidden driving the
+  configured volume CC there while the hidden volume column of another still sets the velocity of
+  its note and that channel's hidden pan column still sends its controller
 * `ReTrektorEditorShot` – renders the editor headlessly and can dump the
   component layout (`--dump`, optionally `--tab=settings|macros|vibs|tools` to show a
   whole tab at once - the shot keeps its short aliases, `--tab=macros` naming the
@@ -703,6 +728,10 @@ cmake --build tests/build -j"$(nproc)"
   at that row's own sample as well as struck again every period the column carries below it rather
   than left sustaining until a strike one whole period below the row reached it, so a
   `--retrig=9 --retrig-ticks=8` and a `--retrig=9 --retrig-ticks=0` shot show that reading.
+  This target has no flag for the three volume letters, so none of the shots pinned below paints an
+  `L`, an `I` or an `O`: what they draw is left to the UiTest's cells rather than to a pinned image,
+  and the only shot those letters move is the Settings tab's own, whose row is now labelled for the
+  letters rather than for the volume column.
 
 Example:
 
@@ -1234,11 +1263,45 @@ base since a letter spelled on a parallel column reaches nothing across to it �
 note-on at one sample, which is what re-articulates the note rather than restarting it, and a row
 where nothing was being held and where nothing enters having no note to strike again, so that
 letter is ignored rather than armed for a pitch that was never there — rather than where on a
-wheel or in a macro the command goes. A cut's lengths and a retrigger's periods are the only
+wheel or in a macro the command goes. An `L` claims it
+and means `150`, the level letter, whose argument is the volume `0`–`127` the MIDI output
+channel that row's instrument names sounds its notes at, sent at the letter's own row and
+kept as the level further `I` and `O` rows fade to and from — a row naming only an argument
+under a carried `L` setting and sending a new level the same way, which is what makes `L` a
+command the column carries down like a plain CC number rather than one answering only its
+own row. An `I` claims it and means `151`, a fade in, and an `O` means `152`, a fade out:
+whose argument is how much that controller moves every sub-tick of the Settings' grid, an
+`I` starting at nothing and climbing toward the level and an `O` starting at that level and
+falling to nothing, the value at the letter's own row being the ramp's first one — nothing
+for an `I` and the whole level for an `O`, the way a run's first step sits at a row that
+named a note — and one more value every sub-tick below until the target is landed on exactly
+and sent once rather than overshot or re-stated, which is what stops a fade there rather than
+leaving the controller named over every row under it. The two letters are one-shots, their
+ramp being armed at that row and nothing of that column being left in force below it, so a
+row naming only an argument under one answers nothing and a further `I` or `O` row arms a
+fresh ramp of its own, while an argument of `0` arms no ramp at all and puts any ramp that
+was counting on away rather than sending one more of its values. The three of them say
+something about that channel's volume controller rather than about the column they sit on,
+which is what lets a letter spelled on any column naming that instrument reach one level and
+one ramp, a fade armed from one column and a letter answered from another naming the same
+instrument counting the same values, and what keeps them working in parallel with the other
+seven — a row naming one of them leaves a run, a wheel's ramp, a wobble's swing, a cut's gate
+and a retrigger's gate where they are, `I` stops a ramp the `O` had running and `O` stops one
+the `I` had, and `L` stops either of the two and forces the new level instead. Unlike a wheel's
+ramp, a controller has no neutral state a row can put a channel back to, so a fade that
+stopped by itself, at its arming clip's end or under a `0` leaves the volume at whatever value
+had last been sent rather than at a level of its own, and where no `L` has ever named a level
+for a channel the level its ramps fade to and from is the default `127`. A cut's lengths and
+a retrigger's periods are the only
 arguments that reach past `127`: the field is three digits deep for them, so a cut tops at
-`999` subticks and a retrigger's period reaches the same `999`, and the two numbers just below
+`999` subticks and a retrigger's period reaches the same `999`, while the level an `L` names
+and the step an `I` or an `O` moves top at the field's own `127`, and the two numbers just below
 that top, `128` and `129`, are the `OFF` and the `STP` spellings rather than lengths or periods,
-which is what leaves a cut or a retrigger of 128 or 129 subticks without a spelling of its own.
+which is what leaves a cut or a retrigger of 128 or 129 subticks without a spelling of its own,
+neither of the two spellings being asked for beside any of the three volume letters — the level
+letter has no move to go off and nothing to stop, and the two fades hold at the volume their
+last value reached rather than at a point of a wheel, their own stopping being the `0` their
+field already spells.
 The claim is only the command number field's, which is what keeps `V` a note letter where the
 note column is
 asked for: typed there it still types an F natural, the way the slide letter `D` still
@@ -1254,14 +1317,17 @@ slide letter, an older build's `143` cannot be typed back at all, and an interpo
 ramp climbs toward that highest CC rather than inventing a command. Each letter has to
 leave an argument behind, so a call and a vibrato start at the release id `0`, a bend starts at the
 wheel's centre `64`, a slide starts at the default span of `8` rows, a cut starts at a length of
-`3` subticks of that grid and a retrigger starts at a period of `3` subticks apart, which is what
+`3` subticks of that grid, a retrigger starts at a period of `3` subticks apart, a level letter
+starts at the default level `127` and the two fade letters start at a step of `10` volume, which is what
 makes a row naming only the `B` bend nowhere rather than lock the wheel to its bottom,
 a row naming only a slide letter take its extreme over 8 rows rather than over
-none at all, a row naming only the `V` read as `V OFF` rather than run the default macro
-and a row naming only the `C` or the `R` holding the note it entered for 3 subticks or striking
-it again every 3 of them rather than spelling the release instead of the gate that row asks for.
-The call pair is drawn orange and the three wheel pairs, the vibrato pair, the cut pair and the
-retrigger pair are lilac, every
+none at all, a row naming only the `V` read as `V OFF` rather than run the default macro, a row
+naming only the `C` or the `R` holding the note it entered for 3 subticks or striking
+it again every 3 of them rather than spelling the release instead of the gate that row asks for and
+a row naming only the `L`, the `I` or the `O` setting the channel to the default level or fading over
+`10` volume every sub-tick rather than setting it to silence or holding at nothing at all, which would
+read as a fade that never moves. The call pair is drawn orange and the three wheel pairs, the
+vibrato pair, the cut pair, the retrigger pair and the three volume letters are lilac, every
 value in the view being decimal, and a letter or a number a row carries from above
 draws dim like any other carried command. So does the argument carried beside
 it, and that argument is the newest one that column's rows entered rather than
@@ -1272,10 +1338,13 @@ argument is the span the rows below are still taking toward the extreme rather
 than a new point on that wheel. Under a carried cut letter it is the length the
 notes entering those rows are held for rather than a point of anything, and under
 a carried retrigger letter it is the period the notes entering those rows are
-struck again at rather than a point of anything either, and the cut `C` and the
-retrigger `R` are the two command letters that are not answered by the rows under
-them but keep being carried down them, which is what gates every note entering a
-row under either letter rather than only the row that named it — the note entered
+struck again at rather than a point of anything either, and the cut `C`, the
+retrigger `R` and the level letter `L` are the three command letters that are not answered by the
+rows under them but keep being carried down them, the two of them as gates and `L` as a level
+sitting with the plain CC numbers the column answers, which is what gates every note entering a
+row under either gate rather than only the row that named it, and what lets an argument typed
+under a carried `L` name a new level for that instrument's own volume controller there rather
+than a length or a period — the note entered
 at the letter's own row being cut or re-struck there too, a row naming nothing but
 a note under either letter being cut as well or re-struck from that row as well,
 and the letter beside a row that named no note of its own cutting or re-striking
@@ -1387,13 +1456,16 @@ removed leaves five points of the line rather than one.
   dimmer; volume, pan and instrument only carry when a note exists, command
   carries even on empty
   rows.
-* An explicit volume or pan cell always sends its controller value: CC7 (channel
-  volume) and CC10 (channel pan) by default, and the Settings tab can point
-  either column at any controller `0`–`127`. The controllers are sent before the
-  note handling, so even a row that only holds a note-off (`===`) applies them.
-  A volume on a row that also has a note is additionally used as the note-on
-  velocity, so both arrive; a volume on a row without a note only drives the
-  controller. Carried (implicit) values do not re-send.
+* The Volume column sends no controller at all: an explicit volume cell is the velocity
+  a note entered on that row is struck at, `127` (`kVolDefaultVel`) until that column ever
+  named one, and a row whose volume field is empty takes the velocity its column carried
+  above it. What a MIDI output channel sounds its notes at is the Command column's three
+  volume letters instead: `L` sets the channel's level and sends it at its own row, and
+  `I` and `O` ramp that level up from nothing and down to nothing one value every subtick
+  of the Settings' grid, all three driving the controller the Settings tab names for them
+  (CC7 channel volume by default). A pan cell still sends its configured controller (CC10
+  channel pan by default), sent before the note handling, so even a row that only holds a
+  note-off (`===`) applies it. Carried (implicit) values do not re-send.
 * Command column: values `0`–`127` are CC numbers with a `0`–`127` value,
   drawn teal. Entering just an argument, with the command number left empty,
   keeps the cell implicit and plays that argument on the command number the
@@ -1843,8 +1915,9 @@ removed leaves five points of the line rather than one.
     left to whatever ends it below — the note entering that very row being one such ending, its own
     note-on closing the pitch above at the 224th sample of the block starting at 11776 rather than
     the superseded gate being spent at its own subtick. The cut `C` and the retrigger `R` are the
-    two commands that keep being carried down the column rather than answering the rows under them,
-    so a column answers whichever of the two it carries and a row naming one leaves the other away
+    two commands that keep being carried down the column as gates rather than answering the rows
+    under them, so a column answers whichever of the two it carries and a row naming one leaves
+    the other away
     below it: a `C 9` above an `R 3` loses the cut's still-waiting note-off and re-strikes the note
     held above instead, leaving one more note-on than note-off there, and the other way round an
     `R 9` above a `C 3` loses the strike and closes that note once at the subtick the two of them
@@ -2021,8 +2094,11 @@ removed leaves five points of the line rather than one.
   back; only rows inside the visible length are played
 * Snap to grid, adaptive grid, fixed grid size
 * Record octave and step skip
-* Volume column CC and Pan column CC (default 7 and 10): the controllers those
-  columns drive, each `0`–`127`
+* Volume letter CC and Pan column CC (default 7 and 10): the controller the `L`, `I` and
+  `O` letters drive and the controller the Pan column drives, each `0`–`127`. The Volume
+  column itself drives no controller now that it only names the velocity a note entered
+  beside it is struck at, so the volume row is what points the three letters at any
+  controller a synth listens to.
 * Undo steps (default 50, range `0`–`200`): how many model states the undo keys
   (`Ctrl+Z` or `Alt+Z`) can walk back — changing a setting is itself an undoable
   action, so the row's own value rewinds too, however it was moved: a drag along
@@ -2251,8 +2327,28 @@ removed leaves five points of the line rather than one.
   shape is gone in that host rather than only in the fixture; what that section
   still covers at the engine alone is the moved-clip-from-time-0 scenario, which
   has not been asked in a host at all.
-* Command kinds beyond plain CC, the arpeggiator call, the pitch wheel, the vibrato that wobbles
-  it, the note-length cut and the note retrigger (a dedicated
+* What the three volume letters leave behind where a fade stops is the plug-in's own
+  reading rather than a controller's: a ramp counts itself away only at the level or
+  the nothing it was fading to, and the volume a channel was last sent is left in force
+  below that, since a CC has no neutral state a row, a release point or a fresh
+  transport start could put a channel back to the way a wheel's centre is one. A ramp
+  wider than the clip whose rows armed it is put away at that clip's end, its values
+  below the playhead never being asked for and the channel being left where its last
+  value had got to; a ramp whose arming clip was deleted outright is deliberately left
+  counting toward its level over the rows of any further clip of that output channel
+  instead, which is the other half of the same reading - the ramp and its level belong
+  to that channel rather than to a clip's rows, so the only ramp whose rows ran out is
+  the one that clip's own end puts away, the way a slide's ramp keeps climbing there,
+  and stopping this one at its gone clip's end would leave the channel stuck at
+  wherever that fade had got to just as the fade's own stopping does further down.
+  Neither letter ever says a level of its own, either: where no `L` has named one for
+  a channel, the level its ramps fade to and from is the default `127`, and where an
+  `I` or an `O` spells the `0` its field can spell, that letter arms no ramp, sends
+  nothing of its own and leaves the level it was fading to in force rather than
+  restating it once more.
+* Command kinds beyond plain CC, the arpeggiator call, the pitch wheel, the vibrato that
+  wobbles it, the note-length cut, the note retrigger and the three volume letters (a
+  dedicated
   pitch bend CC105/CC106 pair rather than the standard pitch wheel message, tempo, song
   position) are future work.
 * Selection snaps to channel boundaries: a cell is one channel's visible
@@ -2345,6 +2441,134 @@ Right tools panel: Transpose, Remapping, Selection Interpolation with scope: Sel
 Tabs on top: Tracker / Macros / Settings; Macros tab for arpeggiator/glide macro setup.
 Testing target: Reaper.
 Decisions
+This round takes the controller off the Volume column and puts a level and two fades on the Command
+column's three new letters, the user's ask that that column stop driving a CC and set only the
+velocity a note entered beside it is struck at, and that `L`, `I` and `O` own the volume one MIDI
+output channel sounds its notes at - `L` naming the level and sending it at its own row, `I` ramping
+that level up from nothing and `O` ramping it down to nothing one value every sub-tick of the
+Settings' grid, the argument being how much one sub-tick moves. What those three say belongs to the
+MIDI output channel the row's instrument names rather than to the tracker column the row sits in,
+which is what lets a letter spelled on any column naming that instrument reach one level and one
+ramp, a level named on a parallel column stopping and re-stating the ramp a first column was
+counting on there, and keeps the three working beside a run, a wheel's ramp, a wobble's swing and
+the two gates rather than trading any of them away. A channel's volume has no neutral state, so a
+fade that stops by itself, at its arming clip's end, under a `0` or under a further letter leaves
+that channel at whatever value its last sub-tick had sent rather than taking anything back - the
+wheel's exact centre being one state a row can put a channel back to and a CC having none at all,
+which is what makes the two kinds of ramp stop differently. The answer is spent in a VolState per
+MIDI output channel rather than in ChannelState, since the level is the channel's: level /
+fadingIn / step / steps / sent / origin / rowEnd / rampClip, endFade() putting a ramp away and
+fadeRunning() naming whether it still has values of its own left to say, the values of a ramp that
+has not reached its target being waited on by flushVolume at the three places the engine walks rows
+rather than sent by the row that armed it - counting them with sent and steps rather than summing
+them, so the ramp's grid stays exact across a block boundary - v.rowEnd naming the end of the last
+row the engine owned that ramp over so a ramp is never counted over rows that no longer run, and
+v.rampClip being what puts a ramp away at its arming clip's end beside the runs and the wobbles that
+clip had armed. The deleted-clip loop below deliberately leaves such a ramp counting on rather than
+putting it away there, the same half of that reading a slide's ramp keeps: a level belongs to the
+channel rather than to a clip's rows, so the only ramp whose rows ran out is the one that clip's own
+end puts away. volCommand and flushVolume sit above processRow rather than inside it, the letters
+being dispatched at the named row and at the carried-`L` row only, and `I` and `O` leaving lastCmd
+at -1 so they are one-shots - a row naming only an argument under one answers nothing and a further
+`I` or `O` arms a fresh ramp of its own - while `L` carries down the column with the plain CC
+numbers so an argument named under it there sets and sends a new level, the reading
+TrackerComponent::commandLeavesCarry now leaves the two fades out of and the lilac drawing follows.
+The three letters are refused an `o`/`OFF` and an `s`/`STP` spelling beside them rather than left to
+read as one of the two, a level having no move to go off and a fade's own stopping being the `0` its
+field already spells, and a bare `L` whose argument was left empty takes the default level rather
+than jlimit-to-0, only a spelled `0` asking for the channel to be set to nothing. Model.h's
+constants block gained kLevelCmd 150, kFadeInCmd 151 and kFadeOutCmd 152 - the three command values
+above the retrigger's 149 and above what the number field can spell - with kVolDefaultLevel 127,
+kFadeDefaultStep 10 and kVolDefaultVel 127, its letter paragraph going from all seven letters to
+all ten and gaining the new volume-letters paragraph, its Cell comment naming vol the velocity a
+note entered in this cell is struck at rather than a controller, its cmd / cmdVal comments naming
+the three letters and its Settings::volumeCc comment naming the letters rather than the column.
+PlaybackEngine.h's ChannelState::lastVol came back at kVolDefaultVel rather than the engine's old
+100 - the velocity default moving at the five note-on sites, which now ask for a jlimit of the
+column's carried velocity to the CC top rather than a hard-coded 100 - the volume column's
+controller emission gone outright rather than kept behind a flag, and the vols array of that new
+struct sitting beside channels rather than inside it. TrackerComponent.cpp types `l`, `i` and `o`
+in the command number field, leaves `L` at the level 127 and `I` and `O` at the step of 10 a bare
+letter asks for, draws all three lilac and refuses the two spellings beside them; SettingsPanel.cpp
+renamed its last-two-sliders row "Volume letter CC" rather than "Volume column CC", its tooltip
+naming the letters. Six readings were probed over the transport's own samples before anything was
+bent and went above the argument-without-a-command section rather than being left as prose, 14 new checks there and one more in the volume fixture reworded beside them while 5 older
+volume and pan ones were reworded for the column no longer driving a controller: an `I 10` at row
+0 with no `L` ever named above it saying the fourteen values 0, 10 ... 120 and the default's 127
+landed on exactly at 0 through 13000 samples of the transport - a row being 6000 samples and a
+sub-tick 1000 of them at the Settings' 6 to a row - and naming nothing more over the blocks below,
+which is what stops a fade at its level rather than naming the controller over every row under it;
+an `L 80` at row 0 and an `O 10` two rows under it sending 80 at that row, re-stating that level at
+the fade's own row rather than starting at its first step, then 70 down to the nothing at the
+20000th sample; an `I 1` in a pattern shortened to 4 rows counting 0 to 23 at one value per 1000
+samples and put away at the clip's end with nothing asked for at or past the 24000th, the ramp
+being put away there rather than finishing its fade over the clip below; an `O 10` taken over at an
+`I`'s own row counting 127 down to 17 rather than finishing beside the new letter, and that `I`
+arming a ramp of its own and climbing back to 127 at the 25000th; an `L 66` with an `I 0` under it
+leaving that 66 the one controller sent over 100 blocks, a step of 0 arming no ramp and putting any
+ramp away rather than sending one more of its values; an `I 1` on tracker channel 0, an `L 40` at
+row 4 of channel 1 and a further `I 10` at row 6 of channel 0 counting 0 to 23, stating 40 at the
+24000th and then 0 at the 36000th with the 40 landed on exactly at the 40000th - the level the
+parallel column named being the level a first column's ramp fades to, which is what pins the level
+as the output channel's rather than the column's; and a `B 96` at row 0 with an `L 50` under it
+leaving the bend's 12288 the one wheel message over 40 blocks, a row naming a volume letter saying
+nothing of its own about the wheel the way a row naming any other command kind does. The doc
+comments carry the reading through the places a reader looks rather than only where the engine keeps
+it: Model.h's letter paragraph and its new volume-letters paragraph, the Cell and Settings comments
+above, PlaybackEngine.h's over volCommand, flushVolume, endFade, fadeRunning and the vols member, and
+PlaybackEngine.cpp's over the two new functions, the processRow dispatches beside the named letter
+and beside a carried one, the three flush loops, the clip-end put-away and the deleted-clip
+comment. CoreTest came back at 518 checks and 0 failures, UiTest stayed at 846 and Smoke at 13 with
+the serialised state still at 2463 bytes - the settings block writing the same two numbers it always
+wrote - and 4 of UiTest's volume checks reworded rather than added: a volume with or without a note
+beside it sending no controller at all and driving nothing even once the sliders name CC5 and CC11,
+the note-on velocity still set, its hidden-column check now hearing a level letter spelled in a
+channel whose command column is hidden, and its interpolation check now asking for the velocity a
+note carries rather than a CC. Twelve shots were retaken at 1240x760 with DISPLAY=:0 and eleven came
+back byte-identical to the pins the round above kept, the only image moving being the Settings tab's
+own - shot_settings.png going from 4d1df0bc31c7f79ddfcd201512faacf801304fa96c67e88e5d1415ead43f4a36
+to 2c44a5635eb0fe19b6ca1e4f6f43014e7d3b2431377abce47fcde0c7f8dbcde7 with the row now labelled for
+the letters rather than for the volume column - and its dump still reading 14 OUTSIDE PARENT lines,
+the other standing tabs still 32, 28 and 26 and the eight tracker-band dumps still 32 each, so the
+label being all that moved in a pixel. No flag of that target paints an `L`, an `I` or an `O`, so
+what the three letters draw is left to the UiTest's cells rather than to a pinned image. Both trees
+rebuilt, the Linux one first: its .so went from 6157928 to 6166392 bytes at
+5a5f0394fd049cebd7449ee0c6b8ba927a0515b5fe3d9c3cbd49c5e95c2d5d26 over the 2041934d67d736e17227f415d2f42c18ccad30f01f54162899787ee08202aa1e
+that round kept, the letters being code rather than comments, and the Windows module went from 3762688
+to 3766784 bytes at 877396b2ce63adb8c744c0ea9cd692b4684ec443dab5ab9a12613d1d4003cb98 over the
+428b9e39e62eea8ba6c6e8de574442cc7390efa2943264c0b13353eecac60b09; moduleinfo.json stayed the same 990
+bytes at b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee in both bundles, the Windows
+one regenerated over that bundle by the Linux tree's own ReTrektor_vst3_helper since a cross build
+cannot run the Windows helper JUCE would otherwise ask for. The installed bundle at
+/home/corthax/.vst3/Corthax/Re.Trektor.vst3 was refreshed by rsync -a --checksum over the bundle's
+whole directory and the diff -r between the built and installed trees read clean rather than needing
+a second pass, both binaries at 5a5f0394fd049cebd7449ee0c6b8ba927a0515b5fe3d9c3cbd49c5e95c2d5d26; the
+two tracked tarballs were regenerated from their own trees, Re.Trektor(linux).tar.gz going from 2576626
+to 2579302 bytes at e307f6471c8ec5a03c054da7f72e7e5cbac2d6a7890a23c096504aa34ac796e5 and Re.Trektor
+(windows).tar.gz from 1680590 to 1681945 at f6d7b8115cdee85f93ae91794c1d0ecf5cdd52db3ced0d563b2000ed081b365a.
+README went from 415 lines and 26313 bytes to 447 lines and 29016 bytes, keeping only the user-facing
+claims: its Volume bullet now naming only the velocity a note entered beside it is struck at and
+sending no controller at all while Pan keeps its own, a new bullet pointing the three letters at the
+controller the Settings tab names for them, the Command-letter table gaining the `L`, `I` and `O`
+rows, its argument-default paragraph gaining the level 127 and the step of 10 with the two arguments
+topping at 127, its carry wording now naming `L` as carried with the plain CC numbers and the cut and
+the retrigger as the two gates, the `OFF`/`STP` refusal extended to the three letters, a new ramp
+paragraph for what the three leave behind and where a ramp is put away, its Settings bullet renamed
+"Volume letter CC and Pan column CC", its pitch-wheel limitation gaining that a volume ramp armed by such a clip is
+left counting toward its level, and its future-work line naming the three letters. project.md
+took the same reading through the MIDI model's volume bullet, the command paragraph's L/I/O claims,
+its argument-default and lilac-drawing sentence, its two carry wordings, its Settings bullet, a new
+Known-limitations bullet for what the three leave behind where a fade stops and what a deleted clip
+does and does not put away, and its Tests section's CoreTest and UiTest volume claims and the note
+that no shot flag paints the three letters. That file going from 6392 lines and 677124 bytes to
+6616 lines and 698220 bytes and self-consistent about that count in the entry it adds. Left open
+rather than invented: no EditorShot flag for the three letters, so nothing pinned shows them, and a
+level named on one column being shared by every column naming that instrument, which the user's
+wording asks for rather than leaves to a column. Dropped rather than carried: the volume column's
+CC7 emission and its Settings row's name, the engine's old velocity 100 default behind kVolDefaultVel
+127, and the two spellings `OFF` and `STP` beside the three letters, all refused rather than given a
+meaning of their own.
+
 This round keeps that same seventh letter and answers what its row does to an arpeggiator run that
 column had in force rather than a note of its own being held, the user's finding that an `R` there
 only stopped the run and left the column silent below it rather than going back to the note that run

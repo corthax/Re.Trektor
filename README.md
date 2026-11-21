@@ -156,11 +156,14 @@ and Command.
   carry the same way; the command carries its letter and its argument together.
   Carried values are drawn dimmer, and only instrument, volume and pan carry when a
   note exists, while command carries even on empty rows.
-* Volume and Pan send CC7 (channel volume) and CC10 (channel pan) by default; the
-  Settings tab can point either column at any controller `0`–`127`. Controllers are
-  sent before the note handling, so even a row holding only a note-off applies them.
-  A volume on a row that also has a note is additionally the note-on velocity.
+* Volume names the velocity a note entered on that row is struck at, `127` until the
+  column ever named one; it sends no controller at all. Pan sends CC10 (channel pan)
+  by default; the Settings tab can point it at any controller `0`–`127`. That controller
+  is sent before the note handling, so even a row holding only a note-off applies it.
   Carried values are not re-sent.
+* What the MIDI output channels sound their notes at is the Command column's three
+  volume letters, `L`, `I` and `O` (see below), which drive the controller the Settings
+  tab names for them (CC7 channel volume by default).
 * Command `0`–`127` are plain CC numbers with a `0`–`127` argument, drawn teal. A row
   that names only an argument plays it on the command the column carries down from
   above.
@@ -176,24 +179,35 @@ and Command.
   | `V` | 147 | runs a vibrato macro; the argument is the macro id `1`–`127` |
   | `C` | 148 | cuts a note's length; the argument is that length in subticks (a subtick being a row over the Settings' "Subticks per row", default 6) — the note being one that row entered or one that column has still been holding |
   | `R` | 149 | strikes a note again every so many subticks; the argument is that period in subticks on the same grid — the note being one that row entered, one that column has still been holding and gets struck at the letter's own row as well when that row named no note of its own, or, where that column had an arpeggiator run in force instead, the note that run measured its steps from, that run being ended at the letter's row. Where that column had a vibrato swinging, the letter ends that wobble and puts the wheel back at its exact centre, just ahead of the strike at its own row |
+  | `L` | 150 | sets the volume the MIDI output channel its instrument names sounds at; the argument is that volume `0`–`127`, sent at the letter's own row |
+  | `I` | 151 | ramps that volume up from nothing toward the level `L` set, one value every subtick of the same grid; the argument is how much one subtick moves |
+  | `O` | 152 | ramps it down from that level to nothing, same argument |
 
   `A` and the wheel letters, the cut and the retrigger are drawn orange and lilac, and an
   argument carried from above is drawn dim beside the letter. Every letter leaves an
   argument behind, so `A` and `V` start at the release id `0`, `B` at the wheel's centre
-  `64`, a slide at the default span of 8 rows, `C` at a length of 3 subticks and `R` at a
-  period of 3 subticks apart. A `C`'s and an `R`'s arguments reach `999` subticks, three
-  digits deep, while the other arguments top at `127`; the two numbers just below their
+  `64`, a slide at the default span of 8 rows, `C` at a length of 3 subticks, `R` at a
+  period of 3 subticks apart, `L` at the level `127` and `I` and `O` at a step of 10
+  volume. A `C`'s and an `R`'s arguments reach `999` subticks, three digits deep, while
+  the other arguments, the level an `L` names and the step an `I` or an `O` moves, top at
+  `127`; the two numbers just below their
   top, `128` and `129`, stay the two spellings that sit above the numbers, so a cut or a
   retrigger of `128` or `129` subticks has no spelling of its own.
   `o` / `O` writes `OFF` — pitchbend off and the wheel back at its centre, the arpeggiator
   run off, a wobble off, and beside `C` or `R` the note column's own note-off, drawn `OFF`
   the way its `===` is drawn — and `s` / `S` writes `STP`, which stops a wheel move and
-  leaves the wheel on the point it reached. `STP` is refused beside `A`, `V`, `C` and `R`,
-  a run, a wobble, a cut and a retrigger having no wheel move of their own to stop — an
+  leaves the wheel on the point it reached. `STP` is refused beside `A`, `V`, `C`, `R`,
+  `L`, `I` and `O`, a run, a wobble, a cut, a retrigger and the three volume letters
+  having no wheel move of their own to stop — `I` and `O` holding at the volume their
+  last value reached rather than at a point, their own stopping being the `0` their field
+  already spells — and `L`, `I` and `O` refuse `OFF` as well, a level having no move to
+  go off. An
   `R` row puts a wheel back only where a wobble above it was swinging on the same column,
   that take-back belonging to the wobble rather than to the letter, and happens whatever
-  the row's argument spells. The cut `C` and the
-  retrigger `R` are the two commands that keep being carried down the column rather than
+  the row's argument spells. The level letter `L` sits with the plain CC numbers the
+  column answers, so a row naming only a number under a carried `L` sets and sends a new
+  level there, and the cut `C` and the retrigger `R` are the two commands that keep being
+  carried down the column as gates rather than
   answering the rows under them, so one letter gates a whole staccato or repeated-hit
   passage: the note its row entered, or the note that column has still been holding where
   the row named no note of its own, is released that many subticks past the row that named
@@ -225,6 +239,20 @@ and Command.
   discarded, its waiting release or strike with it, when another command appears under it;
   where nothing was being held and nothing enters at an `R`'s row, that letter is ignored,
   there being no note to strike again.
+* The three volume letters work beside the other seven rather than trading anything for
+  anything, leaving a run, a wheel's move, a wobble, a cut's gate and a retrigger's where
+  they are. An `I` and an `O` are one-shots: each arms a ramp of its own at its row, that
+  ramp's first value being nothing for an `I` and the whole level for an `O`, the rest one
+  value every subtick of the same grid until the level or nothing is landed on exactly and
+  sent once, so a fade stops there rather than naming the controller over every row below
+  it. A row naming only a number under one of the two answers nothing, and a further `I`
+  or `O` row arms a fresh ramp. What the three say belongs to the MIDI output channel their
+  instrument names rather than to the column they sit on, so a level named on one column
+  is the level a ramp armed from another column naming that same instrument fades to, and
+  an `L` stops a ramp that was counting on and states its own level instead. A ramp whose
+  values have not all been sent when its arming clip ends is put away at that clip's end,
+  leaving the volume at whatever value had last been sent — no controller has a neutral
+  state a row could put a channel back to.
 * `` ` `` enters a note-off, drawn `===`.
 * A tracker pattern can use up to 127 tracker channels, independent of the 16 MIDI
   output channels; identical notes triggered on several tracker channels in one row
@@ -280,7 +308,8 @@ go to the list's ends.
 * New pattern length in rows (default 64, maximum 1024).
 * Snap to grid, adaptive grid, fixed grid size.
 * Record octave and step skip.
-* Volume column CC and Pan column CC (default 7 and 10), each `0`–`127`.
+* Volume letter CC and Pan column CC (default 7 and 10), each `0`–`127`: the controller
+  the `L`, `I` and `O` letters drive, and the one the Pan column drives.
 * Undo steps (default 50, `0`–`200`): how many model states the undo keys can walk back.
   `0` turns undoing off and stops the plug-in from holding states at all; a 32 MB budget
   also drops the oldest states, so a pattern whose states do not fit keeps fewer.
@@ -385,7 +414,9 @@ keyboard focus: it rests on the control whose text box the value is typed into.
   channels of cells, and it is the paste filter that points at one field.
 * A pitch wheel left bent by a channel whose clip was deleted outright is taken back
   at the next release point or transport re-arm rather than by the loop that closes
-  the notes, runs and wobbles of a clip the playhead has left.
+  the notes, runs and wobbles of a clip the playhead has left. A volume ramp armed by
+  such a clip is left counting toward its level rather than stopped there, the level
+  being the output channel's rather than the clip's rows.
 * Note entry assumes a US keyboard layout.
 * The Windows x86-64 build above was checked at a real Windows 11 host: it loads, its
   editor renders and it works, so nothing in the tree is bent for Windows. Wine is a
@@ -398,7 +429,8 @@ keyboard focus: it rests on the control whose text box the value is typed into.
   editor interaction tests and Carla; a full Reaper session has not been run in this
   environment.
 * Command letters beyond the arpeggiator call, the pitch wheel letters, the vibrato, the
-  note-length cut and the note retrigger are future work (a dedicated pitch bend
+  note-length cut, the note retrigger and the three volume letters are future work (a
+  dedicated pitch bend
   CC105/CC106 pair rather than the standard pitch wheel message, tempo, song position).
 
 ## Licensing
