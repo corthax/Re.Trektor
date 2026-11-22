@@ -27,6 +27,7 @@ void PlaybackEngine::reset()
     for (int i = 0; i < kMidiChannelCount; ++i)
     {
         vols[(size_t) i] = VolState();
+        tremors[(size_t) i] = TremState();
         everPlayed[(size_t) i].reset();
     }
 
@@ -682,6 +683,18 @@ static double vibShape (int type, double phase)
 }
 
 //==============================================================================
+/** One point of a tremolo's cycle: how far the macro's shape says the volume sits
+    from the level the channel has, as a share of the macro's own amplitude, at the
+    phase of its cycle given. This is the wobble's sampler answering the same six
+    spellings the same six ways, which is what makes a tremolo's shapes the vibrato's
+    rather than a second set of them, and what makes one shape's label on one tab mean
+    the same curve on the other. */
+static double tremShape (int type, double phase)
+{
+    return vibShape (type, phase);
+}
+
+//==============================================================================
 /** The points of a vibrato this channel's column has in force, moved over the grid
     the macro's own cycle length names rather than the plain sub-row one: a cycle
     eight subticks wide at the eight points it is drawn with with the Settings' six
@@ -796,6 +809,123 @@ void PlaybackEngine::flushVib (std::vector<PendingEvent>& events, int ch, double
         }
 
         ++c.vibCount;
+    }
+}
+
+//==============================================================================
+/** The points of a tremolo this MIDI output channel has in force, moved over the grid
+    the macro's own cycle length names rather than the plain sub-row one: this is the
+    wobble's machine read in volume points of the controller rather than in wheel
+    positions, so a cycle eight sub-ticks wide at the eight points it is drawn with is
+    one point every 4/3 of a sub-tick of the Settings' grid, which is what lets a cycle
+    the macro asked for shorter than one point per sub-row step still show its curve
+    rather than landing on one point of it every sub-row, and what leaves a cycle eight
+    sub-ticks or wider having one point per sub-row step. The points are counted from the
+    arming row rather than read off the rows, the way a wobble's, a run's and a ramp's are,
+    which is what a row a transport jump makes this block play again leaves on the same
+    point of the cycle instead of advancing it twice, and what keeps a swing that cycled
+    many times over many blocks exact rather than drifted by its own fractions. The level
+    the swing moves about is read here at every point rather than kept with the swing,
+    which is what lets a further L row move the level a swing that is still counting on
+    swings about, the way a bend row moves the base a wobble swings about, and which is
+    what keeps a channel that never heard an L swinging about kVolDefaultLevel rather than
+    about nothing at all. Only the macro being gone puts the swing away at its first point,
+    the way a run whose macro was taken away stops at its next step rather than at the row
+    that took it: the volume is left at whatever value its last point had sent, there being
+    no message that says a controller is back at some neutral value, the same thing a fade
+    that stopped by itself leaves. */
+void PlaybackEngine::flushTrem (std::vector<PendingEvent>& events, int midiCh, double ppqStart,
+                                double ppqLimit, double ppqPerSample, int numSamples,
+                                const Song& song)
+{
+    auto& s = tremors[(size_t) midiCh];
+
+    if (! s.swingRunning())
+        return;
+
+    const auto* macro = song.peekTrem (s.id);
+
+    if (macro == nullptr || ! macro->defined())
+    {
+        s.endSwing(); // the macro the swing was running has none of its own any more,
+                      // which is what a swing whose macro was taken away answers at its
+                      // next point: the volume keeps whatever value of its own the swing's
+                      // last point left it at, and a release row below is what puts that
+                      // away as well
+        return;
+    }
+
+    const double rowsPerBeat = (double) juce::jmax (1, song.settings.rowsPerBeat);
+    const double rowSpanPpq = 1.0 / rowsPerBeat;
+    const int subticks = juce::jmax (1, song.settings.subticksPerRow);
+
+    // the macro's three settings are re-read here, so a macro whose shape, amplitude or
+    // cycle was turned on the tab while its swing ran changes the swing from where it is
+    // rather than leaving what the arming row had still in force
+    const int cycle = juce::jlimit (1, kTremFreqTop, macro->frequency);
+    const int amplitude = juce::jlimit (0, kTremAmpTop, macro->amplitude);
+
+    s.cycle = cycle;
+    s.points = juce::jmax (cycle, kTremCyclePoints);
+
+    // the amplitude is already counted in volume points of the controller, the whole
+    // range of which it reaches from a swing sitting at the level, so unlike a wobble's
+    // there is nothing to convert it through: a knob at full swings from a level at the
+    // middle of that range to both of its ends, and one at 20 reaches 20 volume points
+    // either side of it
+    s.height = amplitude;
+
+    const double cycleSpanPpq = rowSpanPpq * (double) cycle / (double) subticks;
+    const double pointPpq = cycleSpanPpq / (double) s.points;
+
+    // a swing whose next point sits more than a row behind where this block starts
+    // cannot be placed any more, which is what a scrub or a jump leaves behind, so it
+    // ends rather than swinging late at where it had got to
+    if (s.origin + (double) s.count * pointPpq < ppqStart - rowSpanPpq)
+    {
+        s.endSwing();
+        return;
+    }
+
+    // the level the swing moves about is that channel's own, the one an L named or the
+    // default where none has, read at every point rather than kept with the swing
+    const int base = vols[(size_t) midiCh].level;
+
+    while (true)
+    {
+        // the point's position is the arming row plus its count over the cycle's own
+        // point width, never a sum of that width into itself, so a swing that cycled
+        // many times over many blocks stays exact
+        const double pointTime = s.origin + (double) s.count * pointPpq;
+
+        if (pointTime >= ppqLimit)
+            break; // it waits for the rows below or for the next block
+
+        if (pointTime >= ppqStart - kRowAlignEps)
+        {
+            const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
+                                             (int) std::llround ((pointTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
+
+            // the cycle's phase is the point inside it over the points that cycle is
+            // drawn with, counted from the arming row rather than carried round from
+            // the point before, which is what a cycle that wrapped many times keeps
+            // its shape rather than its drift
+            const double phase = (double) (s.count % s.points) / (double) s.points;
+            const double shape = tremShape (macro->type, phase);
+
+            // the swing is measured from the level the channel has, and a value the
+            // shape carries outside the controller's 0..127 lands on the end it crossed
+            // rather than wrapping, which is what keeps a channel's volume a controller
+            // a host can act on rather than a number folded back on itself
+            const int value = juce::jlimit (0, kCcTop,
+                                            base + (int) std::llround (shape * (double) s.height));
+
+            events.push_back ({ offset, 3,
+                                juce::MidiMessage::controllerEvent (midiCh + 1, volumeCc,
+                                                                    value) });
+        }
+
+        ++s.count;
     }
 }
 
@@ -1598,6 +1728,72 @@ void PlaybackEngine::volCommand (std::vector<PendingEvent>& events, int midiCh, 
 }
 
 //==============================================================================
+/** A row naming the tremolo letter, spelled on a tracker column whose instrument names
+    the MIDI output channel whose volume this swings: the argument names which tremolo
+    macro that channel swings its volume controller about the level it has, the same way
+    a vibrato call names a macro and swings the wheel about the point the wheel is at, and
+    an id of 0 or the OFF argument the entry writes for an o is that letter's release rather
+    than a macro. The release puts the swing away and leaves the channel sounding whatever
+    value its last point had sent, there being no message that says a controller is back at
+    some neutral value, which is what a fade stopped by itself leaves as well, and it leaves
+    the column that named it carrying no letter below it, so a row naming only an argument
+    further down answers nothing rather than arming a swing again. An STP argument asks for
+    nothing at all, a swing having no move of a wheel to stop the way a wobble has, and
+    leaves the swing above still swinging over the rows below it. Another id arms that
+    macro's swing at this row: a swing a fade has still counting on is left counting on,
+    since the two are parallel states of that one controller rather than one trading itself
+    for the other, and the cycle's first point sits at this row rather than one sub-tick
+    below it, which is what keeps the row that named the letter at the level the channel
+    was already at rather than at one side of the swing there. The macro's three settings
+    are read at every point of the flush below rather than here, so arming needs nothing of
+    the song but keeps the same shape as a slide's answer for the row that wrote it. */
+void PlaybackEngine::tremCommand (std::vector<PendingEvent>& events, int ch, int midiCh, int id,
+                                  int offset, double rowPpq, const juce::Uuid& clipUid,
+                                  const Song& song)
+{
+    const int idx = juce::jlimit (0, kMidiChannelCount - 1, midiCh);
+    auto& s = tremors[(size_t) idx];
+
+    if (id == kArgStp)
+        return; // a swing has no move of a wheel to stop, so an STP row says nothing
+                // at all and leaves the swing above still swinging over the rows below it,
+                // the same thing a row beside a wobble's STP asks
+
+    if (id == 0 || id == kArgOff)
+    {
+        // the release: the swing is put away here, the channel being left at whatever
+        // value its last point had sent rather than at a level of its own
+        s.endSwing();
+
+        // a release leaves the column carrying nothing rather than carrying id 0, the
+        // way a wobble's release leaves the column calling nothing below it, which is
+        // what stops an argument-only row further down arming a swing again
+        auto& c = channels[(size_t) ch];
+        c.lastCmd = -1;
+        c.lastCmdVal = -1;
+        return;
+    }
+
+    s.on = true;
+    s.id = juce::jlimit (1, kMaxTremMacros, id);
+    s.origin = rowPpq;
+    s.count = 0;
+    s.cycle = 1;
+    s.points = 1;
+    s.height = 0;
+    s.rowEnd = -1.0;
+    s.swingClip = clipUid;
+
+    // arming says nothing about the controller, the way arming a ramp does and the way
+    // arming a wobble does: the cycle's first point sits on the level the channel is
+    // already at, which is what keeps the row that named the letter at the volume the
+    // channel had rather than at one side of the swing there
+    (void) events;
+    (void) offset;
+    (void) song;
+}
+
+//==============================================================================
 /** The values of the volume ramp one MIDI output channel has in force that belong
     to the position range [ppqStart, ppqLimit): they wait in that channel's state
     with where each sits counted from the row that armed the ramp over the Settings'
@@ -1723,12 +1919,12 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
             // the volume letters only ever say something about the volume controller
             // of the MIDI output channel this row's instrument names, so a row naming
             // one of them leaves this column's run, the wheel's ramp, a wobble's swing,
-            // a cut's gate and a retrigger's gate where they are: the three work in
+            // a cut's gate and a retrigger's gate where they are: the four work in
             // parallel with the other seven rather than trading anything for anything,
             // and a letter spelled on another column naming the same instrument reaches
             // that instrument's level without saying anything about this column either
             const bool volumeLetter = cell.cmd == kLevelCmd || cell.cmd == kFadeInCmd
-                                         || cell.cmd == kFadeOutCmd;
+                                         || cell.cmd == kFadeOutCmd || cell.cmd == kTremCmd;
 
             if (cell.cmd == kArpCmd)
             {
@@ -1989,6 +2185,14 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // that instrument reaches, and one that is nothing at all to do with
                 // this column's run, wheel, wobble or gates
                 volCommand (events, midiCh, cell.cmd, cell.cmdVal, offset, rowPpq, clip.uid);
+            else if (cell.cmd == kTremCmd)
+                // the tremolo letter: what it says is about the volume controller of
+                // the MIDI output channel this row's instrument names as well, its
+                // argument naming which tremolo macro that channel swings that controller
+                // about the level it has, so the row arms a swing whose points the flush
+                // below moves over the macro's own cycle grid, answers an OFF one by
+                // putting the swing away and holds an STP one by asking for nothing at all
+                tremCommand (events, ch, midiCh, cell.cmdVal, offset, rowPpq, clip.uid, song);
             else
                 events.push_back ({ offset, 3, juce::MidiMessage::controllerEvent (midiCh + 1,
                                                                                   juce::jlimit (0, kCcTop, cell.cmd),
@@ -2077,6 +2281,17 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
                 // puts any ramp that was still counting on away rather than leaving
                 // one stepping toward the level above had called with
                 volCommand (events, midiCh, kLevelCmd, cell.cmdVal, offset, rowPpq, clip.uid);
+            }
+            else if (state.lastCmd == kTremCmd)
+            {
+                // under a carried tremolo letter the argument is a new macro id rather
+                // than anything the row itself names: the row retargets the swing that
+                // channel is counting on, an OFF or a 0 one putting it away and an STP
+                // one asking for nothing at all since a swing has no move of a wheel to
+                // stop, both the way the letter's own row answers them, which is what
+                // lets a swing be retargeted as it swings and a row spelled on another
+                // column naming the same instrument reach that instrument's swing
+                tremCommand (events, ch, midiCh, cell.cmdVal, offset, rowPpq, clip.uid, song);
             }
             else
             {
@@ -2245,6 +2460,14 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
 
         if (v.fadeRunning())
             flushVolume (events, m, ppqStart, juce::jmin (ppqEnd, v.rowEnd), ppqPerSample, numSamples, song);
+
+        // a swing's points wait with where each sits counted from the row that armed
+        // it, on that channel rather than on the column that armed it, the way the
+        // values of a fade above do
+        auto& s = tremors[(size_t) m];
+
+        if (s.swingRunning())
+            flushTrem (events, m, ppqStart, juce::jmin (ppqEnd, s.rowEnd), ppqPerSample, numSamples, song);
     }
 
     for (auto& clip : song.clips)
@@ -2350,7 +2573,10 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
             // channel rather than by the column that armed them, which is why this loop
             // goes over the channels rather than sitting inside the tracker's one
             for (int m = 0; m < kMidiChannelCount; ++m)
+            {
                 vols[(size_t) m].rowEnd = rowEnd;
+                tremors[(size_t) m].rowEnd = rowEnd;
+            }
 
             for (int m = 0; m < kMidiChannelCount; ++m)
             {
@@ -2358,6 +2584,11 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
 
                 if (v.fadeRunning())
                     flushVolume (events, m, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+
+                auto& s = tremors[(size_t) m];
+
+                if (s.swingRunning())
+                    flushTrem (events, m, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
             }
         }
 
@@ -2424,7 +2655,10 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                     // well, which is what a fade written at the row a seek landed inside
                     // starts sending its values from that row rather than a row below it
                     for (int m = 0; m < kMidiChannelCount; ++m)
+                    {
                         vols[(size_t) m].rowEnd = rowEnd;
+                        tremors[(size_t) m].rowEnd = rowEnd;
+                    }
 
                     for (int m = 0; m < kMidiChannelCount; ++m)
                     {
@@ -2432,6 +2666,11 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
 
                         if (v.fadeRunning())
                             flushVolume (events, m, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+
+                        auto& s = tremors[(size_t) m];
+
+                        if (s.swingRunning())
+                            flushTrem (events, m, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
                     }
                 }
             }
@@ -2499,6 +2738,17 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
 
                 if (v.rampClip == clip.uid)
                     v.endFade();
+
+                // a swing this clip's own row armed has no rows below the clip left to
+                // keep cycling either, so it is put away at that clip's end rather than
+                // carrying on over the rows of the clip below it, and it sends nothing of
+                // its own for the same reason a fade put away there does: the volume stays
+                // at whatever value the swing's last point had sent, the way a wobble this
+                // clip armed is left at the pitch its last point had got to
+                auto& s = tremors[(size_t) m];
+
+                if (s.swingClip == clip.uid)
+                    s.endSwing();
             }
         }
     }
@@ -2513,7 +2763,11 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     // channel rather than to a column's rows, and unlike the wheel no controller
     // has a state such a block could put that channel back to, so a fade whose
     // arming clip was taken away keeps counting toward its level rather than leaving
-    // the channel stuck at wherever that fade had got to
+    // the channel stuck at wherever that fade had got to. A tremolo's points are left
+    // alone for the same reason: the swing is that same channel's state rather than
+    // one a column's rows can name a clip for, so a swing whose arming clip was taken
+    // away keeps swinging about the channel's level until a release row says otherwise,
+    // the way the letter spelled on any column naming that instrument reached it
     for (int ch = 0; ch < kMaxTrackerChannels; ++ch)
     {
         auto& c = channels[(size_t) ch];

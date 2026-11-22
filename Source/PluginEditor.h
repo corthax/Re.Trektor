@@ -10,6 +10,7 @@
 #include "ui/SettingsPanel.h"
 #include "ui/MacrosPanel.h"
 #include "ui/VibMacrosPanel.h"
+#include "ui/TremoloMacrosPanel.h"
 
 //==============================================================================
 class ReTrektorAudioProcessorEditor final : public juce::AudioProcessorEditor,
@@ -32,9 +33,10 @@ public:
     void followHostTransport();
 
 private:
-    // the vibrato panel sits between the arpeggiator's and the Settings tab, the
-    // order its own two tab buttons are laid out in
-    enum class Tab { tracker = 0, macros, vibs, settings };
+    // the macro panels sit between the tracker and the Settings tab, in the order
+    // their own tab buttons are laid out in: the arpeggiator's, the vibrato's and
+    // the tremolo's, the three letters a row can call
+    enum class Tab { tracker = 0, macros, vibs, trems, settings };
 
     void timerCallback() override;
     void setTab (Tab tab);
@@ -50,8 +52,9 @@ private:
 
     // top bar
     juce::TextButton trackerTab { "TRACKER" };
-    juce::TextButton macrosTab { "ARP MACRO" };
-    juce::TextButton vibTab { "VIB MACRO" };
+    juce::TextButton macrosTab { "ARP" };
+    juce::TextButton vibTab { "VIB" };
+    juce::TextButton trmTab { "TRM" };
     juce::TextButton settingsTab { "SETTINGS" };
     juce::ToggleButton snapButton { "SNAP" };
     juce::ComboBox gridBox;
@@ -67,6 +70,7 @@ private:
     rtr::SettingsPanel settings;
     rtr::MacrosPanel macros;
     rtr::VibMacrosPanel vibs;
+    rtr::TremoloMacrosPanel trems;
 
     // bottom bar
     juce::Label octaveLabel, stepLabel, channelsLabel;

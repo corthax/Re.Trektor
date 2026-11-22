@@ -287,9 +287,14 @@ void Song::reset()
     defineArp (1);
 
     // and with one vibrato defined beside it: id 1, the plain sinusoidal wobble at
-    // half full pitchbend over a cycle of eight subticks, so the VIB MACRO tab has
+    // half full pitchbend over a cycle of eight subticks, so the VIB tab has
     // a card to show and a V row has something to call as the song arrives
     defineVib (1);
+
+    // and one tremolo defined beside those, too: id 1, the plain sinusoidal swing at
+    // half the controller's whole range over a cycle of eight sub-ticks, so the TRM
+    // tab has a card to show and a T row has something to call as the song arrives
+    defineTrem (1);
 }
 
 //==============================================================================
@@ -935,6 +940,131 @@ void Song::setVibFrequency (int id, int frequency) noexcept
 }
 
 //==============================================================================
+/** Tremolo macros are the same machine in a table of their own: one grow-only
+    table indexed by id - 1, naming an id extending it with absent entries rather
+    than moving the entries already in it, so a macro that is removed keeps the
+    room it had and the shape, amplitude and cycle it held and defining it again
+    starts from the defaults. Only the settings of a macro that is one are ever
+    reached, the same rule that keeps an id nothing entered from answering with a
+    shape, an amplitude or a cycle of its own, and only the cycle is kept off
+    nothing: a swing that took no sub-tick at all would have no point to send. */
+static bool tremInRange (int id) noexcept
+{
+    return id >= 1 && id <= kMaxTremMacros;
+}
+
+TremMacro* Song::findTrem (int id)
+{
+    if (! tremInRange (id))
+        return nullptr;
+
+    if ((int) trems.size() < id)
+        trems.resize ((size_t) id);
+
+    return &trems[(size_t) id - 1];
+}
+
+const TremMacro* Song::peekTrem (int id) const noexcept
+{
+    if (! tremInRange (id) || (int) trems.size() < id)
+        return nullptr;
+
+    return &trems[(size_t) id - 1];
+}
+
+bool Song::tremDefined (int id) const noexcept
+{
+    const auto* m = peekTrem (id);
+    return m != nullptr && m->defined();
+}
+
+int Song::tremType (int id) const noexcept
+{
+    const auto* m = peekTrem (id);
+    return m != nullptr && m->defined() ? m->type : 0;
+}
+
+int Song::tremAmplitude (int id) const noexcept
+{
+    const auto* m = peekTrem (id);
+    return m != nullptr && m->defined() ? m->amplitude : 0;
+}
+
+int Song::tremFrequency (int id) const noexcept
+{
+    const auto* m = peekTrem (id);
+    return m != nullptr && m->defined() ? m->frequency : 0;
+}
+
+int Song::firstUndefTremId() const noexcept
+{
+    for (int id = 1; id <= kMaxTremMacros; ++id)
+        if (! tremDefined (id))
+            return id;
+
+    return 0;
+}
+
+int Song::lastDefTremId() const noexcept
+{
+    for (int id = kMaxTremMacros; id >= 1; --id)
+        if (tremDefined (id))
+            return id;
+
+    return 0;
+}
+
+void Song::defineTrem (int id)
+{
+    auto* m = findTrem (id);
+
+    if (m == nullptr)
+        return;
+
+    m->setDefault();
+}
+
+void Song::clearTrem (int id)
+{
+    auto* m = findTrem (id);
+
+    if (m != nullptr)
+        m->present = false;
+}
+
+void Song::setTremType (int id, int type) noexcept
+{
+    auto* m = findTrem (id);
+
+    // a setting only reaches a macro that is one, so an id nothing entered never
+    // answers with a shape, an amplitude or a cycle of its own
+    if (m == nullptr || ! m->defined())
+        return;
+
+    m->type = juce::jlimit (0, kTremTypeTop, type);
+}
+
+void Song::setTremAmplitude (int id, int amplitude) noexcept
+{
+    auto* m = findTrem (id);
+
+    if (m == nullptr || ! m->defined())
+        return;
+
+    m->amplitude = juce::jlimit (0, kTremAmpTop, amplitude);
+}
+
+void Song::setTremFrequency (int id, int frequency) noexcept
+{
+    auto* m = findTrem (id);
+
+    if (m == nullptr || ! m->defined())
+        return;
+
+    m->frequency = juce::jlimit (1, kTremFreqTop, frequency);
+}
+
+//==============================================================================
 juce::ValueTree Song::toValueTree() const
 {
     juce::ValueTree root ("RETREKTOR");
@@ -1083,6 +1213,29 @@ juce::ValueTree Song::toValueTree() const
     }
 
     root.appendChild (vt, nullptr);
+
+    // the tremolo macros the letter T calls get a section of their own beside those,
+    // one entry per macro that is present: the three settings are small enough to name
+    // as properties rather than pack, so a macro reads as its shape, its amplitude in
+    // volume points of the controller and its cycle length in sub-ticks
+    juce::ValueTree tt ("TRMS");
+
+    for (int id = 1; id <= kMaxTremMacros; ++id)
+    {
+        const auto* m = peekTrem (id);
+
+        if (m == nullptr || ! m->defined())
+            continue;
+
+        juce::ValueTree tv ("TRM");
+        tv.setProperty ("id", id, nullptr);
+        tv.setProperty ("type", m->type, nullptr);
+        tv.setProperty ("amp", m->amplitude, nullptr);
+        tv.setProperty ("freq", m->frequency, nullptr);
+        tt.appendChild (tv, nullptr);
+    }
+
+    root.appendChild (tt, nullptr);
 
     root.setProperty ("activePatternId", activePatternId, nullptr);
     root.setProperty ("nextPatternId", nextPatternId, nullptr);
@@ -1263,6 +1416,13 @@ void Song::fromValueTree (const juce::ValueTree& root)
     for (auto& v : vibs)
         v.present = false;
 
+    // the TRMS section names every tremolo that exists, so the tremolo table is
+    // emptied the same way ahead of the read: an undo that took a tremolo away has
+    // to leave it undefined again rather than keep the shape, amplitude and cycle
+    // its knobs had
+    for (auto& t : trems)
+        t.present = false;
+
     if (auto at = root.getChildWithName ("ARPS"); at.isValid())
     {
         for (int i = 0; i < at.getNumChildren(); ++i)
@@ -1355,6 +1515,31 @@ void Song::fromValueTree (const juce::ValueTree& root)
         }
     }
 
+    if (auto tt = root.getChildWithName ("TRMS"); tt.isValid())
+    {
+        for (int i = 0; i < tt.getNumChildren(); ++i)
+        {
+            auto tv = tt.getChild (i);
+
+            if (! tv.hasType ("TRM"))
+                continue;
+
+            const int id = juce::jlimit (1, kMaxTremMacros, (int) tv.getProperty ("id", 0));
+            auto* m = findTrem (id);
+
+            if (m == nullptr)
+                continue;
+
+            // a state that named the macro makes it one, its own values being read
+            // through the same clamps the knobs use, so a saved state cannot reach a
+            // shape, an amplitude or a cycle outside what the tab can ask for
+            m->present = true;
+            m->type = juce::jlimit (0, kTremTypeTop, (int) tv.getProperty ("type", kTremTypeSin));
+            m->amplitude = juce::jlimit (0, kTremAmpTop, (int) tv.getProperty ("amp", kTremDefaultAmp));
+            m->frequency = juce::jlimit (1, kTremFreqTop, (int) tv.getProperty ("freq", kTremDefaultFreq));
+        }
+    }
+
     nextPatternId = juce::jmax (1, (int) root.getProperty ("nextPatternId", 1));
     activePatternId = (int) root.getProperty ("activePatternId", patterns.empty() ? 0 : patterns.front().id);
 
@@ -1380,6 +1565,11 @@ void Song::fromValueTree (const juce::ValueTree& root)
     // arrives with one wobble on its tab rather than an empty one
     if (lastDefVibId() == 0)
         defineVib (1);
+
+    // and the same again for the tremolos, so a state older than the letter T still
+    // arrives with one swing on its tab rather than an empty one
+    if (lastDefTremId() == 0)
+        defineTrem (1);
 }
 
 } // namespace rtr

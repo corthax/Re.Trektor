@@ -198,6 +198,10 @@ private:
     void clearFieldAt (int row, int channel, Field field);
     void clearCurrentField();
     void commitEditBuffer();
+    // the same landing without the cursor being handed to the next row: what a
+    // click does with a value its own gesture left behind, since the click has
+    // already chosen where the cursor goes. answers whether anything landed
+    bool commitPendingEdit();
     void cancelEdit();
 
     //== Selection machinery ==================================================

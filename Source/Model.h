@@ -20,21 +20,23 @@ constexpr int kMidiChannelCount = 16;
     names kBendCmd, the letters U and D name a slide of the pitch wheel to
     its top and to its bottom, the letter V runs a vibrato, the letter C
     cuts a note's length, the letter R strikes one again every so many of
-    those sub-ticks and the letters L, I and O say what volume the MIDI output
-    channel its instrument names sounds at, whether the note any of them is
+    those sub-ticks, the letters L, I and O say what volume the MIDI output
+    channel its instrument names sounds at and the letter T swings that same
+    volume about the level that channel has, whether the note any of them is
     spelled beside has been entered at that row or has been held by that column
-    from the rows above, all ten claimed as
+    from the rows above, all eleven claimed as
     the field's first character rather than typed as a number, which is what stops
     a typed digit run from inventing a letter - a decimal field spells CC 10 as
     10, so nothing about a number's spelling reaches one of the letters. kBendCmd,
-    the two slide values, the vibrato letter, this build's cut letter and its
-    retrigger letter all sit
+    the two slide values, the vibrato letter, this build's cut letter, its
+    retrigger letter and its tremolo letter all sit
     above kOlderCmdTop, the highest value an older build could write for its M0-M15
     macro kinds, so the values this build owns for the pitch wheel, for a note's
-    length and for a note's re-articulations are values that build could not have
+    length, for a note's re-articulations and for a volume swing are values that
+    build could not have
     written, and an older
     state's macro calls can all land on the letter they now means without any
-    of them becoming a bend, a slide, a wobble, a cut or a retrigger.
+    of them becoming a bend, a slide, a wobble, a cut, a retrigger or a swing.
 
     A bend's argument names a point on the 14-bit pitch wheel in 128s: 0 is the
     wheel's bottom, kBendCentreVal its exact centre and 127 near its top, so the
@@ -229,7 +231,32 @@ constexpr int kMidiChannelCount = 16;
     what sends nothing: unlike the wheel, a controller has no neutral state a row can put a
     channel back to, so a fade that stopped by itself, at a clip's end or under a 0 leaves
     the volume its last value reached rather than a level of its own. Where no L has ever
-    named a level for a channel, the level its ramps fade to and from is kVolDefaultLevel. */
+    named a level for a channel, the level its ramps fade to and from is kVolDefaultLevel,
+    the middle of the controller's 0..127 rather than its top, so a song that never typed an
+    L still has something to fade back down to and something to swing about rather than only
+    its loudest state.
+
+    A tremolo's argument names which tremolo macro the column runs, the same way an
+    arpeggiator call and a vibrato call name one of their macros: id 0 and the o spelling
+    are the release rather than a macro, and the s spelling asks for nothing at all, so
+    a swing above keeps holding the value it is at. A tremolo is a wobble of the volume
+    rather than of the pitch, and it is the same machine as the vibrato's: one shape, one
+    amplitude and one cycle length read from the macro at every point of its walk over the
+    Settings' grid, the same six shapes and the same cycle in sub-ticks, only measured in
+    volume points of the controller rather than in hundredths of full pitchbend. The level
+    it swings about is the level that channel has: the one its own row or a row above named
+    with an L, and kVolDefaultLevel where nothing has ever named one, which is what lets
+    T swing around, above or below the level the channel is already sounding rather than
+    about a level of its own, the way a wobble swings about the point the wheel had got to.
+    The amplitude is that far in volume points, so the widest swing the field can name
+    reaches the whole 0..127 of the controller above and below the level, and a swing that
+    carries a value outside that range lands on the end it crossed rather than wrapping,
+    being clipped, which is what keeps a channel's volume a controller the host can act on
+    rather than a number folded back on itself. Like the vibrato's, the letter arms a swing
+    at its own row and leaves the macro being run readable below it, so a row naming only an
+    argument under a carried T retargets the macro that swing is counting on, and the
+    volume letters, the wobble and the swing are three states of one channel's own volume
+    controller and of that column's own pitch, each left where the others put it. */
 constexpr int kArgOff = 128;  // the argument that reads OFF: an arpeggiator going off or the wheel's release
 constexpr int kArgStp = 129;  // the argument that reads STP: the wheel held at the point it is at
 constexpr int kMaxArpMacros = 127; // arpeggiator macros, ids 1..127; the id 0 call releases
@@ -269,9 +296,23 @@ constexpr int kRetrigDefaultTicks = 3; // sub-ticks apart a note is struck again
 constexpr int kLevelCmd = 150; // command value 150 names a MIDI output channel's volume, entered as L
 constexpr int kFadeInCmd = 151; // command value 151 ramps that volume up toward the level, entered as I
 constexpr int kFadeOutCmd = 152; // command value 152 ramps it down to nothing, entered as O
-constexpr int kVolDefaultLevel = 127; // the volume an L, I or O fades to or from when no L set one
+constexpr int kTremCmd = 153; // command value 153 runs a volume tremolo, entered as T
+constexpr int kVolDefaultLevel = 64; // the volume an L, I or O fades to or from when no L set one, the middle of the controller's 0..127 rather than its top
 constexpr int kFadeDefaultStep = 10; // volume a bare I or O moves every sub-tick
 constexpr int kVolDefaultVel = 127; // velocity a note is struck at when the volume column never named one
+
+constexpr int kMaxTremMacros = 127; // tremolo macros, ids 1..127; the id 0 call releases
+constexpr int kTremTypeTop = 5;    // the highest of the six tremolo shapes
+constexpr int kTremTypeSin = 0;    // a normal sinusoidal swing, both above and below the channel's level
+constexpr int kTremTypeSinUp = 1;  // the same cycle with its second half inverted, so only above
+constexpr int kTremTypeSinDown = 2; // the same cycle with its first half inverted, so only below
+constexpr int kTremTypeTri = 3;    // the triangle swing, both above and below the level
+constexpr int kTremTypeTriUp = 4;  // the same ramp with its far half inverted, so only above
+constexpr int kTremTypeTriDown = 5; // the same ramp with its near half inverted, so only below
+constexpr int kTremAmpTop = 127;   // a tremolo's amplitude at full swing, in volume points of the controller's 0..127
+constexpr int kTremFreqTop = 127;  // the widest cycle a tremolo can ask for, in sub-ticks
+constexpr int kTremDefaultAmp = 64; // the amplitude a newly defined macro starts at, in volume points
+constexpr int kTremDefaultFreq = 8; // the cycle a newly defined macro starts at, in sub-ticks
 constexpr int kMaxUndoSteps = 200; // most undo steps the undo line can be asked for
 
 /** Column visibility bits: the chips above a channel toggle one field of one
@@ -290,8 +331,8 @@ struct Cell
     int inst = kEmpty;    // kEmpty or 0..15 (MIDI output channel)
     int vol = kEmpty;     // kEmpty or 0..127 (the velocity a note entered in this cell is struck at, kVolDefaultVel until the column named one; never a controller)
     int pan = kEmpty;     // kEmpty or 0..127
-    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D); 147 = vibrato (V); 148 = cut (C); 149 = retrigger (R); 150 = MIDI channel volume level (L); 151/152 = volume ramp in/out (I/O)
-    int cmdVal = kEmpty;  // kEmpty, 0..127 or a cut's or a retrigger's own subticks to kRetrigTopTicks: a macro id, a point on the wheel, a slide's rows, a vibrato macro id, a cut's subticks, a retrigger's sub-ticks, an L's level or an I's or an O's step; kArgOff = OFF and kArgStp = STP above the field's own top
+    int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D); 147 = vibrato (V); 148 = cut (C); 149 = retrigger (R); 150 = MIDI channel volume level (L); 151/152 = volume ramp in/out (I/O); 153 = volume tremolo (T)
+    int cmdVal = kEmpty;  // kEmpty, 0..127 or a cut's or a retrigger's own subticks to kRetrigTopTicks: a macro id, a point on the wheel, a slide's rows, a vibrato or tremolo macro id, a cut's subticks, a retrigger's sub-ticks, an L's level, an I's or an O's step or a T's swing; kArgOff = OFF and kArgStp = STP above the field's own top
 
     bool empty() const noexcept
     {
@@ -637,7 +678,7 @@ struct ArpMacro
 
 //==============================================================================
 /** A vibrato macro the Command column's letter V calls: one shape, one amplitude
-    and one cycle length, all three entered on the VIB MACRO tab. The shape names
+    and one cycle length, all three entered on the VIB tab. The shape names
     how the wobble moves about the point the wheel is already at, the amplitude
     says how far it moves in hundredths of full pitchbend and the cycle length
     says how many subticks one whole cycle of it takes, on the same sub-row grid
@@ -663,6 +704,39 @@ struct VibMacro
         type = kVibTypeSin;
         amplitude = kVibDefaultAmp;
         frequency = kVibDefaultFreq;
+    }
+};
+
+//==============================================================================
+/** A tremolo macro the Command column's letter T calls: one shape, one amplitude
+    and one cycle length, all three entered on the TRM tab. This is the vibrato's
+    machine read in volume points rather than in hundredths of full pitchbend: the
+    shape says how the swing moves about the level the MIDI output channel has, the
+    amplitude says how far it moves in volume points of the controller's 0..127 and
+    the cycle length says how many sub-ticks one whole cycle of it takes, on the same
+    sub-row grid an arpeggiator's steps, a slide's ramp and a wobble's points already
+    use. A macro holds a value for each of the three at all times, so being present is
+    what makes it one: clearing it says so rather than erasing a setting, which is what
+    keeps a macro that the amplitude knob happens to have taken down to off a macro
+    rather than no macro at all. */
+struct TremMacro
+{
+    bool present = false;
+    int type = kTremTypeSin;                    // one of the six shapes
+    int amplitude = kTremDefaultAmp;            // volume points about the channel's level
+    int frequency = kTremDefaultFreq;           // sub-ticks one cycle takes
+
+    bool defined() const noexcept { return present; }
+
+    /** A newly defined macro starts at the plain sinusoidal swing at half the
+        controller's whole range over a cycle of eight sub-ticks, a swing that reads
+        at once on the tab without anything being entered into it. */
+    void setDefault()
+    {
+        present = true;
+        type = kTremTypeSin;
+        amplitude = kTremDefaultAmp;
+        frequency = kTremDefaultFreq;
     }
 };
 
@@ -807,6 +881,25 @@ public:
     void setVibAmplitude (int id, int amplitude) noexcept; // hundredths of full pitchbend
     void setVibFrequency (int id, int frequency) noexcept; // subticks one cycle takes
 
+    //== Tremolo macros ========================================================
+    /** Tremolo macros live in a grow-only table of their own exactly as the vibrato
+        ones do: naming an id extends the table with absent entries, removing one leaves
+        its room and the values it had, defining it again starts from the defaults and the
+        id 0 call is the release with no entry of its own. */
+    TremMacro* findTrem (int id); // grows the table to name the id, null out of range
+    const TremMacro* peekTrem (int id) const noexcept; // reads it without growing it
+    bool tremDefined (int id) const noexcept;
+    int tremType (int id) const noexcept;     // the shape it holds, 0 when it has none
+    int tremAmplitude (int id) const noexcept; // its amplitude, 0 when it has none
+    int tremFrequency (int id) const noexcept; // its cycle length, 0 when it has none
+    int firstUndefTremId() const noexcept; // 0 once every id is taken
+    int lastDefTremId() const noexcept;    // 0 when nothing is defined
+    void defineTrem (int id); // fresh macro at the default shape, amplitude and cycle
+    void clearTrem (int id); // leaves it undefined, keeping its room
+    void setTremType (int id, int type) noexcept; // one of the six shapes
+    void setTremAmplitude (int id, int amplitude) noexcept; // volume points about the level
+    void setTremFrequency (int id, int frequency) noexcept; // sub-ticks one cycle takes
+
     //== Serialization =========================================================
     juce::ValueTree toValueTree() const;
     void fromValueTree (const juce::ValueTree& tree);
@@ -818,6 +911,7 @@ public:
     std::vector<Clip> clips;
     std::vector<ArpMacro> arps;
     std::vector<VibMacro> vibs;
+    std::vector<TremMacro> trems;
 
     int activePatternId = 0;
     double editPlayheadBeats = 0.0;

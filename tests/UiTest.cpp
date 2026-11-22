@@ -279,13 +279,16 @@ int main()
     auto* settings = findChild<rtr::SettingsPanel> (*editor);
     auto* macros = findChild<rtr::MacrosPanel> (*editor);
     auto* vibs = findChild<rtr::VibMacrosPanel> (*editor);
+    auto* trems = findChild<rtr::TremoloMacrosPanel> (*editor);
 
     check (pool != nullptr && timeline != nullptr && tracker != nullptr
-               && tools != nullptr && settings != nullptr && macros != nullptr && vibs != nullptr,
-           "editor exposes pool, timeline, tracker, tools, settings, arp macros and vib macros");
+               && tools != nullptr && settings != nullptr && macros != nullptr && vibs != nullptr
+               && trems != nullptr,
+           "editor exposes pool, timeline, tracker, tools, settings, arp macros, vib macros and trem macros");
 
     if (pool == nullptr || timeline == nullptr || tracker == nullptr
-        || tools == nullptr || settings == nullptr || macros == nullptr || vibs == nullptr)
+        || tools == nullptr || settings == nullptr || macros == nullptr || vibs == nullptr
+        || trems == nullptr)
         return 1;
 
     auto& song = proc.getSong();
@@ -1782,11 +1785,11 @@ int main()
         }
     }
 
-    //== The ARP MACRO tab's vertical scrollbar ===============================
+    //== The ARP tab's vertical scrollbar ======================================
     {
         // the tab has to be the one showing before its own strip can be grabbed,
         // which is what a host does by clicking the tab's name
-        if (auto* tab = findButton (*editor, "ARP MACRO"))
+        if (auto* tab = findButton (*editor, "ARP"))
             tab->onClick();
 
         // the fill and the scrolls are model writes and view changes rather than
@@ -3979,14 +3982,14 @@ int main()
         // checks after it click into, so the view is brought back to the top
         tracker->keyPressed (juce::KeyPress (juce::KeyPress::homeKey, juce::ModifierKeys(), 0));
     }
-    //== The VIB MACRO tab's card ==============================================
+    //== The VIB tab's card ====================================================
     {
         // the vibrato macros the Command column's V calls live on their own tab,
-        // which is added to and removed from the way the ARP MACRO tab is, and
+        // which is added to and removed from the way the ARP tab is, and
         // each card holds the three settings a wobble runs: its shape as a
         // dropdown, its amplitude as a share of full pitchbend and the subticks
         // one cycle takes, on the same sub-row grid an arpeggiator's steps use
-        if (auto* tab = findButton (*editor, "VIB MACRO"))
+        if (auto* tab = findButton (*editor, "VIB"))
             tab->onClick();
 
         vibs->refresh();
@@ -4074,7 +4077,7 @@ int main()
             add->onClick();
 
         check (song.vibDefined (2) && song.firstUndefVibId() == 3 && song.lastDefVibId() == 2,
-               "a fresh macro takes the lowest id that has none yet and moves the gap below it down, the way the ARP MACRO tab adds one");
+               "a fresh macro takes the lowest id that has none yet and moves the gap below it down, the way the ARP tab adds one");
 
         check (song.vibType (2) == rtr::kVibTypeSin && song.vibAmplitude (2) == rtr::kVibDefaultAmp
                    && song.vibFrequency (2) == rtr::kVibDefaultFreq,
@@ -4084,7 +4087,7 @@ int main()
             remove->onClick();
 
         check (! song.vibDefined (2) && song.lastDefVibId() == 1 && song.firstUndefVibId() == 2,
-               "the remove button puts away the macro the last gesture picked out and leaves the ids naming the same macros below it, the same pairing the ARP MACRO tab uses");
+               "the remove button puts away the macro the last gesture picked out and leaves the ids naming the same macros below it, the same pairing the ARP tab uses");
 
         check (song.vibAmplitude (1) == 25 && song.vibFrequency (1) == 6
                    && song.vibType (1) == rtr::kVibTypeTriDown,
@@ -4092,6 +4095,128 @@ int main()
 
         check (proc.getUndoDepth() == juce::jmin (depthBeforeAdd + 2, song.settings.undoSteps),
                "a macro defined and a macro taken away are one action each, the card's three settings being three more above them");
+
+        // the tab the sections after this one click through is the tracker's
+        if (auto* tab = findButton (*editor, "TRACKER"))
+            tab->onClick();
+    }
+
+    //== The TRM tab's card ====================================================
+    {
+        // the tremolos the Command column's T calls live on a tab of their own beside
+        // the vibrato's, added to and removed from the way both of them are, and each
+        // card holds the three settings a swing runs: its shape as a dropdown, its
+        // amplitude as a count of volume points of the controller and the sub-ticks
+        // one wave cycle takes, on the same sub-row grid an arpeggiator's steps, a
+        // slide's span and a wobble's cycle use
+        if (auto* tab = findButton (*editor, "TRM"))
+            tab->onClick();
+
+        trems->refresh();
+
+        check (song.tremDefined (1) && song.firstUndefTremId() == 2 && song.lastDefTremId() == 1,
+               "the default song has the one tremolo a row can name, and the tab has one card for it");
+
+        std::vector<juce::ComboBox*> shapes;
+        collectComboBoxes (*trems, shapes);
+        std::vector<juce::Slider*> knobs;
+        collectSliders (*trems, knobs);
+
+        check (shapes.size() == 1 && knobs.size() == 2,
+               "that tremolo gets its own dropdown and its two knobs");
+
+        if (shapes.size() < 1 || knobs.size() < 2)
+            return 1;
+
+        // the two knobs are told apart by where their own range starts rather than by
+        // the order they were added in, which is what makes the check about one of
+        // them about that one however the card was built: unlike the vibrato's pair,
+        // both of these count up to the same top of the field
+        juce::Slider* amp = nullptr;
+        juce::Slider* cycle = nullptr;
+
+        for (auto* k : knobs)
+        {
+            if (k->getRange().getStart() == 0.0)
+                amp = k;
+            else
+                cycle = k;
+        }
+
+        check (amp != nullptr && cycle != nullptr,
+               "the card exposes one knob per span, the amplitude counted in volume points and the cycle counted in sub-ticks");
+
+        if (amp == nullptr || cycle == nullptr)
+            return 1;
+
+        check (amp->getRange().getStart() == 0.0 && amp->getRange().getEnd() == (double) rtr::kTremAmpTop
+                   && amp->getInterval() == 1.0,
+               "the amplitude turns from off to the whole of the controller's 0..127 in single volume points, the same whole points the model keeps rather than a share of them");
+
+        check (cycle->getRange().getStart() == 1.0 && cycle->getRange().getEnd() == (double) rtr::kTremFreqTop
+                   && cycle->getInterval() == 1.0,
+               "the cycle knob counts whole sub-ticks one wave takes, from one to the limit a row's argument can name");
+
+        check (amp->getValue() == (double) rtr::kTremDefaultAmp
+                   && cycle->getValue() == (double) rtr::kTremDefaultFreq,
+               "the card opens at the amplitude and the cycle a newly defined tremolo starts at");
+
+        check (shapes[0]->getNumItems() == rtr::kTremTypeTop + 1
+                   && shapes[0]->getSelectedId() == song.tremType (1) + 1,
+               "the dropdown offers the six shapes a swing runs, opened at the one the tremolo holds, the same six a wobble's dropdown offers");
+
+        bool spelled = true;
+
+        for (int i = 0; i < shapes[0]->getNumItems(); ++i)
+            if (shapes[0]->getItemText (i) != trems->trmShapeLabel (shapes[0]->getItemId (i) - 1))
+                spelled = false;
+
+        check (spelled && shapes[0]->getNumItems() == rtr::kTremTypeTop + 1,
+               "the items are spelled as the tab draws a tremolo's shape, the dropdown's ids being one above the model's own");
+
+        const int depthBeforeShape = proc.getUndoDepth();
+
+        shapes[0]->setSelectedItemIndex (rtr::kTremTypeTriDown, juce::sendNotificationSync);
+        check (song.tremType (1) == rtr::kTremTypeTriDown,
+               "the dropdown's own change writes the shape to the tremolo, which is what a row already calling it swings by from there");
+        check (proc.getUndoDepth() == juce::jmin (depthBeforeShape + 1, song.settings.undoSteps),
+               "and picking a shape is one action of its own on the undo line, one step of the depth the Settings tab asks for once the line is full");
+
+        const int depthBeforeKnobs = proc.getUndoDepth();
+
+        amp->setValue (30.0, juce::sendNotificationSync);
+        cycle->setValue (6.0, juce::sendNotificationSync);
+        check (song.tremAmplitude (1) == 30 && song.tremFrequency (1) == 6,
+               "a knob turned writes its own setting: the volume points the swing reaches each way of the channel's level and the sub-ticks one wave takes, six here");
+        check (trems->trmAmplitudeLabel (song.tremAmplitude (1)) == "30",
+               "the amplitude is spelled as the whole count of volume points rather than as a share of the controller, the point the panel's header names");
+        check (proc.getUndoDepth() == juce::jmin (depthBeforeKnobs + 2, song.settings.undoSteps),
+               "each knob turned leaves a point of its own, the card's three settings being three separate actions, and once the line is full one of them drops out of it at the far end");
+
+        const int depthBeforeAdd = proc.getUndoDepth();
+
+        if (auto* add = findButton (*trems, "+ Add macro"))
+            add->onClick();
+
+        check (song.tremDefined (2) && song.firstUndefTremId() == 3 && song.lastDefTremId() == 2,
+               "a fresh tremolo takes the lowest id that has none yet and moves the gap below it down, the way the ARP and VIB tabs add one");
+
+        check (song.tremType (2) == rtr::kTremTypeSin && song.tremAmplitude (2) == rtr::kTremDefaultAmp
+               && song.tremFrequency (2) == rtr::kTremDefaultFreq,
+               "and it arrives at the shape, amplitude and cycle the model gives a newly defined one, not at what the card above it had");
+
+        if (auto* remove = findButton (*trems, "- Remove selected"))
+            remove->onClick();
+
+        check (! song.tremDefined (2) && song.lastDefTremId() == 1 && song.firstUndefTremId() == 2,
+               "the remove button puts away the tremolo the last gesture picked out and leaves the ids naming the same tremolos below it, the same pairing the ARP tab uses");
+
+        check (song.tremAmplitude (1) == 30 && song.tremFrequency (1) == 6
+               && song.tremType (1) == rtr::kTremTypeTriDown,
+               "the tremolo that was never picked out keeps the settings the knobs had left it at, the card being about which tremolo there is rather than about what it holds");
+
+        check (proc.getUndoDepth() == juce::jmin (depthBeforeAdd + 2, song.settings.undoSteps),
+               "a tremolo defined and a tremolo taken away are one action each, the card's three settings being three more above them");
 
         // the tab the sections after this one click through is the tracker's
         if (auto* tab = findButton (*editor, "TRACKER"))
@@ -4139,6 +4264,7 @@ int main()
         }
 
         check (macros->getWantsKeyboardFocus() && vibs->getWantsKeyboardFocus()
+               && trems->getWantsKeyboardFocus()
                && settings->getWantsKeyboardFocus() && tracker->getWantsKeyboardFocus(),
                "the panels that own typed fields want the keyboard focus, which is what walks a press to their fields rather than to a control");
 
@@ -4185,9 +4311,21 @@ int main()
             return n;
         };
 
+        const auto countTrem = [&]
+        {
+            int n = 0;
+
+            for (int id = 1; id <= rtr::kMaxTremMacros; ++id)
+                if (song.tremDefined (id))
+                    ++n;
+
+            return n;
+        };
+
         const int depthBeforeEnter = proc.getUndoDepth();
         const int arpsBefore = countArp();
         const int vibsBefore = countVib();
+        const int tremsBefore = countTrem();
 
         openTab ("SETTINGS");
 
@@ -4213,7 +4351,7 @@ int main()
                    "and repeating the Enter changes no checkbox and adds no undo point, the press having fired the checkbox beside the pointer before");
         }
 
-        openTab ("ARP MACRO");
+        openTab ("ARP");
 
         checkNoButtonFocus (*macros,
                             "and so for the arpeggiator tab, whose cards' Add, Remove and LOOPED buttons and knob pairs are rebuilt rather than made once");
@@ -4227,7 +4365,7 @@ int main()
         check (countArp() == arpsBefore && proc.getUndoDepth() == depthBeforeEnter,
                "and repeating the Enter adds or clears no macro and leaves the undo line alone, the press having fired the tab's Add and Remove buttons before");
 
-        openTab ("VIB MACRO");
+        openTab ("VIB");
 
         checkNoButtonFocus (*vibs,
                             "and for the vibrato tab, whose cards bring a dropdown, two knobs and their pair of buttons each");
@@ -4241,9 +4379,128 @@ int main()
         check (countVib() == vibsBefore && proc.getUndoDepth() == depthBeforeEnter,
                "and repeating it adds or clears no macro, the press having fired the tab's Add and Remove buttons before");
 
+        std::cout << "~~ trace A" << std::flush;
+        openTab ("TRM");
+
+        checkNoButtonFocus (*trems,
+                            "and for the tremolo tab, whose cards bring the same kind of dropdown and knobs and whose pair of buttons each knob builds is rebuilt too");
+
+        std::cout << "~~ trace B" << std::flush;
+        check (trems->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0)),
+               "and the tremolo tab spends an Enter the same way, its dropdown and its two knobs answering their own");
+
+        for (int i = 0; i < 3; ++i)
+            trems->keyPressed (juce::KeyPress (juce::KeyPress::returnKey, juce::ModifierKeys(), 0));
+
+        check (countTrem() == tremsBefore && proc.getUndoDepth() == depthBeforeEnter,
+               "and repeating it adds or clears no tremolo and leaves the undo line alone, the press having fired the tab's Add and Remove buttons before");
+
         // the tab the last sections of this file click through is the tracker's
         if (auto* tab = findButton (*editor, "TRACKER"))
             tab->onClick();
+    }
+
+    //== A click landing the value that was typed ================================
+    {
+        // the tracker keeps what a run of digits spelled in an edit buffer of its own
+        // rather than in the cell, and the Enter key used to be the only thing that
+        // landed it: a press that only moved the cursor on threw the value away, which
+        // left a user of a mouse typing a value and then hunting for a key to confirm
+        // it. the press now lands what the buffer holds before it does anything of its
+        // own, on every path a press has for a target, and Escape stays the one way to
+        // throw a value away
+        const auto volRect = tracker->fieldBoundsFor (0, rtr::TrackerComponent::Field::vol);
+        const auto panRect = tracker->fieldBoundsFor (0, rtr::TrackerComponent::Field::pan);
+        const int rowY = tracker->getHeight() / 2;
+
+        if (tracker->getHeight() < 200 || volRect.getWidth() <= 0 || panRect.getWidth() <= 0)
+        {
+            check (false, "the tracker is big enough for a click to land inside the grid");
+        }
+        else
+        {
+            auto clickAt = [&] (juce::Point<float> pos)
+            {
+                tracker->mouseDown (makeEvent (*tracker, pos));
+                tracker->mouseUp (makeEvent (*tracker, pos));
+            };
+
+            const auto onVol = juce::Point<float> ((float) volRect.getCentreX(), (float) rowY);
+            const auto onPan = juce::Point<float> ((float) panRect.getCentreX(), (float) rowY);
+
+            auto* pat = song.activePattern();
+
+            if (pat == nullptr)
+            {
+                check (false, "the tracker's own pattern is there to be read back");
+            }
+            else
+            {
+                clickAt (onVol);
+
+                const int row = tracker->getCursorRow();
+                const int ch = tracker->getCursorChannel();
+                const int volBefore = pat->cell (row, ch).vol;
+                const int panBefore = pat->cell (row, ch).pan;
+
+                check (tracker->getCursorField() == rtr::TrackerComponent::Field::vol && ch == 0
+                       && row >= 0 && row < pat->length,
+                       "a press inside the volume field of a channel parks the cursor on that field");
+
+                tracker->keyPressed (juce::KeyPress ('4', juce::ModifierKeys(), '4'));
+                tracker->keyPressed (juce::KeyPress ('2', juce::ModifierKeys(), '2'));
+
+                check (pat->cell (row, ch).vol == volBefore,
+                       "digits typed into the field spell themselves into the tracker's own buffer rather than into the cell");
+
+                clickAt (onPan);
+
+                check (pat->cell (row, ch).vol == 42,
+                       "the press lands the value that was being spelled before it does anything of its own, so a value typed with no Enter key of its own still reaches the cell it was spelled against");
+                check (pat->cell (row, ch).pan == panBefore,
+                       "and the value never reaches the cell the click itself landed on, the commit being about the cell the cursor was left on rather than about the press's own target");
+
+                check (tracker->getCursorField() == rtr::TrackerComponent::Field::pan
+                       && tracker->getCursorRow() == row && tracker->getCursorChannel() == ch,
+                       "and the cursor ends on the cell the click landed on rather than back on the one the value was committed to");
+
+                // a click on the very cell the cursor sits on lands the value as well,
+                // which is what makes a press aimed at the cell again a commit rather
+                // than a way of losing what was typed
+                clickAt (onVol);
+
+                const int volBefore2 = pat->cell (row, ch).vol;
+
+                tracker->keyPressed (juce::KeyPress ('7', juce::ModifierKeys(), '7'));
+                tracker->keyPressed (juce::KeyPress ('3', juce::ModifierKeys(), '3'));
+
+                clickAt (onVol);
+
+                check (pat->cell (row, ch).vol == 73 && volBefore2 != 73,
+                       "a click on the cell the cursor already sits on lands what was typed into it too, the commit coming ahead of the hand-over the press also does");
+
+                // Escape is left as the one way a buffered value goes nowhere
+                const int volBefore3 = pat->cell (row, ch).vol;
+                const int panBefore3 = pat->cell (row, ch).pan;
+
+                clickAt (onPan);
+
+                tracker->keyPressed (juce::KeyPress ('9', juce::ModifierKeys(), '9'));
+                tracker->keyPressed (juce::KeyPress (juce::KeyPress::escapeKey, juce::ModifierKeys(), 0));
+
+                check (pat->cell (row, ch).pan == panBefore3 && pat->cell (row, ch).vol == volBefore3,
+                       "and Escape still throws what was typed away, leaving it the only key that does: the commit was asked for by the press rather than by the letter the field was spelled into");
+
+                // the keyboard's own navigation still discards a half-typed value, which
+                // is what leaves walking the cursor over a run of cells a way of reading
+                // them rather than of landing values into them
+                tracker->keyPressed (juce::KeyPress ('5', juce::ModifierKeys(), '5'));
+                tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+
+                check (pat->cell (row, ch).pan == panBefore3 && pat->cell (row, ch).vol == volBefore3,
+                       "and walking the cursor onto the next field still leaves the half-typed value behind rather than landing it, the keyboard's own confirm being the Enter it always was");
+            }
+        }
     }
 
     //== Floating window size ==========================================

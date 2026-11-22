@@ -60,12 +60,17 @@ namespace
         rather than a note struck again every no sub-ticks at all and its OFF being the one
         the entry writes for an o, which is what lets the notes under a release row sustain
         again and leaves the note that column has been holding closed at that row.
+        The tremolo letter takes the same two spellings as well, its 0 being the id that
+        calls no swing and its OFF being the release the entry writes for an o, which is
+        what leaves the volume controller where the swing had left it rather than modulated
+        about the level again.
         Only the STP spelling asks to be carried on, since a row beside it only
         stops the move the wheel was making and leaves the letter in force under it;
         a vibrato has no move to stop, so the spelling means nothing beside its letter,
-        and neither has a cut's or a retrigger's letter, whose gates keep holding the
-        notes entered under them rather than answering the rows below them. A row that
-        puts a command away leaves the column carrying
+        and neither has a cut's, a retrigger's or a tremolo's letter: the first two have
+        gates that keep holding the notes entered under them rather than answering the rows
+        below them, and a tremolo's swing is put away by a release rather than held at some
+        point of it. A row that puts a command away leaves the column carrying
         nothing below it. */
     bool commandArgumentReleases (int cmd, int cmdVal)
     {
@@ -76,7 +81,8 @@ namespace
             return false;
 
         return cmd == kArpCmd || cmd == kVibCmd || cmd == kSlideUpCmd
-            || cmd == kSlideDownCmd || cmd == kCutCmd || cmd == kRetrigCmd;
+            || cmd == kSlideDownCmd || cmd == kCutCmd || cmd == kRetrigCmd
+            || cmd == kTremCmd;
     }
 
     /** Whether a row that named a command leaves one in force for the rows
@@ -874,7 +880,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                 {
                                     // a vibrato call is drawn as its letter, in the same
                                     // lilac the wheel's own commands are read in, and its
-                                    // argument is the vibrato macro the VIB MACRO tab shows
+                                    // argument is the vibrato macro the VIB tab shows
                                     text = "V";
                                     colour = theme::cmdOther;
                                 }
@@ -951,6 +957,28 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                     text = cmdNum == kFadeInCmd ? "I" : "O";
                                     colour = theme::cmdOther;
                                 }
+                                else if (cmdNum == kTremCmd)
+                                {
+                                    // the tremolo letter is drawn as its letter too, in
+                                    // the same lilac: it swings the volume controller
+                                    // of the MIDI output channel this row's instrument
+                                    // names about the level that channel has rather
+                                    // than calling anything, so its argument beside
+                                    // it is the tremolo macro the TRM tab shows, the
+                                    // one whose shape, amplitude and cycle say how
+                                    // that swing moves. Like the vibrato's, an id of
+                                    // 0 spells its release, and like it and the level
+                                    // letter a named one keeps being carried down
+                                    // under it, so the rows below draw the letter and
+                                    // their carried macro id dim, which is what says
+                                    // an argument named there retargets the swing
+                                    // that channel is counting on rather than arming
+                                    // a swing of its own, the two fades above being
+                                    // the only volume letters that leave nothing of
+                                    // their own in force below them
+                                    text = "T";
+                                    colour = theme::cmdOther;
+                                }
                                 else
                                 {
                                     text = valueString (cmdNum, fieldGlyphs (Field::cmdNum));
@@ -982,10 +1010,12 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
                                 const bool vibCall = cmdNum == kVibCmd;
                                 const bool cutCall = cmdNum == kCutCmd;
                                 const bool retriggerCall = cmdNum == kRetrigCmd;
+                                const bool tremCall = cmdNum == kTremCmd;
 
                                 if (( arpCall && cmdVal == 0 ) || cmdVal == kArgOff
                                     || ( slideCall && cmdVal == 0 )
                                     || ( vibCall && cmdVal == 0 )
+                                    || ( tremCall && cmdVal == 0 )
                                     || ( cutCall && cmdVal == 0 )
                                     || ( retriggerCall && cmdVal == 0 ))
                                     // the release reads as what it does rather than
@@ -1015,7 +1045,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
 
                                 colour = arpCall ? theme::cmdMacro
                                                  : ( bendCall || slideCall || vibCall
-                                                   || cutCall || retriggerCall ) ? theme::cmdOther
+                                                   || tremCall || cutCall || retriggerCall ) ? theme::cmdOther
                                                                                  : theme::cmdCC;
 
                                 // an argument the row did not name is the one the
@@ -1106,6 +1136,15 @@ int TrackerComponent::currentPlayRow() const
 void TrackerComponent::mouseDown (const juce::MouseEvent& e)
 {
     grabKeyboardFocus();
+
+    // a value typed but not yet confirmed belongs to the cell the cursor sits on,
+    // and a click is how the user moves on from that cell: the press lands what it
+    // left behind before it does anything of its own, so the value a run of digits
+    // spelled needs no Enter key of its own to confirm it and Escape stays the one
+    // way to throw it away. the commit comes first, before the cursor is handed to
+    // the cell the click landed on, and every path the press has for a target
+    // commits, the scrollbar, a header chip and a right-click menu included
+    commitPendingEdit();
 
     // bottom strip: grab the horizontal scrollbar
     if (scrollbarArea().contains (e.getPosition()))
@@ -1725,8 +1764,8 @@ int TrackerComponent::clampValue (Field field, int value) const
             return juce::jlimit (0, kCcTop, value);
 
         case Field::cmdVal:
-            // the argument of a wheel letter, a call or a vibrato is a number to the
-            // field's own top, a macro id, a point on the wheel or a count of rows; only
+            // the argument of a wheel letter, a call, a vibrato or a tremolo is a number to
+            // the field's own top, a macro id, a point on the wheel or a count of rows; only
             // a cut's lengths reach past it, three digits of the Settings' grid, and
             // those are clamped to their own top at the entry, where the kind the cursor
             // answers against is known
@@ -1865,11 +1904,26 @@ void TrackerComponent::applyValue (Field field, int value)
 
 void TrackerComponent::commitEditBuffer()
 {
+    if (! commitPendingEdit())
+        return;
+
+    // only the keyboard's own confirm hands the cursor over to the next row: the
+    // Enter key and a digit run that filled the field both walk the step the
+    // Settings' grid asked for, while a click that confirms has already parked
+    // the cursor on the cell it landed on
+    if (cursorField != Field::cmdNum)
+        advanceRow (juce::jmax (1, song.settings.stepSkip));
+
+    repaint();
+}
+
+bool TrackerComponent::commitPendingEdit()
+{
     if (! editing || editBuffer.isEmpty())
     {
         editing = false;
         editBuffer.clear();
-        return;
+        return false;
     }
 
     const int value = editBuffer.getIntValue();
@@ -1878,13 +1932,7 @@ void TrackerComponent::commitEditBuffer()
     editing = false;
     editBuffer.clear();
     markChanged();
-
-    const bool advance = cursorField != Field::cmdNum;
-
-    if (advance)
-        advanceRow (juce::jmax (1, song.settings.stepSkip));
-
-    repaint();
+    return true;
 }
 
 void TrackerComponent::cancelEdit()
@@ -2105,7 +2153,8 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
         // a span in rows for U and D, a vibrato macro id for V, a count of
         // subticks for C, a count of the sub-ticks apart a note is struck again
         // at for R, the volume a MIDI output channel's controller is set to for
-        // L and the volume one sub-tick moves for I or O. The note column's own
+        // L, the volume one sub-tick moves for I or O and the tremolo macro that
+        // channel's volume swings about its level for T. The note column's own
         // r still types the octave-up F natural beside it, since a letter only
         // claims the field the cursor is on, the same way the cut letter's c
         // types an E natural there and the o the argument field spells the wheel's
@@ -2122,6 +2171,7 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
                                 : text == 'l' || text == 'L' ? kLevelCmd
                                 : text == 'i' || text == 'I' ? kFadeInCmd
                                 : text == 'o' || text == 'O' ? kFadeOutCmd
+                                : text == 't' || text == 'T' ? kTremCmd
                                                              : kEmpty;
 
             if (letterCmd != kEmpty)
@@ -2181,18 +2231,23 @@ bool TrackerComponent::keyPressed (const juce::KeyPress& key)
         // rather than re-hitting a note at the sample it was entered at: the note the
         // column has been holding is closed there and the gate is put away below, the
         // note entering a row under it sustaining again until something else ends it.
-        // The three volume letters take neither spelling either: the level letter has
-        // no move to stop and nothing to go off, and the two fade letters hold at the
-        // volume their last value reached rather than at a point of a wheel, their own
-        // stopping being the 0 their field already spells. So a letter neither claim
-        // owns where the cursor sits is left alone rather than writing a value or
-        // typing a note beside it, and the cell's value stays as it was
+        // The four volume letters spell these two spellings only as far as their own
+        // states go: the level letter has no move to stop and nothing to go off, the
+        // two fade letters hold at the volume their last value reached rather than at
+        // a point of a wheel, their own stopping being the 0 their field already
+        // spells, and the tremolo letter answers the o with its release the way a
+        // call and a vibrato do, its swing being put away rather than left counting
+        // on, while its s asks for nothing at all, a swing having no move of a wheel
+        // to hold at a point. So a letter neither claim owns where the cursor sits
+        // is left alone rather than writing a value or typing a note beside it, and
+        // the cell's value stays as it was
         if (cursorField == Field::cmdVal)
         {
             const int kind = commandKindAt (cursorRow, cursorChannel);
             const bool wheelKind = kind == kBendCmd || kind == kSlideUpCmd || kind == kSlideDownCmd;
             const bool gateKind = kind == kCutCmd || kind == kRetrigCmd;
-            const bool releaseKind = kind == kArpCmd || kind == kVibCmd || wheelKind || gateKind;
+            const bool releaseKind = kind == kArpCmd || kind == kVibCmd || kind == kTremCmd
+                                     || wheelKind || gateKind;
 
             const int letterVal = text == 'o' || text == 'O' ? ( releaseKind ? kArgOff : kEmpty )
                                 : text == 's' || text == 'S' ? ( wheelKind ? kArgStp : kEmpty )

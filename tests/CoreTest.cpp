@@ -171,6 +171,68 @@ void seedVibRow (Song& s, int id, int type, int amplitude, int cycle,
         s.patterns[0].cell (offRow, 0).note = kNoteOff;
 }
 
+/** A row naming the tremolo letter beside the note it strikes, and the macro the
+    letter's argument calls: the fixture says which macro and what shape,
+    amplitude and cycle length that one holds, which row arms the swing, and which
+    row a note-off below it ends the swing at (-1 or the arming row itself meaning
+    no note-off at all). The pattern is grown to the length asked for, which is
+    what gives the swing rows of its own to keep swinging over rather than leaving
+    the default pattern's end the only thing that puts it away. */
+void seedTremRow (Song& s, int id, int type, int amplitude, int cycle,
+                  int armRow, int offRow, int length)
+{
+    s.defineTrem (id);
+    s.setTremType (id, type);
+    s.setTremAmplitude (id, amplitude);
+    s.setTremFrequency (id, cycle);
+
+    s.patterns[0].setLength (length);
+
+    auto& cell = s.patterns[0].cell (armRow, 0);
+    cell.note = 60;
+    cell.inst = 0;
+    cell.vol = 100;
+    cell.cmd = kTremCmd;
+    cell.cmdVal = id;
+
+    if (offRow >= 0 && offRow != armRow)
+        s.patterns[0].cell (offRow, 0).note = kNoteOff;
+}
+
+/** The values the controller the Settings row names for a MIDI output channel's
+    volume sent, in the order the host would hear them in: a tremolo and a fade both
+    modulate that one controller, so a reading about either one is a reading about
+    the sequence of those values rather than about a pitch or a wheel position. */
+std::vector<int> volumeValues (const Harness& h)
+{
+    std::vector<int> values;
+
+    for (auto& cc : h.controllers)
+        if (cc.number == h.song.settings.volumeCc)
+            values.push_back (cc.value);
+
+    return values;
+}
+
+/** Whether the values from one index on keep repeating the given cycle for as many
+    values as asked for: a tremolo sends one value per point of its swing, so its
+    readings are the same points of its cycle over and over until the row that puts
+    it away, and spelling all 164 of a narrow one's values out would pin one cycle
+    without saying that it repeats. The total asked for is the size a reading has to
+    be at, which is what makes the count of the values and their cycle one claim. */
+bool followsCycle (const std::vector<int>& values, int from, int taken,
+                   const int* cycle, int length)
+{
+    if ((int) values.size() != from + taken)
+        return false;
+
+    for (int i = 0; i < taken; ++i)
+        if (values[(size_t) (from + i)] != cycle[i % length])
+            return false;
+
+    return true;
+}
+
 /** Where a message of a kind carrying a given value was last seen in the order the
     host would hear them in: the sample a raw record names is relative to the block
     it was queued in, so the only ordering that means anything across blocks is the
@@ -1693,7 +1755,7 @@ int main()
         Song s;
         check (s.vibDefined (1) && s.vibType (1) == kVibTypeSin
                && s.vibAmplitude (1) == kVibDefaultAmp && s.vibFrequency (1) == kVibDefaultFreq,
-               "a new song defines vibrato id 1 at the plain sinusoidal shape at half full pitchbend over a cycle of eight subticks, so the VIB MACRO tab has a card to show the way the ARP MACRO tab has");
+               "a new song defines vibrato id 1 at the plain sinusoidal shape at half full pitchbend over a cycle of eight subticks, so the VIB tab has a card to show the way the ARP tab has");
         check (s.firstUndefVibId() == 2 && s.lastDefVibId() == 1,
                "the lowest free id and the highest defined one name the same gap");
         check (s.findVib (kMaxVibMacros) != nullptr && s.vibs.size() == kMaxVibMacros,
@@ -4162,11 +4224,11 @@ int main()
                 if (cc.number == 7)
                     values.push_back (cc.value);
 
-            const std::vector<int> ramped { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 127 };
+            const std::vector<int> ramped { 0, 10, 20, 30, 40, 50, 60, 64 };
             check (values == ramped,
                    "an I with no L above fades the default level up one value every sub-tick of the Settings' grid, a sub-tick being 1000 samples of the 6000-sample row at the Settings' 6 to a row, the ramp's first value being nothing at the letter's own sample");
             check (values.size() == ramped.size(),
-                   "and it says its 14 values rather than one a hair short of the level and another past it");
+                   "and it says its 8 values rather than one a hair short of the level and another past it");
             check (values.back() == kVolDefaultLevel,
                    "the last value is the level itself, landed on exactly and sent once, which is what stops a fade there rather than leaving the controller named over every row under it");
         }
@@ -4201,7 +4263,7 @@ int main()
             p.setLength (4); // the clip ends at 1.0 ppq, the 24000th sample
             p.cell (0, 0).inst = 0;
             p.cell (0, 0).cmd = kFadeInCmd;
-            p.cell (0, 0).cmdVal = 1; // I 1: 128 values, a whole row's worth of them past the clip
+            p.cell (0, 0).cmdVal = 1; // I 1: 65 values, a whole row's worth of them past the clip
             h.runBlocks (60);
 
             std::vector<int> values;
@@ -4219,16 +4281,14 @@ int main()
             check (values.size() == 24,
                    "and no value of that ramp is asked for at or past the clip's end, the ramp being put away there rather than finishing its fade over the rows of the clip below");
         }
-        std::cout << "An O taken over by an I and a step of 0 that only holds\n";
+        std::cout << "A fade out over a level never named\n";
         {
             Harness h;
             auto& p = h.song.patterns[0];
             p.setLength (8);
             p.cell (0, 0).inst = 0;
             p.cell (0, 0).cmd = kFadeOutCmd;
-            p.cell (0, 0).cmdVal = 10;
-            p.cell (2, 0).cmd = kFadeInCmd;
-            p.cell (2, 0).cmdVal = 10;
+            p.cell (0, 0).cmdVal = 10; // O 10 with no L above: the level is the default
             h.runBlocks (100);
 
             std::vector<int> values;
@@ -4236,10 +4296,36 @@ int main()
                 if (cc.number == 7)
                     values.push_back (cc.value);
 
-            check (values.size() == 26 && values[11] == 17,
+            const std::vector<int> falling { 64, 54, 44, 34, 24, 14, 4, 0 };
+            check (values == falling,
+                   "an O with no L above fades the default level down to nothing one value every sub-tick of the Settings' grid, the same default level the letter's own row re-states ahead of its first step");
+            check (values.back() == 0, "and the fade lands on nothing exactly rather than one step short of it");
+        }
+        std::cout << "An O taken over by an I and a step of 0 that only holds\n";
+        {
+            Harness h;
+            auto& p = h.song.patterns[0];
+            p.setLength (8);
+            p.cell (0, 0).inst = 0;
+            p.cell (0, 0).cmd = kLevelCmd;
+            p.cell (0, 0).cmdVal = 127; // L 127: this build's default level is no longer
+                                        // the top of the controller, so the ramp below is
+                                        // spelled against a level the row names
+            p.cell (1, 0).cmd = kFadeOutCmd;
+            p.cell (1, 0).cmdVal = 10;
+            p.cell (3, 0).cmd = kFadeInCmd;
+            p.cell (3, 0).cmdVal = 10;
+            h.runBlocks (100);
+
+            std::vector<int> values;
+            for (auto& cc : h.controllers)
+                if (cc.number == 7)
+                    values.push_back (cc.value);
+
+            check (values.size() == 27 && values[12] == 17,
                    "the O counts 127 down to 17, its ramp being taken away at the I's own row rather than finishing its fade to nothing beside the new letter");
-            check (values[12] == 0 && values.back() == kVolDefaultLevel,
-                   "and the I arms a ramp of its own at that row, sending nothing there and climbing to the level again at the 25000th sample");
+            check (values[13] == 0 && values.back() == 127 && values[0] == 127,
+                   "and the I arms a ramp of its own at that row, sending nothing there and climbing back to the level the letter named rather than to the default one, the two letters being 27 values over the transport");
         }
         {
             std::cout << "A step of 0 stopping the ramping rather than ramping\n";
@@ -4801,6 +4887,621 @@ int main()
         check (w->cell (7, 2).note == 61 && w->cell (7, 2).vol == 9,
                "the part that still fits lands at the anchor");
     }
+
+    //== Tremolo macros =======================================================
+    {
+        std::cout << "Tremolo model (a macro's shape, amplitude and cycle, id 0 releasing)\n";
+        check (kTremCmd > kVibCmd && kTremCmd > kOlderCmdTop && kTremCmd > kCcTop,
+               "the tremolo letter's command value sits above the vibrato letter's, above the highest value an older build could write and above the highest plain CC the number field can spell, so no older row and no typed digit run can already be a tremolo");
+
+        Song s;
+        check (s.tremDefined (1) && s.tremType (1) == kTremTypeSin
+               && s.tremAmplitude (1) == kTremDefaultAmp && s.tremFrequency (1) == kTremDefaultFreq,
+               "a new song defines tremolo id 1 at the plain sinusoidal shape at 64 volume points about the level over a cycle of eight sub-ticks, so the TRM tab has a card to show the way the ARP and VIB tabs have");
+        check (s.firstUndefTremId() == 2 && s.lastDefTremId() == 1,
+               "the lowest free id and the highest defined one name the same gap");
+        check (s.findTrem (kMaxTremMacros) != nullptr && s.trems.size() == kMaxTremMacros,
+               "naming the top id grows the grow-only table to the id limit");
+        check (s.peekTrem (0) == nullptr && s.peekTrem (kMaxTremMacros + 1) == nullptr
+               && s.findTrem (0) == nullptr,
+               "id 0 is the release call and there is no macro entry above the limit");
+    }
+    {
+        std::cout << "Tremolo table grow-only, clearing and defining again\n";
+        Song s;
+        s.defineTrem (5);
+        check (s.trems.size() == 5 && ! s.tremDefined (2) && ! s.tremDefined (4)
+               && s.firstUndefTremId() == 2 && s.lastDefTremId() == 5,
+               "naming id 5 extends the table with absent entries rather than moving the ones already in it, so a fresh macro still takes the lowest gap");
+
+        s.setTremType (5, kTremTypeTriDown);
+        s.setTremAmplitude (5, 96);
+        s.setTremFrequency (5, 111);
+        s.clearTrem (5);
+        check (! s.tremDefined (5) && s.tremAmplitude (5) == 0 && s.tremFrequency (5) == 0,
+               "a cleared macro answers for nothing of its own, which is what makes the engine stop a tremolo whose macro was taken away rather than modulate at nothing");
+        const auto* gone = s.peekTrem (5);
+        check (gone != nullptr && gone->amplitude == 96 && gone->frequency == 111,
+               "clearing says a macro has none rather than erasing the shape, amplitude and cycle its knobs had, which is what re-defining it then starts over from");
+        s.defineTrem (5);
+        check (s.tremType (5) == kTremTypeSin && s.tremAmplitude (5) == kTremDefaultAmp
+               && s.tremFrequency (5) == kTremDefaultFreq,
+               "defining a macro again starts from the defaults rather than from what the cleared one had still held");
+    }
+    {
+        std::cout << "Tremolo setters refusing an absent macro and clamping\n";
+        Song s;
+        s.clearTrem (1);
+        s.setTremType (1, kTremTypeTriUp);
+        s.setTremAmplitude (1, 80);
+        check (! s.tremDefined (1) && s.tremType (1) == 0 && s.tremAmplitude (1) == 0,
+               "a setting only reaches a macro that is one, so an id nothing entered never answers with a shape, an amplitude or a cycle of its own");
+        s.defineTrem (1);
+        const auto* fresh = s.peekTrem (1);
+        check (fresh != nullptr && fresh->amplitude == kTremDefaultAmp,
+               "the refused settings left the entry's own amplitude alone, which is what defining the macro over them starts from");
+
+        s.setTremFrequency (1, kTremFreqTop + 55);
+        s.setTremAmplitude (1, -3);
+        s.setTremType (1, kTremTypeTop + 4);
+        check (s.tremFrequency (1) == kTremFreqTop && s.tremAmplitude (1) == 0
+               && s.tremType (1) == kTremTypeTop,
+               "the three settings clamp at their own tops rather than wrapping, which is what leaves the cycle length never at zero sub-ticks and the amplitude never past the top of the controller a value can name");
+        s.setTremFrequency (1, 0);
+        check (s.tremFrequency (1) == 1, "a cycle clamps up to one sub-tick rather than down to nothing, which is what a tremolo whose cycle knob was dragged to off swings on");
+    }
+    {
+        std::cout << "Tremolo arguments and macros surviving the saved form\n";
+        Song s;
+        s.patterns[0].cell (0, 0).cmd = kTremCmd;
+        s.patterns[0].cell (0, 0).cmdVal = 90;
+        s.patterns[0].cell (1, 0).cmd = kTremCmd;
+        s.patterns[0].cell (1, 0).cmdVal = kArgOff;
+        s.patterns[0].cell (2, 0).cmd = kTremCmd;
+        s.patterns[0].cell (2, 0).cmdVal = kArgStp;
+        s.defineTrem (4);
+        s.setTremType (4, kTremTypeTriDown);
+        s.setTremAmplitude (4, 96);
+        s.setTremFrequency (4, 111);
+
+        Song r;
+        r.fromValueTree (s.toValueTree());
+        check (r.patterns[0].cell (0, 0).cmd == kTremCmd && r.patterns[0].cell (0, 0).cmdVal == 90
+               && r.patterns[0].cell (1, 0).cmdVal == kArgOff && r.patterns[0].cell (2, 0).cmdVal == kArgStp,
+               "the tremolo letter and its OFF and STP spellings survive the saved form unchanged, being saved as the argument's own numbers above the field's top");
+        check (r.tremDefined (4) && r.tremType (4) == kTremTypeTriDown
+               && r.tremAmplitude (4) == 96 && r.tremFrequency (4) == 111,
+               "the three settings a macro holds arrive as their own properties, which is what a saved state brings the knob positions back at");
+
+        Song twice;
+        twice.fromValueTree (r.toValueTree());
+        check (twice.tremDefined (1) && twice.tremDefined (4) && twice.firstUndefTremId() == 2
+               && twice.lastDefTremId() == 4,
+               "the saved form writes one entry per macro that is present rather than one per id the table has room for, so the round trip brings the default one and the macro the entry defined back at the ids they were at and leaves the gap between them a gap");
+
+        Song cleared;
+        cleared.clearTrem (1);
+        cleared.defineTrem (5);
+        Song back;
+        back.fromValueTree (cleared.toValueTree());
+        check (! back.tremDefined (1) && back.tremDefined (5) && back.lastDefTremId() == 5,
+               "a state that had the default tremolo taken away reads back without it, which is what an undo that removed a tremolo leaves it removed rather than the reset putting one back");
+
+        Song older;
+        auto root = s.toValueTree();
+        root.removeChild (root.getChildWithName ("TRMS"), nullptr);
+        older.fromValueTree (root);
+        check (older.tremDefined (1) && ! older.tremDefined (4)
+               && older.tremAmplitude (1) == kTremDefaultAmp && older.tremFrequency (1) == kTremDefaultFreq,
+               "a state older than the letter T names no tremolo at all, so the read arrives with the one default macro the way a fresh song does rather than an empty tab");
+    }
+
+    //== A tremolo's grid, amplitude and cycle ================================
+    {
+        std::cout << "A sinusoidal tremolo at 30 volume points, a cycle one row wide\n";
+        Harness h;
+        seedTremRow (h.song, 1, kTremTypeSin, 30, 6, 0, 3, 16);
+        h.runBlocks (94);
+
+        const auto values = volumeValues (h);
+        static const int tremCycle[] = { 64, 85, 94, 85, 64, 43, 34, 43 };
+        check (followsCycle (values, 0, 65, tremCycle, 8),
+               "a cycle six sub-ticks wide is one row wide at the Settings' 6 to a row and is drawn with eight points, so each row the note is held over sends one cycle about the level its channel is at and back again, the 65 values being eight points of that cycle at 750 samples apart rather than a fresh cycle starting at each of them");
+        check (values[0] == kVolDefaultLevel && values[2] == kVolDefaultLevel + 30
+               && values[6] == kVolDefaultLevel - 30,
+               "the amplitude names whole volume points of the controller rather than a share of it: a knob at 30 reaches 30 above the level and 30 below it, its first point sitting on the level itself");
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false
+               && values.back() == kVolDefaultLevel,
+               "the row three below the letter released the note it had struck without taking the swing away, whose points keep being sent below it and land on the level again at the 65th value rather than stopping at the note-off");
+    }
+    {
+        std::cout << "An amplitude of a third of the controller and one turned to off\n";
+        Harness def;
+        seedTremRow (def.song, 1, kTremTypeSin, kTremDefaultAmp, kTremDefaultFreq, 0, 3, 16);
+        def.runBlocks (94);
+
+        const auto values = volumeValues (def);
+        static const int eightWide[] = { 64, 109, 127, 109, 64, 19, 0, 19 };
+        check (followsCycle (values, 0, 49, eightWide, 8),
+               "the default macro's cycle of eight sub-ticks is one third wider than a row, so its cycle crosses the rows it sits in rather than starting on each of them and its points are 1000 samples apart rather than 750");
+        check (values[2] == kCcTop && values[6] == 0,
+               "the default amplitude of 64 volume points has no room above the top either: the peak would name 128 and sits on the 127 the field can name, the trough landing exactly on nothing");
+
+        Harness quiet;
+        seedTremRow (quiet.song, 1, kTremTypeSin, 0, 6, 0, 1, 16);
+        quiet.runBlocks (40);
+
+        const auto quietValues = volumeValues (quiet);
+        bool onlyTheLevel = quietValues.size() == 28;
+        for (auto v : quietValues)
+            if (v != kVolDefaultLevel)
+                onlyTheLevel = false;
+
+        check (onlyTheLevel,
+               "an amplitude knob turned down to off moves the controller nowhere at all, every point of the cycle sitting on the level, yet unlike a wobble it still says a value at every one of them: the point of a tremolo is the controller's own value rather than a move that would move nothing");
+    }
+    {
+        std::cout << "An amplitude that leans past both ends of the controller\n";
+        Harness clipped;
+        seedTremRow (clipped.song, 1, kTremTypeSin, kTremAmpTop, 6, 0, 1, 16);
+        clipped.runBlocks (40);
+
+        const auto clippedValues = volumeValues (clipped);
+        static const int clippedCycle[] = { 64, 127, 127, 127, 64, 0, 0, 0 };
+        check (followsCycle (clippedValues, 0, 28, clippedCycle, 8),
+               "the full amplitude of 127 volume points about the default level has no room on either side of it, so the three points of the cycle above the level sit on the controller's top and the three below it sit on nothing rather than folding back");
+        check (clippedValues[2] == kCcTop && clippedValues[6] == 0,
+               "the peak above the level would name 191 and the trough below would name minus 63, and both land on an end of the 0..127 rather than on a value outside it, which is what says the modulation is clipped rather than folded back");
+    }
+    {
+        std::cout << "A cycle's width in sub-ticks and the eight points it is drawn with\n";
+        Harness wide;
+        seedTremRow (wide.song, 2, kTremTypeSin, 30, 12, 0, 3, 16);
+        wide.runBlocks (94);
+
+        const auto values = volumeValues (wide);
+        static const int wideCycle[] = { 64, 79, 90, 94, 90, 79, 64, 49, 38, 34, 38, 49 };
+        check (followsCycle (values, 0, 49, wideCycle, 12),
+               "a cycle twelve sub-ticks wide is two rows wide and is drawn with twelve points of it rather than the eight it is asked for at least, so its curve is cut at the twelfths of a cycle and its cycle crosses the rows it sits in over twice");
+
+        Harness tight;
+        seedTremRow (tight.song, 3, kTremTypeSin, 5, 1, 0, 1, 16);
+        tight.runBlocks (40);
+
+        const auto tightValues = volumeValues (tight);
+        static const int tightCycle[] = { 64, 68, 69, 68, 64, 60, 59, 60 };
+        check (followsCycle (tightValues, 0, 164, tightCycle, 8),
+               "a cycle one sub-tick wide is still drawn with the eight points kTremCyclePoints says a cycle is never drawn with fewer of, so the controller moves eight times inside the sub-row grid rather than once over it and six cycles of it land inside one row");
+        check (tightValues[0] == kVolDefaultLevel && tightValues[2] == kVolDefaultLevel + 5
+               && tightValues[6] == kVolDefaultLevel - 5,
+               "a quiet knob of 5 volume points moves the controller five points each way over that narrow grid, its mid-cycle points landing on the level itself rather than on a point of the swing");
+    }
+
+    //== A tremolo's six shapes =================================================
+    {
+        std::cout << "The six shapes and their Up and Down spellings\n";
+
+        auto allAtOrAbove = [] (const std::vector<int>& v, int base)
+        {
+            for (auto one : v)
+                if (one < base)
+                    return false;
+
+            return true;
+        };
+        auto allAtOrBelow = [] (const std::vector<int>& v, int base)
+        {
+            for (auto one : v)
+                if (one > base)
+                    return false;
+
+            return true;
+        };
+
+        const char* shapeLabels[] = { "sinusoidal", "sinusoidal Up", "sinusoidal Down",
+                                      "triangle", "triangle Up", "triangle Down" };
+
+        static const int sinCycle[] = { 64, 85, 94, 85, 64, 43, 34, 43 };
+        static const int sinUpCycle[] = { 64, 85, 94, 85, 64, 85, 94, 85 };
+        static const int sinDownCycle[] = { 64, 43, 34, 43, 64, 43, 34, 43 };
+        static const int triCycle[] = { 64, 79, 94, 79, 64, 49, 34, 49 };
+        static const int triUpCycle[] = { 64, 79, 94, 79, 64, 79, 94, 79 };
+        static const int triDownCycle[] = { 64, 49, 34, 49, 64, 49, 34, 49 };
+        const int* cycles[] = { sinCycle, sinUpCycle, sinDownCycle, triCycle, triUpCycle, triDownCycle };
+
+        for (int kind = 0; kind <= kTremTypeTop; ++kind)
+        {
+            Harness h;
+            const int id = kind + 1;
+            seedTremRow (h.song, id, kind, 30, 6, 0, -1, 16);
+
+            auto& off = h.song.patterns[0].cell (1, 0);
+            off.cmd = kTremCmd;
+            off.cmdVal = 0; // a 0 beside the letter names the release, which is what puts
+                            // the swing away a row below the letter and leaves exactly one
+                            // cycle of eight points to read
+
+            h.runBlocks (40);
+
+            const auto values = volumeValues (h);
+            const int* want = cycles[kind];
+            check (values.size() == 8 && values == std::vector<int> (want, want + 8),
+                   (juce::String) ("the shape named ") + shapeLabels[kind]
+                       + " draws its cycle as the eight points of it that the amplitude names, the Up and Down spellings having one half of the plain shape's cycle folded back over the level rather than over the controller's centre");
+            if (kind == kTremTypeSinUp || kind == kTremTypeTriUp)
+                check (allAtOrAbove (values, kVolDefaultLevel),
+                       "the Up spelling has the cycle's second half inverted, so the tremolo never reaches below the level its channel is at and stays on one side of it");
+            if (kind == kTremTypeSinDown || kind == kTremTypeTriDown)
+                check (allAtOrBelow (values, kVolDefaultLevel),
+                       "the Down spelling has the cycle's first half inverted, so the tremolo never rises above the level, the other half being the one the plain shape swung to the far side in");
+        }
+    }
+
+    {
+        std::cout << "A shape's Up and Down spellings leaning on the controller's ends at full amplitude\n";
+        Harness up;
+        seedTremRow (up.song, 1, kTremTypeSinUp, kTremAmpTop, 6, 0, -1, 16);
+        up.song.patterns[0].cell (1, 0).cmd = kTremCmd;
+        up.song.patterns[0].cell (1, 0).cmdVal = 0;
+        up.runBlocks (40);
+
+        const std::vector<int> values = volumeValues (up);
+
+        static const int upFull[] = { 64, 127, 127, 127, 64, 127, 127, 127 };
+        check (values.size() == 8 && values == std::vector<int> (upFull, upFull + 8),
+               "the Up spelling of the sinusoidal shape at full amplitude climbs to the controller's top twice a cycle with nothing below the level to go to, the fold landing on the peak the plain shape's second half would have reached below");
+
+        Harness down;
+        seedTremRow (down.song, 1, kTremTypeSinDown, kTremAmpTop, 6, 0, -1, 16);
+        down.song.patterns[0].cell (1, 0).cmd = kTremCmd;
+        down.song.patterns[0].cell (1, 0).cmdVal = 0;
+        down.runBlocks (40);
+
+        const std::vector<int> downValues = volumeValues (down);
+
+        static const int downFull[] = { 64, 0, 0, 0, 64, 0, 0, 0 };
+        check (downValues.size() == 8 && downValues == std::vector<int> (downFull, downFull + 8),
+               "the Down spelling of the same shape at full amplitude is that shape's cycle read through the level instead: it lands on the controller's bottom twice a cycle and never rises above the level, the fold being the cycle's first half rather than its second");
+    }
+
+    //== The level a tremolo modulates about ==================================
+    {
+        std::cout << "An L row under a running tremolo re-basing it rather than ending it\n";
+        Harness h;
+        seedTremRow (h.song, 1, kTremTypeSin, 30, 6, 0, 4, 16);
+        h.song.patterns[0].cell (1, 0).cmd = kLevelCmd;
+        h.song.patterns[0].cell (1, 0).cmdVal = 100;
+        h.runBlocks (94);
+
+        const std::vector<int> values = volumeValues (h);
+
+        static const int sinTrem[] = { 64, 85, 94, 85, 64, 43, 34, 43 };
+        static const int about100[] = { 100, 121, 127, 121, 100, 79, 70, 79 };
+        bool before = true;
+        for (int i = 0; i < 8; ++i)
+            if (values[i] != sinTrem[i])
+                before = false;
+        bool after = true;
+        for (int i = 9; i < 66; ++i)
+            if (values[i] != about100[(i - 9) % 8])
+                after = false;
+
+        check (values.size() == 66 && before && after,
+               "the level letter named one row under a swing armed at the row above moves the point the swing measures about to 100 from that row's own sample on rather than ending the swing or starting a new one, its own send of 100 sitting ahead of the swing's first point above the new level");
+        check (values[8] == 100 && values[11] == kCcTop,
+               "the swing counts on from where its cycle had got rather than restarting at the new level, and its peak above 100 would name 130 and is clipped to the 127 the field can name, the trough below still landing inside the 0..127");
+
+        // the same song with the level letter two rows under the letter rather than
+        // one, so the swing has a whole cycle of its own above the level row
+        Harness later;
+        seedTremRow (later.song, 1, kTremTypeSin, 30, 6, 0, 4, 16);
+        later.song.patterns[0].cell (2, 0).cmd = kLevelCmd;
+        later.song.patterns[0].cell (2, 0).cmdVal = 100;
+        later.runBlocks (94);
+
+        const std::vector<int> laterValues = volumeValues (later);
+
+        bool afterCycle = true;
+        for (int i = 17; i < 66; ++i)
+            if (laterValues[i] != about100[(i - 17) % 8])
+                afterCycle = false;
+
+        check (laterValues.size() == 66 && laterValues[16] == 100 && afterCycle,
+               "the same letter spelled two rows under the swing re-bases it over a whole cycle of the old level rather than one point of it, the level being the channel's own rather than the row's and so read at whatever point of its cycle the swing had got to");
+    }
+
+    {
+        std::cout << "A level named on a parallel column of the same instrument reaching a running swing\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.setChannels (2);
+        seedTremRow (h.song, 1, kTremTypeSin, 30, 6, 0, -1, 16);
+        p.cell (4, 1).inst = 0; // the other tracker channel, the same instrument
+        p.cell (4, 1).cmd = kLevelCmd;
+        p.cell (4, 1).cmdVal = 40;
+        p.cell (4, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        const std::vector<int> values = volumeValues (h);
+
+        static const int sinTrem[] = { 64, 85, 94, 85, 64, 43, 34, 43 };
+        static const int about40[] = { 40, 61, 70, 61, 40, 19, 10, 19 };
+        bool before = true;
+        for (int i = 0; i < 32; ++i)
+            if (values[i] != sinTrem[i % 8])
+                before = false;
+        bool after = true;
+        for (int i = 33; i < 66; ++i)
+            if (values[i] != about40[(i - 33) % 8])
+                after = false;
+
+        check (values.size() == 66 && before && values[32] == 40 && after,
+               "the level named on the parallel column reaches the same channel's swing: it stops the first column's values at their 32nd and states 40 at its own row, the 24000th sample, rather than the two columns each keeping a level of their own");
+        check (values[33] == 40,
+               "the letter's row and the swing's own point at that sample land on the new level one after the other, which is what lets a host hear the level rather than only the swing's change of it");
+    }
+
+    //== A tremolo's release, its OFF and STP spellings and a retargeting ====
+    {
+        std::cout << "A release row putting the modulating away\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        seedTremRow (h.song, 1, kTremTypeSin, kTremAmpTop, 6, 0, -1, 16);
+        p.cell (2, 0).cmd = kTremCmd;
+        p.cell (2, 0).cmdVal = 0; // a 0 beside the letter names the release
+        p.cell (4, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        const std::vector<int> values = volumeValues (h);
+
+        static const int fullTrem[] = { 64, 127, 127, 127, 64, 0, 0, 0 };
+        bool cycles = values.size() == 16;
+        for (size_t i = 0; i < values.size(); ++i)
+            if (values[i] != fullTrem[i % 8])
+                cycles = false;
+
+        check (cycles,
+               "the release takes the tremolo away on its own row rather than at its next point: two whole cycles of the swing had been sent above it, its last point having left the channel at nothing, and the row's own sample asks for nothing of its own");
+        check (values.back() == 0,
+               "the release leaves the channel's volume at whatever value the swing had last sent rather than putting it back at the level, a controller having no neutral state a row can put a channel back to");
+
+        int atOrPastTheRelease = 0;
+        for (auto& cc : h.controllers)
+            if (cc.number == 7 && cc.offset >= 12000)
+                ++atOrPastTheRelease;
+
+        check (atOrPastTheRelease == 0,
+               "no value of that swing is asked for at or past the row that released it, the 12000th sample being that row's own, which is what leaves the rows below the release a plain channel");
+
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false,
+               "the note the row above struck is still held to the note-off below, the release being about the channel's volume rather than about the note");
+    }
+    {
+        std::cout << "The OFF the entry writes for an o spelling the same release\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        seedTremRow (h.song, 1, kTremTypeSin, kTremAmpTop, 6, 0, -1, 16);
+        p.cell (2, 0).cmd = kTremCmd;
+        p.cell (2, 0).cmdVal = kArgOff;
+        p.cell (4, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        const std::vector<int> values = volumeValues (h);
+
+        static const int offReleased[] = { 64, 127, 127, 127, 64, 0, 0, 0,
+                                           64, 127, 127, 127, 64, 0, 0, 0 };
+        check (values.size() == 16 && values == std::vector<int> (offReleased, offReleased + 16),
+               "the OFF spelling does what a 0 beside the letter does, the argument field's own top being one below what the spelling needs, which is why the entry writes OFF rather than a number");
+
+        Harness later;
+        later.song.patterns[0].setLength (16);
+        seedTremRow (later.song, 1, kTremTypeSin, kTremAmpTop, 6, 0, -1, 16);
+        later.song.patterns[0].cell (2, 0).cmd = kTremCmd;
+        later.song.patterns[0].cell (2, 0).cmdVal = kArgOff;
+        later.song.patterns[0].cell (3, 0).cmdVal = 1; // a bare argument under it
+        later.song.patterns[0].cell (4, 0).note = kNoteOff;
+        later.runBlocks (94);
+
+        const std::vector<int> laterValues = volumeValues (later);
+
+        check (laterValues.size() == 16 && laterValues == std::vector<int> (offReleased, offReleased + 16),
+               "a row naming only an argument below the release arms nothing: the release left the column calling nothing rather than calling id 0, the way a run's and a slide's release leave nothing below them");
+    }
+    {
+        std::cout << "An STP argument row holding a swing and a row naming a different macro\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        seedTremRow (h.song, 1, kTremTypeSin, kTremAmpTop, 6, 0, -1, 16);
+        h.song.defineTrem (2);
+        h.song.setTremAmplitude (2, 25);
+        h.song.setTremFrequency (2, 6);
+
+        p.cell (1, 0).cmdVal = kArgStp; // only an argument, under the letter above
+        p.cell (2, 0).cmdVal = 2; // and a quieter macro named under the same carried letter
+        p.cell (4, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        const std::vector<int> values = volumeValues (h);
+
+        static const int fullTrem[] = { 64, 127, 127, 127, 64, 0, 0, 0 };
+        static const int quietTrem[] = { 64, 82, 89, 82, 64, 46, 39, 46 };
+        bool first = true;
+        for (int i = 0; i < 16; ++i)
+            if (values[i] != fullTrem[i % 8])
+                first = false;
+        bool then = true;
+        for (int i = 16; i < 65; ++i)
+            if (values[i] != quietTrem[(i - 16) % 8])
+                then = false;
+
+        check (values.size() == 65 && first && then,
+               "an argument naming STP beside a carried letter asks for nothing and leaves the swing swinging over the rows below it, and the row below that names another macro id re-arms the swing over that macro, its cycle counting again from that row rather than from where the first stretch had got in its cycle");
+        check (values[16] == kVolDefaultLevel,
+               "the re-armed swing measures its quieter cycle from the level the channel is at rather than from the value the first stretch had last sent, the level being the channel's own rather than a point of the controller it had got to, which is what keeps the retarget from jumping the quieter macro's cycle onto that 0");
+    }
+    {
+        std::cout << "A row naming STP beside the letter itself holding rather than ending\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        seedTremRow (h.song, 1, kTremTypeSin, kTremAmpTop, 6, 0, -1, 16);
+        p.cell (2, 0).cmd = kTremCmd;
+        p.cell (2, 0).cmdVal = kArgStp;
+        p.cell (4, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        const std::vector<int> values = volumeValues (h);
+
+        static const int fullTrem[] = { 64, 127, 127, 127, 64, 0, 0, 0 };
+        bool cycles = values.size() == 65;
+        for (size_t i = 0; i < values.size(); ++i)
+            if (values[i] != fullTrem[i % 8])
+                cycles = false;
+
+        check (cycles,
+               "a row that names the letter itself and an STP argument ends nothing: unlike a wobble, whose swing the pitchbending a wheel carries is what such a row takes away, a tremolo has no move of its own to hold, so the row asks for nothing and the swing counts on over it, the letter's own row being a volume letter rather than one that ends a swing above it");
+        check (h.notes.size() == 2 && h.notes[0].on && h.notes[1].on == false,
+               "the note entered beside the letter is still released by the row four below it, the STP row leaving the swing and the note alone");
+    }
+    {
+        std::cout << "A letter on a parallel column retargeting the channel's swing\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        p.setChannels (2);
+        seedTremRow (h.song, 1, kTremTypeSin, kTremAmpTop, 6, 0, -1, 16);
+        h.song.defineTrem (2);
+        h.song.setTremAmplitude (2, 30);
+        h.song.setTremFrequency (2, 6);
+        p.cell (2, 1).inst = 0; // the other tracker column, naming the same instrument
+        p.cell (2, 1).cmd = kTremCmd;
+        p.cell (2, 1).cmdVal = 2;
+        p.cell (4, 0).note = kNoteOff;
+        h.runBlocks (94);
+
+        const std::vector<int> values = volumeValues (h);
+
+        static const int fullTrem[] = { 64, 127, 127, 127, 64, 0, 0, 0 };
+        static const int sinTrem[] = { 64, 85, 94, 85, 64, 43, 34, 43 };
+        bool first = true;
+        for (int i = 0; i < 16; ++i)
+            if (values[i] != fullTrem[i % 8])
+                first = false;
+        bool then = true;
+        for (int i = 16; i < 65; ++i)
+            if (values[i] != sinTrem[(i - 16) % 8])
+                then = false;
+
+        check (values.size() == 65 && first && then,
+               "the letter spelled on a parallel column of the same instrument reaches that instrument's channel and retargets the swing its first column had armed rather than arming a second one over it, the swing being keyed to the MIDI output channel rather than to the column a row sits in");
+    }
+
+    //== A tremolo whose macro was taken away =================================
+    {
+        std::cout << "The macro taken away while its tremolo modulates\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (16);
+        seedTremRow (h.song, 2, kTremTypeSin, kTremAmpTop, 6, 0, -1, 16);
+        p.cell (4, 0).note = kNoteOff;
+
+        // 26 blocks reach 0.5547 ppq, past the swing's eighteenth point at 0.53125
+        h.runBlocks (26);
+        const std::vector<int> before = volumeValues (h);
+        h.song.clearTrem (2);
+
+        // two more blocks, still short of the note-off row at 1.0 ppq: the flush
+        // below the next block boundary is what finds the macro gone
+        h.runBlocks (2);
+        check (volumeValues (h) == before,
+               "the macro being taken away ends the swing at its next point rather than at the row that took it, and says nothing of its own: the channel keeps whatever value of the controller the swing had last sent");
+        check (before.size() == 18 && before.back() == kCcTop,
+               "the last value of the swing the run had played sits at the top of the controller rather than at the level the swing modulated about, which is what leaves a channel loud rather than one already back at its level");
+
+        h.runBlocks (30);
+
+        check (volumeValues (h) == before && h.notes.size() == 2 && h.notes[0].on
+               && h.notes[1].on == false,
+               "a note-off row below is what releases the note the letter's row struck without putting the channel's volume back, the swing having been taken away above it and nothing else naming that controller");
+    }
+
+    //== The clip a tremolo lives in running out ==============================
+    {
+        std::cout << "The clip its rows live in running out under a tremolo\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (2);
+        h.song.setTremAmplitude (1, kTremAmpTop);
+        h.song.setTremFrequency (1, 6);
+        p.cell (0, 0).cmd = kTremCmd;
+        p.cell (0, 0).cmdVal = 1;
+        h.runBlocks (26);
+
+        const std::vector<int> values = volumeValues (h);
+        static const int clipOut[] = { 64, 127, 127, 127, 64, 0, 0, 0,
+                                       64, 127, 127, 127, 64, 0, 0, 0 };
+        check (values.size() == 16 && values == std::vector<int> (clipOut, clipOut + 16),
+               "a swing this clip's single cell armed has no rows below the clip left to keep modulating over, so its cycle stops at the clip's end and the swing is put away there, the same thing a ramp this clip armed comes put away at");
+        check (h.notes.empty(), "the tremolo armed with no note of its own has nothing to release, the channel's volume being all that is left to put away");
+        check (std::count_if (h.raw.begin(), h.raw.end(),
+                              [] (const RawEvent& e) { return e.kind == 2; }) == kMidiChannelCount,
+               "the all-notes-offs that are there are the ones the transport's own start asks for, one per channel, which is what leaves the clip's end sending nothing of its own about the channel's volume rather than releasing anything");
+    }
+    {
+        std::cout << "A cycle wider than the clip that armed it, counted over the clip's rows\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (4); // the clip ends at 1.0 ppq, the 24000th sample
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+        p.cell (0, 0).cmd = kTremCmd;
+        p.cell (0, 0).cmdVal = 1;
+        h.song.defineTrem (1);
+        h.song.setTremAmplitude (1, 8);
+        h.song.setTremFrequency (1, 1);
+        h.runBlocks (60);
+
+        const std::vector<int> values = volumeValues (h);
+        static const int clipCycle[] = { 64, 70, 72, 70, 64, 58, 56, 58 };
+        bool cycles = values.size() == 192;
+        for (size_t i = 0; i < values.size(); ++i)
+            if (values[i] != clipCycle[i % 8])
+                cycles = false;
+
+        check (cycles,
+               "a cycle one sub-tick wide is still drawn with the eight points kTremCyclePoints says a cycle is never drawn with fewer of, so the channel's volume moves eight times inside the sub-row grid at 125 samples apart and 24 cycles of it land inside the clip's four rows, its last point being the 23875th sample rather than one at or past the clip's own end");
+    }
+
+    //== A tremolo beside a wobble on another column ==========================
+    {
+        std::cout << "A tremolo on a parallel column beside a wobble of the same instrument\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        seedVibRow (h.song, 1, kVibTypeSin, 100, 6, 0, -1, 16);
+        p.setChannels (2);
+        p.cell (1, 1).inst = 0; // the other tracker channel, the same instrument
+        p.cell (1, 1).cmd = kTremCmd;
+        p.cell (1, 1).cmdVal = 1;
+        h.runBlocks (40);
+
+        static const int wobbleOnly[] = { 13985, 16383, 13985, 8192, 2399, 0, 2399, 8192,
+                                          13985, 16383, 13985, 8192, 2399, 0, 2399, 8192,
+                                          13985, 16383, 13985, 8192, 2399, 0, 2399, 8192,
+                                          13985, 16383, 13985 };
+        check (h.bends.size() == 27 && h.bends == std::vector<int> (wobbleOnly, wobbleOnly + 27),
+               "the wobble the first column armed keeps its own wheel messages over those blocks: a letter spelled on a parallel column disturbs nothing of it, the tremolo being a volume letter rather than one that ends a wobble above it");
+
+        static const int quietTrem[] = { 64, 109, 127, 109, 64, 19, 0, 19,
+                                         64, 109, 127, 109, 64, 19, 0 };
+        check (volumeValues (h) == std::vector<int> (quietTrem, quietTrem + 15),
+               "the tremolo the parallel column armed modulates the channel the same instrument names all over the wobble's own rows, its cycle being 1000 samples apart rather than the wobble's 750 and its points being volume points rather than wheel positions");
+    }
+
 
     std::cout << (failures == 0 ? "PASS" : "FAILED") << " (" << failures << " failures)\n";
     return failures == 0 ? 0 : 1;

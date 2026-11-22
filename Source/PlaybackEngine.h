@@ -30,6 +30,15 @@ static_assert (kBendCentreVal * kBendStep == kBendCentrePos,
     step, the grid the arpeggiator's steps and a slide's ramp already use. */
 constexpr int kVibCyclePoints = 8;
 
+/** A tremolo's cycle is drawn with at least this many points of its own, the same
+    rule the vibrato's cycle is drawn by: a cycle the macro asked for shorter than
+    one point per sub-row step still shows its curve rather than landing on the same
+    point of it every sub-row, and a cycle eight sub-ticks or wider has one point per
+    sub-row step, the grid the arpeggiator's steps, a slide's ramp and a wobble's
+    points already use, only read in volume points of the controller rather than in
+    wheel positions. */
+constexpr int kTremCyclePoints = 8;
+
 /** Converts the song timeline into MIDI events, following the host transport. */
 class PlaybackEngine
 {
@@ -466,6 +475,55 @@ private:
         }
     };
 
+    /** What one MIDI output channel's volume controller is swung about its level by
+        a tremolo: the macro its T rows name and where that cycle stands. This belongs
+        to the channel rather than to a tracker column exactly as the level an L named
+        does, which is what lets a T spelled on any column naming that instrument reach
+        one swing, retargeted as it goes the way a wobble is, and what keeps the swing
+        and the fade of the three volume letters as parallel states of that one controller
+        as the level, the ramp and the wheel are of a column. The level it swings about is
+        read at every point rather than kept here, which is what lets a further L row move
+        the level a running swing is swung about, the way a bend row moves the base a wobble
+        swings about. */
+    struct TremState
+    {
+        bool on = false;                  // a tremolo swing is in force on this channel
+        int id = 0;                       // macro id the swing runs (0 = none)
+        double origin = -1.0;             // where the swing's first cycle starts, in transport beats
+        int count = 0;                    // points of the swing already played
+        int height = 0;                   // how far it swings from its base, in volume points
+        int cycle = 1;                    // sub-ticks one whole cycle of it takes
+        int points = 1;                   // points one cycle of it is drawn with
+        double rowEnd = -1.0;             // end of the last row the engine owned that swing over
+        juce::Uuid swingClip;             // the clip whose rows armed the swing
+
+        /** Leaves no swing in force and leaves the channel's volume at whatever value
+            its last point had sent: like the fade above, a controller has no neutral
+            state a row can put it back to, so putting a swing away sends nothing of
+            its own, and the level an L set is kept rather than taken back. */
+        void endSwing() noexcept
+        {
+            on = false;
+            id = 0;
+            origin = -1.0;
+            count = 0;
+            height = 0;
+            cycle = 1;
+            points = 1;
+            rowEnd = -1.0;
+            swingClip = juce::Uuid();
+        }
+
+        /** Whether a swing is in force on this channel, which is what the flush below
+            reaches and what a row that took the letter away answers the way a wobble
+            does: a swing has no end of its own to have reached, so the release rows and
+            the clip that armed it are what put it away. */
+        bool swingRunning() const noexcept
+        {
+            return on;
+        }
+    };
+
     struct PendingEvent
     {
         int offset = 0;
@@ -599,6 +657,30 @@ private:
     void flushVolume (std::vector<PendingEvent>& events, int midiCh, double ppqStart,
                       double ppqLimit, double ppqPerSample, int numSamples,
                       const Song& song);
+
+    /** Sends the volume controller values of the swing one MIDI output channel has in
+        force that belong to the position range [ppqStart, ppqLimit): the points of a
+        tremolo's cycle wait with where each sits counted from the row that armed the
+        swing over the macro's own cycle length, the way a fade's values, a run's steps,
+        a slide's ramp, a wobble's points and a retrigger's strikes do, which is what
+        leaves the points of a row that spills past this block waiting for the block that
+        reaches them rather than bunched onto the row that named the letter or dropped, and
+        what keeps a cycle that wrapped many times exact rather than drifted by its own
+        fractions. The points are moved over the grid the macro's cycle names rather than
+        the plain sub-row one, exactly as a wobble's are, so a cycle shorter than one point
+        per sub-row step still shows its curve. Like a fade's values rather than a wobble's,
+        every value is spoken even the one the channel's volume is already at, since unlike
+        a wheel's position a controller has nothing that says a value is already in force,
+        and a value outside the controller's 0..127 is clipped to the end it crossed rather
+        than wrapped, which is what keeps a wider swing reaching past full and silence
+        a host could not hear the difference in. A swing never finishes by itself: a cycle
+        repeats for as long as the column carries the letter, so the clip that armed it and
+        the release rows are what put it away, and a swing whose next point sits more than
+        a row behind where this block starts is put away rather than arriving late, which
+        is what a scrub or a jump leaves behind. */
+    void flushTrem (std::vector<PendingEvent>& events, int midiCh, double ppqStart,
+                    double ppqLimit, double ppqPerSample, int numSamples,
+                    const Song& song);
 
     /** A row naming the arpeggiator command: the release call, id 0 or the OFF
         argument the entry also writes for an o, releases what the run is holding,
@@ -871,6 +953,23 @@ private:
     void volCommand (std::vector<PendingEvent>& events, int midiCh, int cmd, int argument,
                      int offset, double rowPpq, const juce::Uuid& clipUid);
 
+    /** A row naming the tremolo letter: what it says is about the volume controller of
+        the MIDI output channel this row's instrument names rather than about this column,
+        and its argument names which tremolo macro that channel swings that controller about
+        the level it has, exactly as a vibrato call names a macro and a wobble swings about
+        the point the wheel is at: an id of 0 or the OFF argument the entry writes for an o
+        puts the swing away and leaves the channel sounding whatever value its last point
+        sent, an STP one asks for nothing at all since a swing has no move of a wheel to
+        stop, and another id arms that macro's swing at this row, its cycle's first point
+        sitting here rather than one sub-row below, which is what keeps the row that named
+        the letter at the level the channel was already at rather than at one side of the
+        swing. The row's own column is named as well, since a release is what leaves the
+        column carrying no letter below it, the way a wobble's release does, and the macro's
+        three settings are read at every point of the flush below rather than here. */
+    void tremCommand (std::vector<PendingEvent>& events, int ch, int midiCh, int id,
+                      int offset, double rowPpq, const juce::Uuid& clipUid,
+                      const Song& song);
+
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,
                      const Song& song, double rowPpq);
@@ -885,6 +984,13 @@ private:
         output channels rather than to the tracker columns, which is what lets a letter
         spelled on any column naming an instrument reach that instrument's level. */
     std::array<VolState, kMidiChannelCount> vols {};
+
+    /** What the MIDI output channels' volume controllers are swung about their levels by
+        a tremolo. These belong to the output channels rather than to the tracker columns
+        exactly as the levels above do, which is what lets a T spelled on any column naming
+        an instrument reach that instrument's swing and what keeps the swing and a fade of
+        the volume letters states of one controller rather than one of each column. */
+    std::array<TremState, kMidiChannelCount> tremors {};
 
     /** Controller numbers the volume letters and the pan column drive. They are refreshed
         from the song settings at the start of every block, so the Settings tab can point
