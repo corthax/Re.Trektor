@@ -273,8 +273,8 @@ cmake --build tests/build -j"$(nproc)"
   hear that note as opened at once, and nothing of that pitch closing it again over
   the rows below, and the vibrato macros and the wobbles they run at that same layer:
   the grow-only table's one default macro at the plain sinusoidal shape at half full
-  pitchbend over a cycle of eight subticks - so the VIB MACRO tab has a card the way
-  the ARP MACRO tab has steps - its `firstUndefVibId` / `lastDefVibId` pair naming the
+  pitchbend over a cycle of eight subticks - so the VIB tab has a card the way
+  the ARP tab has steps - its `firstUndefVibId` / `lastDefVibId` pair naming the
   same gap, naming the top id growing the grow-only table to the id limit while id
   `0` stays the release call and there is no entry above the limit, naming an id
   extending it with absent entries rather than moving the ones already in it so a
@@ -374,21 +374,136 @@ cmake --build tests/build -j"$(nproc)"
   of its own having nothing to release so the wheel being all that is left to put away, and the
   only all-notes-offs there the ones the transport's own start asks for, one per channel, which is
   what leaves the clip's end sending only the wheel's take-back rather than releasing anything of
-  its own; and the three volume letters at that layer too, a fade in over a level never named saying
-  the default's fourteen values one sub-tick apart from the letter's own sample and landing on 127
-  exactly once rather than naming the controller over the rows under it, a level letter then a fade
-  out re-stating that level at the ramp's head rather than at its first step and falling to nothing
-  at the 20000th sample of the transport, a ramp wider than the clip that armed it counted 0 to 23
+  its own; and the four volume letters at that layer too, a fade in over a level never named saying
+  the default's eight values one sub-tick apart from the letter's own sample and landing on the
+  default level's 64 exactly once rather than naming the controller over the rows under it, a level
+  letter then a fade out re-stating that level at the ramp's head rather than at its first step and
+  falling to nothing at the 20000th sample of the transport, the fade out over a level never named
+  starting at that 64 instead, a ramp wider than the clip that armed it counted 0 to 23
   and put away at that clip's end with nothing asked for at or past it, an `O` taken over at an
   `I`'s own row stopping at its 17 rather than finishing its fade beside the new letter and that
-  `I` arming a ramp of its own and climbing back to the level at the 25000th sample, an argument of
+  `I` arming a ramp of its own and climbing back to the 127 the level letter had to name there since
+  the default is no longer the top of the controller rather than to the default one, an argument of
   `0` arming no ramp, sending nothing of its own and leaving the level letter's one controller the
   only one sent over those blocks, a level named on a parallel tracker channel of the same
   instrument reaching the same output channel - stopping one column's ramp at its 23, stating 40 at
   its own row and letting a further `I` spelled on the first column fade to that 40 rather than to a
   level of that column's own - and a row naming a volume letter beside a wheel left bent saying
   nothing of its own about that wheel, the bend's 12288 being the one wheel message over those
-  blocks, the way a row naming any other command kind does.
+  blocks, the way a row naming any other command kind does; and the tremolo macros and the swings
+  they run at that same layer: the grow-only table's one default tremolo at the plain sinusoidal
+  shape at 64 volume points about the level over a cycle of eight sub-ticks - so the TRM tab has a
+  card the way the ARP and VIB tabs have steps - its `firstUndefTremId` / `lastDefTremId` pair
+  naming the same gap, naming the top id growing the grow-only table to the id limit while id `0`
+  stays the release call and there is no entry above the limit, naming an id extending it with
+  absent entries rather than moving the ones already in it so a fresh macro still takes the lowest
+  gap, clearing one leaving its room and the shape, amplitude and cycle its knobs had while the entry
+  answers for nothing of its own - which is what makes the engine stop a swing whose macro was taken
+  away rather than modulate at nothing - and defining it again starting over from the defaults rather
+  than from what the cleared one had still held; the setters refusing an absent macro, so an id
+  nothing entered never answers with a shape, an amplitude or a cycle of its own, and the three
+  settings clamping at their own tops rather than wrapping, which is what leaves the cycle never at
+  zero sub-ticks - it clamps up to one - and the amplitude never past the whole of the controller's
+  0-127; the tremolo letter's command value sitting above the vibrato letter's, above the highest
+  value an older build could write and above the highest plain CC the number field can spell, so no
+  older row and no typed digit run can already be a tremolo, the letter and its `OFF` and `STP`
+  spellings surviving the saved form as the argument's own numbers above the field's top and a
+  macro's three settings arriving as their own properties, which is what a saved state brings the
+  knob positions back at, the saved form writing one entry per macro that is present rather than one
+  per id the table has room for so a round trip with a gap between two defined macros brings the two
+  back at the ids they were at and leaves the gap a gap, a state that had the default tremolo taken
+  away reads back without it - which is what an undo that removed a tremolo leaves it removed rather
+  than the reset putting one back - and an older state's arriving as no section at all leaves the
+  read with the one default tremolo a fresh song defines rather than an empty tab; a swing's grid - a
+  cycle 6 sub-ticks wide being exactly one row wide at the default Settings, so each of the three
+  rows a note is held over draws one cycle of eight points about the level its channel is at and the
+  note-off below the last of them takes the note away without taking the swing away, whose points
+  keep being sent below it and land on the level again at the 65th of them - and the amplitude
+  reaching the controller's own ends rather than one of them leaned against further than it is: a
+  knob at 30 reaches 30 volume points above the level and 30 below it with its first point sitting
+  on the level itself, the default's 64 has no room above the top either so its peak would name 128
+  and sits on the 127 the field can name while its trough lands exactly on nothing, and the whole
+  127 about the default level has no room on either side of it so the three points of the cycle above
+  the level sit on the controller's top and the three below it sit on nothing rather than folding
+  back - the peak above naming 191 and the trough below minus 63 - the amplitude being a count of
+  whole volume points of the controller's own 0-127 rather than a share of a half of it like a
+  wobble's, so a knob at 30 reaches 30 points each way of the level and keeps that level as the point
+  its cycle passes through, and a knob turned down to off moves the controller nowhere at all, every
+  point of the cycle sitting on the level, yet unlike a wobble it still says a value at every one of
+  them, the point of a tremolo being the controller's own value rather than a move that would move
+  nothing; the default macro's cycle of eight sub-ticks being one point per sub-row step and four
+  thirds of a row wide so its cycle crosses the rows it sits in rather than starting on each of them
+  and its points being 1000 samples apart rather than 750, a cycle 12 sub-ticks wide being two rows
+  wide and drawn with 12 points of it rather than the 8 it is asked for at least, so its curve is cut
+  at the twelfths of a cycle and its cycle crosses the rows it sits in over twice, and a cycle one
+  sub-tick wide still drawn with the 8 a cycle is never drawn with fewer of, so the controller is
+  named 8 times inside the sub-row grid at 125 samples apart rather than once over it, 6 cycles of it
+  landing inside one row, each of them repeating the same 8 points, and 24 of them landing inside a
+  clip's four rows with its last point being the 23875th sample rather than one at or past that
+  clip's own end; the six shapes and their Up and Down spellings drawing their cycle as the points of
+  it the amplitude names, the sinusoidal one curving and the triangle one ramping, one half of the
+  plain shape's cycle folded back over the level rather than over the controller's centre, the Up
+  spellings having the cycle's second half inverted so the swing never reaches below the level its
+  channel is at and stays on one side of it and the Down spellings having its first half inverted so
+  it never rises above it, the other half being the one the plain shape swung to the far side in - at
+  full amplitude those lean on the controller's own ends, the sinusoidal Up landing on the top twice a
+  cycle with nothing below the level to go to and reading 64, 127, 127, 127, 64, 127, 127, 127, the
+  fold landing on the peak the plain shape's second half would have reached below, and the sinusoidal
+  Down being that shape's cycle read through the level instead, landing on the bottom twice a cycle
+  and never rising above it and reading 64, 0, 0, 0, 64, 0, 0, 0, that fold being the cycle's first
+  half rather than its second; the point a swing modulates about being the level that channel already
+  has rather than a point of its own, so a level letter spelled one row under a swing armed at the row
+  above moves the point its cycle measures about to 100 from that row's own sample on rather than
+  ending the swing or starting a new one, that row's own send of 100 sitting ahead of the swing's
+  first point above the new level, the swing counting on from where its cycle had got rather than
+  restarting there - its peak above 100 would name 130 and is clipped to the 127 the field can name
+  while its trough still lands inside the 0-127 - the same letter spelled two rows under the swing
+  re-basing it over a whole cycle of the old level rather than over one point of it, the level being
+  the channel's own and so read at whatever point of its cycle the swing had got to, and a level
+  named on a parallel column of the same instrument reaching that same channel's swing, stopping the
+  first column's values at their 32nd and stating 40 at its own row, the 24000th sample, rather than
+  the two columns each keeping a level of their own; a release row taking the swing away on its own
+  row - two whole cycles of the swing having been sent above it, its last point having left the
+  channel at nothing, and the row's own sample asking for nothing of its own - while the note the row
+  above struck is still held to the note-off below, the release being about the channel's volume
+  rather than about the note, and that release leaving the volume at whatever value the swing had last
+  sent rather than putting it back at the level, a controller having no neutral state a row can put a
+  channel back to, with no value of that swing asked for at or past the row that released it, the
+  12000th sample being that row's own; the `OFF` the entry writes for an `o` doing what a `0` beside
+  the letter does, the argument field's own top being one below what the spelling needs, and a row
+  naming only an argument below that release arming nothing, the release having left the column
+  calling nothing rather than calling id `0` the way a run's and a slide's release leave nothing below
+  them; an `STP` argument row asking for nothing and leaving the swing counting on over the rows below
+  it, and the row under that naming another macro's id re-arming the swing over that macro, its cycle
+  counting again from that row rather than from where the first stretch had got in its cycle, and that
+  re-armed swing measuring its quieter cycle from the level the channel is at rather than from the
+  value the first stretch had last sent, the level being the channel's own rather than a point of the
+  controller it had got to, which is what keeps the retarget from jumping the quieter macro's cycle
+  onto that nothing; a row that names the letter itself and an `STP` argument ending nothing at all,
+  unlike a wobble, whose swing the pitchbending a wheel carries is what such a row takes away, a
+  tremolo having no move of its own to hold so the row asks for nothing and the swing counts on over
+  it, the letter's own row being a volume letter rather than one that ends a swing above it, and the
+  note entered beside that letter still released by the note-off four rows below it; the letter
+  spelled on a parallel column of the same instrument reaching that instrument's channel and
+  retargeting the swing its first column had armed rather than arming a second one over it, the swing
+  being keyed to the MIDI output channel rather than to the column a row sits in; a macro taken away
+  while its swing modulates ending the swing at its next point rather than at the row that took it and
+  saying nothing of its own, the channel keeping whatever value of the controller the swing had last
+  sent - that value sitting at the top of the controller rather than at the level the swing modulated
+  about, which is what leaves a channel loud rather than one already back at its level - and a note-off
+  row below releasing the note the letter's row struck without putting that volume back, the swing
+  having been taken away above it; the clip those rows live in running out under a swing that armed no
+  note of its own, a swing that clip's single cell armed having no rows below the clip left to keep
+  modulating over so its cycle stops at the clip's end and the swing is put away there, the same thing
+  a ramp this clip armed comes put away at - the tremolo armed with no note of its own having nothing
+  to release, the channel's volume being all that is left to put away, and the only all-notes-offs
+  there the ones the transport's own start asks for, one per channel, which is what leaves the clip's
+  end naming nothing of its own about that volume rather than releasing anything; and a tremolo on a
+  column parallel to a wobble of the same instrument modulating the channel that instrument names all
+  over the wobble's own rows, its points being volume points rather than wheel positions and its
+  cycle being 1000 samples apart rather than the wobble's 750, while that wobble keeps its own 27
+  wheel messages over those blocks, a letter spelled on a parallel column disturbing nothing of it,
+  the tremolo being a volume letter rather than one that ends a swing above it.
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column chips
   clicked per channel, selection gestures — a click selecting one cell, a drag
@@ -462,7 +577,7 @@ cmake --build tests/build -j"$(nproc)"
   spellings of the same pair walked in both cases of the letter because a key
   held by Alt is handed over as the character that press printed, the pair
   answered by every panel rather than only by the editor, so the tracker,
-  timeline, pool, settings, tools, ARP MACRO and VIB MACRO panels each walk one point per
+  timeline, pool, settings, tools, ARP, VIB and TRM panels each walk one point per
   press against the plug-in's line and a letter the pair does not name stays
   refused there too, the keyboard focus handed back by the tracker, timeline and
   pool once their menus, their alerts or their drags have closed — the hand-back
@@ -490,7 +605,7 @@ cmake --build tests/build -j"$(nproc)"
   the newest one its rows entered beside that letter, read through the tracker's
   own new `carriedCommandValue` above and under such a row, and a release written
   as only its argument under a carried call ending it there so both reads come
-  back empty under one, and the ARP MACRO tab's one length field and
+  back empty under one, and the ARP tab's one length field and
   looped tick per macro that exists, its `+ Add macro` and `- Remove selected` pair,
   the `- Remove selected` one clearing the macro the step cursor sits on rather than
   the last one a row can name, a number typed one character at a time at the drawn
@@ -498,11 +613,12 @@ cmake --build tests/build -j"$(nproc)"
   of the undo line rather than one per press, `Escape` dropping a number half typed
   rather than writing half of it, the tab filled with 25 macros through the model and
   a refresh rather than through its own buttons so the undo line keeps the length the
-  sections below lean on, clicked through the `ARP MACRO` and `TRACKER` tab buttons — the
-  tab buttons now spelling `ARP MACRO` and `VIB MACRO` rather than the one `MACROS` the
-  vibrato tab's card was reached through before it had a tab of its own, and the two macro
-  tabs' buttons being 10 px wider than the plain ones so their two-word names are spelled
-  rather than shrunk — since
+  sections below lean on, clicked through the `ARP` and `TRACKER` tab buttons — the
+  tab buttons now spelling `ARP`, `VIB` and `TRM` rather than the one `MACROS` the
+  vibrato tab's card was reached through before it had a tab of its own, and the three
+  macro tabs' buttons all being plain 64 px ones while the tracker's and the Settings'
+  take 86 each so their longer names are spelled rather than shrunk, the five of them
+  keeping the 364 px the bar had before this round — since
   a tab that is not the one showing has no bounds to grab, the wheel moving its
   scrollbar and a click of the strip's column jumping the drawn thumb to the pointer
   while a drag carries it back to the head, a drag of a card rather than of the strip
@@ -555,7 +671,7 @@ cmake --build tests/build -j"$(nproc)"
   column under it carrying no call, these reads going through the tracker's own new
   `commandKindAt` beside its `carriedCommandNumber` / `carriedCommandValue` pair, with the
   undo checks reading the cell back through the song rather than through
-  a held reference since restoring a state replaces the pattern objects, and the VIB MACRO
+  a held reference since restoring a state replaces the pattern objects, and the VIB
   tab's own card, its tab button clicked and the panel refreshed: the default song having the
   one macro a row can name and the tab one card for it, that macro getting its own dropdown and
   its two knobs, the two knobs told apart by the span they walk rather than by the order they
@@ -574,22 +690,22 @@ cmake --build tests/build -j"$(nproc)"
   three settings are three separate actions and once the line is full one of them drops out of it
   at the far end, which is why those depth checks read the line back as the depth the Settings
   tab's Undo steps row asks for rather than as one more than it can hold, `+ Add macro` taking the
-  lowest id that has none yet and moving the gap below it down the way the ARP MACRO tab adds one,
+  lowest id that has none yet and moving the gap below it down the way the ARP tab adds one,
   the fresh macro arriving at the shape, amplitude and cycle the model gives a newly defined one
   rather than at what the card below it had, and `- Remove selected` putting away the macro the
   last gesture picked out and leaving the ids naming the same macros below it, the same pairing the
-  ARP MACRO tab uses, the macro that was never picked out keeping the settings the knobs had left
+  ARP tab uses, the macro that was never picked out keeping the settings the knobs had left
   it at - the card being about which macro there is rather than about what it holds - and a macro
   defined and a macro taken away being one action each, the card's three settings being three more
   above them, the keyboard focus - no Button anywhere in the editor's tree takes it, so an
   Enter pressed only to confirm a value that was typed into a field is never spent on
   whatever the pointer touched last and kept doing so for every further press: not one of
-  the four tab names, not a Settings row's checkbox, not a card's `+ Add macro` / `-
+  the five tab names, not a Settings row's checkbox, not a card's `+ Add macro` / `-
   Remove selected` pair, and not the two `+`/`-` buttons a knob builds inside itself, the
   theme having taken it away from the pair while the look was in force and the editor's own
   sweep taking it away from the ones its panels made before that was - while the knobs and
-  the ARP MACRO, VIB MACRO and Settings tabs want it instead, being the controls whose own
-  text box that value is typed into, and each of those three panels spending an Enter
+  the ARP, VIB, TRM and Settings tabs want it instead, being the controls whose own
+  text box that value is typed into, and each of those four panels spending an Enter
   rather than handing it up so repeating the press changes no checkbox, adds or clears no
   macro and leaves the undo line alone, and a knob dragged along its own row moving the
   number that row shows and feeding the model behind it, so the Settings tab's Undo steps
@@ -607,12 +723,53 @@ cmake --build tests/build -j"$(nproc)"
   controller value the notes and columns end up on, the volume column driving no controller at all
   beside those two - a level letter spelled in a channel whose command column is hidden driving the
   configured volume CC there while the hidden volume column of another still sets the velocity of
-  its note and that channel's hidden pan column still sends its controller
+  its note and that channel's hidden pan column still sends its controller, the TRM tab's
+  own card read the same way its vibrato twin was - the default song having the one tremolo
+  a row can name and the tab one card for it, that macro getting its own dropdown and its
+  two knobs, the pair told apart by where their own range starts rather than by the order
+  they were added in, since both of them count to the same top of the field, the amplitude
+  turning from off to the whole of the controller's 0-127 in single volume points rather
+  than in the hundredths a vibrato's knob walks, and the cycle counting whole sub-ticks one
+  wave takes, from one to the limit a row's argument can name, the card opening at the 64
+  points and the 8 sub-ticks a newly defined tremolo starts at, the dropdown offering the six
+  shapes a swing runs, opened at the one the tremolo holds - the same six a wobble's dropdown
+  offers - and their items read back as spelled by the panel's own `trmShapeLabel` rather than
+  as a second copy of what the tab draws, the dropdown's ids being one above the model's own,
+  its own change writing the shape to the macro - which is what a row already calling that id
+  swings by from there - and spending one point of the undo line of its own, each knob turned
+  writing its own setting, the amplitude read back through the panel's own `trmAmplitudeLabel`
+  as the whole count of volume points the swing reaches each way of the channel's level rather
+  than as a share of the controller, three settings leaving three separate points and one of
+  them dropping out of the far end once the line is full, `+ Add macro` taking the lowest id
+  that has none yet and moving the gap below it down the way the ARP and VIB tabs add one, the
+  fresh tremolo arriving at the settings the model gives a newly defined one rather than at
+  what the card above it had, `- Remove selected` putting away the tremolo the last gesture
+  picked out and leaving the ids naming the same tremolos below it, the same pairing the ARP
+  tab uses, the tremolo that was never picked out keeping the settings the knobs had left it
+  at - the card being about which tremolo there is rather than about what it holds - and a
+  tremolo defined and a tremolo taken away being one action each, the card's three settings
+  being three more above them, the tab being put back on the tracker after that section so
+  the undo line keeps the length the sections below lean on; that tab's Enter being spent the
+  way the other macro tabs' is, its dropdown and its two knobs answering their own rather than
+  the tab's name repeating the press and adding or clearing a second tremolo; and the tracker
+  landing what a numeric field had been spelling when the mouse is clicked away - a press
+  committing the value the cursor's own cell had built before it does anything of its own, so
+  a run of digits needs no Enter key of its own to confirm it, the value reaching the cell the
+  cursor was left on rather than the one the click landed on and never spilling into that one,
+  the cursor then ending on the cell the click landed on rather than back on the one the value
+  was committed to, a click on the very cell the cursor already sits on landing what was typed
+  into it too, `Escape` still the one press that throws that buffer away while a keyboard move
+  of the cursor still discards it so walking the cursor over a run of cells reads them rather
+  than lands values into them, and the commit coming ahead of the hand-over the press also does
+  on every path a press has for a target, the scrollbar, a channel's visibility chips and the
+  cell menu included
 * `ReTrektorEditorShot` – renders the editor headlessly and can dump the
-  component layout (`--dump`, optionally `--tab=settings|macros|vibs|tools` to show a
+  component layout (`--dump`, optionally `--tab=settings|macros|vibs|trems|tools` to show a
   whole tab at once - the shot keeps its short aliases, `--tab=macros` naming the
-  ARP MACRO tab the older shots asked for by name and `--tab=vibs` naming the VIB
-  MACRO one, since the tab buttons now spell those two-word names out - the Settings tab's rows all being the decimal ones now its
+  ARP tab the older shots asked for by name, `--tab=vibs` naming the VIB
+  one and `--tab=trems` the TRM one, the three of them also answering their button's own
+  spelling `arp`, `vib` and `trm` since the buttons now spell those three letters out
+  rather than two-word names - the Settings tab's rows all being the decimal ones now its
   row offering another spelling has gone and the tools panel's instrument dropdowns
   naming their choices `-0 .. -15`,
   `--expand-pool` to show the pool grid preview, `--channels=N` to
@@ -677,7 +834,7 @@ cmake --build tests/build -j"$(nproc)"
   that letter and that spelling carried dim over the rows under it, and the narrowest
   slide a row can ask for taking one row rather than the `0` spelling a slide over none),
   `--vib-shape=`, `--vib-amp=` and `--vib-cycle=` to set the three settings a wobble runs on
-  vibrato macro 1 - the shape one of the VIB MACRO tab's own six spellings (Sin, Sin Up, Sin
+  vibrato macro 1 - the shape one of the VIB tab's own six spellings (Sin, Sin Up, Sin
   Down, Triangle, Triangle Up, Triangle Down, with their spaces and dashes optional) or the
   number the model holds for it, the amplitude the hundredths of full pitchbend the model keeps
   so 25 is the knob spelled 0.25, and the cycle counted in subticks one sin or triangle cycle
@@ -694,7 +851,26 @@ cmake --build tests/build -j"$(nproc)"
   macro id and leaves that letter and that argument carried dim over the rows under it in that
   channel only, and `--vib-call-id=VAL` naming the id that call writes, so `0` makes it the
   release, whose argument is drawn `OFF` rather than as a `0` and which leaves the rows below it
-  carrying no letter and no argument at all; `--cut=ROW` to name a note-length cut in tracker
+  carrying no letter and no argument at all; `--trem-shape=`, `--trem-amp=` and `--trem-cycle=` to
+  set the three settings a swing runs on tremolo macro 1 - the shape one of the TRM tab's own six
+  spellings, the same six a wobble's dropdown offers with their spaces and dashes optional, or the
+  number the model holds for it, the amplitude the whole count of volume points the swing reaches
+  each way of the channel's level rather than the hundredths of full pitchbend a vibrato's knob
+  walks, so 30 is the knob spelled 30, and the cycle counted in sub-ticks one wave takes on the
+  same grid an arpeggiator's steps and a slide's ramp are measured over - which is what makes a
+  `--tab=trm` shot show a card whose shape is picked out and whose two knobs are turned rather
+  than one left at what a fresh tremolo starts at; `--trem-macros=N` to have the song define N of
+  them, ids 1..N all of them fresh, which is what makes such a shot long enough that the cards do
+  not all fit and the tab has to draw its scrollbar and thumb; `--trem-call=ROW` to name a tremolo
+  call in tracker channel 0 at that row, which paints the command column's lilac `T` and its
+  decimal macro id and leaves that letter and that argument carried dim over the rows under it in
+  that channel only, the letter being one of the commands that keep being carried down the column
+  rather than answering only their own row, since a swing keeps swinging over the rows under it
+  rather than being re-armed at each of them, and `--trem-call-id=VAL` naming the id that call
+  writes, so `0` makes it the release, whose argument is drawn `OFF` rather than as a `0` and which
+  leaves the rows below it carrying no letter and no argument at all, so a `--trem-call=9` shot and
+  a `--trem-call=9 --trem-call-id=0` one pin that letter carried over the rows under it and that
+  same letter put away there; `--cut=ROW` to name a note-length cut in tracker
   channel 0 at that row, which paints the command column's lilac `C` and the length it cuts to
   in decimal beside it and leaves that letter and that length carried dim over every row under it
   — one of the two command letters that keep being carried down rather than answering the
@@ -728,10 +904,12 @@ cmake --build tests/build -j"$(nproc)"
   at that row's own sample as well as struck again every period the column carries below it rather
   than left sustaining until a strike one whole period below the row reached it, so a
   `--retrig=9 --retrig-ticks=8` and a `--retrig=9 --retrig-ticks=0` shot show that reading.
-  This target has no flag for the three volume letters, so none of the shots pinned below paints an
-  `L`, an `I` or an `O`: what they draw is left to the UiTest's cells rather than to a pinned image,
-  and the only shot those letters move is the Settings tab's own, whose row is now labelled for the
-  letters rather than for the volume column.
+  This target has flags for the tremolo letter but none for the other three volume letters, so
+  a `--trem-call=ROW` shot does paint a `T` in the tracker and a `--tab=trm` one paints its card,
+  while none of the shots pinned below paints an `L`, an `I` or an `O`: what those three draw is
+  left to the UiTest's cells rather than to a pinned image, and the only shot they move is the
+  Settings tab's own, whose row is labelled for the volume letters rather than for the volume
+  column.
 
 Example:
 
@@ -747,10 +925,10 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
 
 ## Layout
 
-* **Top bar** – `TRACKER` / `ARP MACRO` / `VIB MACRO` / `SETTINGS` tabs, snap
-  toggle, grid selector, zoom out/in, host position. The two macro tabs are 10 px
-  wider than the plain ones, which is what their two-word names are spelled in
-  rather than shrunk below the other tabs' letter.
+* **Top bar** – `TRACKER` / `ARP` / `VIB` / `TRM` / `SETTINGS` tabs, snap
+  toggle, grid selector, zoom out/in, host position. The tracker's and the Settings' buttons
+  take 86 px each and the three macro tabs' names 64 px each, so the five of them keep the
+  364 px the bar has had and nothing in it shifts when a tab is switched.
 * **Left panel** – pattern pool. Every pattern is listed with id and name.
   Unused patterns can be edited and placed; used patterns show an "in use"
   marker. Drag a pattern onto the timeline to place it: while it is dragged it
@@ -874,7 +1052,7 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   rows ahead of the playhead play what the restored song holds. `Ctrl+Z` or
   `Alt+Z` while a number is still half typed closes that buffer instead of
   stepping, which is what makes one press one effect.
-* **ARP MACRO tab** – the arpeggiator macros the Command column's letter `A` calls.
+* **ARP tab** – the arpeggiator macros the Command column's letter `A` calls.
   Nothing is painted above the cards but the tab's title and the one label row
   naming what its own rows hold (`MACRO`, `LENGTH`, `LOOPED`, `STEPS`), since what
   the rules are belongs to the Commands map and this file rather than to a memo the
@@ -909,11 +1087,11 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   puts the thumb's middle under the pointer and holds it there while the button is held,
   so the list can be dragged to a chosen place; a drag started anywhere else is a drag
   of a card, which picks a step cursor up rather than moving the list.
-* **VIB MACRO tab** – the vibrato macros the Command column's letter `V` calls, added
+* **VIB tab** – the vibrato macros the Command column's letter `V` calls, added
   to and removed from exactly as the arpeggiator macros are: `+ Add macro` defines the
   lowest id that has none yet at the shape, amplitude and cycle the model gives a fresh
   one — the plain sinusoidal wobble at half full pitchbend over a cycle of eight subticks,
-  so the card shows a wobble the way the ARP MACRO tab's card has steps to show — and
+  so the card shows a wobble the way the ARP tab's card has steps to show — and
   `- Remove selected` clears the macro the last click of a card or the arrows picked out,
   falling back to the highest id a row can name while nothing is picked out and leaving the
   ids below the removed one naming the same macros. Clearing says a macro has none rather
@@ -923,8 +1101,8 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   `CYCLE (subticks per swing)`), since the rules belong to the Commands map and this file
   rather than to a memo the cards would have to be read under. One card per defined macro,
   named by the call a row writes (`V 1`) in the lilac the wheel's own commands are read in
-  rather than in the orange of an arpeggiator call, which is what makes the two macro tabs
-  tell the two letters apart at a glance, and marked in its own line by a cursor rule drawn
+  rather than in the orange of an arpeggiator call, which is what makes the macro tabs
+  tell their letters apart at a glance, and marked in its own line by a cursor rule drawn
   left of that name rather than over one of its settings. A card holds the three settings a
   wobble runs on one line: the shape as a dropdown over the six spellings `Sin`, `Sin Up`,
   `Sin Down`, `Triangle`, `Triangle Up` and `Triangle Down` — the sinusoidal one curving and
@@ -952,6 +1130,46 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   dropdown — is what picks that macro out for the remove button and the arrows to answer
   against, the settings themselves being turned by the controls sitting over the card rather
   than by a click of the card.
+* **TRM tab** – the tremolo macros the Command column's letter `T` calls, added to and removed
+  from exactly as the arpeggiator macros and the vibrato macros are: `+ Add macro` defines the
+  lowest id that has none yet at the shape, amplitude and cycle the model gives a fresh one — the
+  plain sinusoidal swing 64 volume points each way of the channel's level over a cycle of eight
+  sub-ticks, so the card shows a swing the way the VIB tab's card shows a wobble — and `- Remove
+  selected` clears the macro the last click of a card or the arrows picked out, falling back to
+  the highest id a row can name while nothing is picked out and leaving the ids below the removed
+  one naming the same macros. Clearing says a macro has none rather than erasing the shape, the
+  amplitude and the cycle its knobs had, which is what re-defining it then starts over from.
+  Nothing is painted above the cards but the tab's title and the one label row naming what its own
+  rows hold (`MACRO`, `SHAPE`, `AMPLITUDE (volume points)` and `CYCLE (sub-ticks per wave)`),
+  since the rules belong to the Commands map and this file rather than to a memo the cards would
+  have to be read under. One card per defined macro, named by the call a row writes (`T 1`) in the
+  lilac the wheel's own commands are read in rather than in the orange of an arpeggiator call,
+  which is what makes the three macro tabs tell the three letters apart at a glance, and marked in
+  its own line by a cursor rule drawn left of that name rather than over one of its settings. A
+  card holds the three settings a swing runs on one line: the shape as a dropdown over the same
+  six spellings a vibrato's card offers — `Sin`, `Sin Up`, `Sin Down`, `Triangle`, `Triangle Up`
+  and `Triangle Down`, the sinusoidal one curving and the triangle one ramping in four straight
+  sides whose corners sit on the cycle's quarters, the `Up` spellings having the cycle's second
+  half folded back so the volume only ever goes above the level and the `Down` spellings having
+  its first half folded so it only ever goes below — then the plug-in's usual number widgets for
+  the amplitude, spelled as the whole count of volume points the swing reaches each way of the
+  channel's level rather than as the share of full pitchbend a vibrato's knob walks, so it turns
+  from off to the whole of the controller's `0`–`127` in single points rather than in hundredths,
+  and for the cycle, counted in whole sub-ticks one wave takes, from one to the 127 a row's
+  argument can name, the same grid an arpeggiator's steps, a slide's ramp and a wobble's cycle are
+  measured over. A card exists whether or not a knob is turned, so a macro whose amplitude is at
+  off still has a card and still says a value at every point of its cycle — at the level of its
+  own — rather than being no macro at all, and each of the three settings is an action of its own,
+  so a card whose shape was picked and whose two knobs were turned leaves three points of the undo
+  line rather than one. A card is 22 px tall plus a 4 px gap, so a list of them longer than the
+  panel's height is what the tab scrolls rather than grows without bound: the same vertical strip
+  on its right edge, 10 px in from that edge, whose thumb is as tall as the share of the track the
+  cards that fit take, is turned by the mouse wheel as well as grabbed by the mouse, and answers a
+  pointer in its column ahead of the card hit-tests, which is why a grab of the strip never reads
+  as a click on the card behind it. A click on the card's own name — the part left of the dropdown
+  — is what picks that macro out for the remove button and the arrows to answer against, the
+  settings themselves being turned by the controls sitting over the card rather than by a click of
+  the card.
 * **Right panel** – Transpose, instrument Remapping and Selection
   Interpolation. Each tool uses the selected scope: selection only, whole
   pattern, all patterns in the song, or all created patterns, but
@@ -1024,6 +1242,7 @@ The tracker's selection gestures are the modifiers they hold while they sweep:
 | Ctrl + click or drag | takes the rectangle away from the selection, leaving a hole |
 | right click | opens the cell's context menu, so Ctrl is free for selecting |
 | click or drag on the bottom strip | jumps or drags the horizontal scrollbar's thumb |
+| click while a number is half typed | lands that number in the cell the cursor was left on, ahead of the click doing anything of its own |
 | shift + mouse wheel | scrolls the channel columns that do not fit |
 
 Ctrl beats Shift when both are held, so a gesture only ever does one thing; a
@@ -1045,7 +1264,22 @@ writes at the cursor the last click parked, at its row and channel, the same pla
 `Ctrl+V` and `Alt+V` write at, the menu's cut writing nothing but leaving those
 cells empty, and the two items after them are the Undo / Redo pair.
 
-The ARP MACRO tab's own strip is grabbed the same way its horizontal twin is: a click
+A click is also how the tracker lands a number the user had left half typed: the
+press commits the value the field the cursor was parked on had been building, one
+character at a time, ahead of doing anything of its own, so a run of digits needs
+no Enter key of its own to confirm it and moving the mouse away from the cell is
+what writes it. The commit is about the cell the cursor was left on rather than
+about the press's own target, so a click anywhere else - on another cell, on the
+scrollbar's thumb, on a channel's visibility chips or on a cell's own context
+menu - lands the value into the cell the run was typed into and never spills into
+the one the click landed on, and the cursor then ends where the click landed. A
+click on the very cell the cursor already sits on commits too, the commit coming
+ahead of the hand-over the press also does. `Escape` stays the one press that
+throws that buffer away, and a keyboard move of the cursor still discards it
+rather than landing it, so walking the cursor over a run of cells reads them
+without writing values into them.
+
+The ARP tab's own strip is grabbed the same way its horizontal twin is: a click
 anywhere in that strip's column, 10 px in from the tab's right edge and level with the
 cards rather than with the foot holding its two buttons, puts the thumb's middle under
 the pointer and carries it along while the button is held, so a list of macros longer
@@ -1057,7 +1291,7 @@ in the strip's column ahead of its card hit-tests, which is why a grab of the st
 reads as a click on the card behind it.
 
 Every number widget the plug-in carries - the Settings rows' sliders, the bottom bar's
-OCT / STEP / CHANNELS, the transpose amount and the two card knobs - answers a drag
+OCT / STEP / CHANNELS, the transpose amount and the macro cards' two knobs each - answers a drag
 along its own row now as well: that style draws no thumb to grab, so the whole area beside
 the row's text box is the pair of `+`/`-` buttons the look and feel builds for it, and
 those buttons answered a click alone until the drag was asked for, which is what had left
@@ -1082,7 +1316,7 @@ are two actions of the line, since the pointer left the row between them and eac
 pair is one gesture. The depth the Settings tab's Undo steps row asks for is what caps how far
 that one `Ctrl+Z` can then reach.
 
-The VIB MACRO tab is grabbed the same way again, its own strip living 10 px in from that
+The VIB tab is grabbed the same way again, its own strip living 10 px in from that
 tab's right edge and level with its cards rather than with the foot holding its `+ Add
 macro` and `- Remove selected` pair, the wheel turning that list and a click of that
 column taking the drawn thumb to the pointer for as long as the button is held, while a
@@ -1094,6 +1328,20 @@ that id swing by the new shape from there rather than holding the one the row th
 it had; the two knobs drag, take a typed value in their text box and answer the
 `+` and `-` buttons beside them like the plug-in's other number widgets, the amplitude
 walking off to full pitchbend in hundredths and the cycle walking whole subticks.
+
+The TRM tab is grabbed the same way a third time, its own strip living 10 px in from
+that tab's right edge and level with its cards rather than with the foot holding its
+`+ Add macro` and `- Remove selected` pair, the wheel turning that list and a click
+of that column taking the drawn thumb to the pointer for as long as the button is
+held, while a drag started anywhere else picks a card out rather than moving the list
+— a click on the card's own `T 1` name being what picks it, since a pointer over one
+of the three settings lands on the control sitting there instead. That dropdown is
+what a drag over its six spellings answers, and its change reaching the macro is what
+makes a row already calling that id swing by the new shape from there rather than
+holding the one the row that armed it had; the two knobs drag, take a typed value in
+their text box and answer the `+` and `-` buttons beside them like the plug-in's other
+number widgets, the amplitude walking off to the whole of the controller in single
+volume points and the cycle walking whole sub-ticks.
 
 
 ## Keyboard map
@@ -1109,7 +1357,7 @@ Q 2 W 3 E R 5 T 6 Y 7 U   ->  next octave
 | --- | --- |
 | `/` or `F1` | octave down |
 | `*` or `F2` | octave up |
-| `` ` `` | note-off (`===`), and in the ARP MACRO tab the note-off step drawn `OFF` |
+| `` ` `` | note-off (`===`), and in the ARP tab the note-off step drawn `OFF` |
 | `Enter` | advance by step skip |
 | `Tab` / `Shift+Tab` | next / previous field |
 | Arrow keys, Page Up/Down, Home/End | move cursor |
@@ -1192,9 +1440,9 @@ answers the Return key while it holds it, so before this build one Enter kept re
 whatever the last click had done for as long as the pointer stayed put: a tab's name
 switched the tab back, a Settings row's checkbox flipped itself again, `- Remove selected`
 cleared a second macro, and a knob's own `+`/`-` buttons stepped the knob. The focus now
-rests on the control whose text box the value is typed into instead: the ARP MACRO, VIB
-MACRO and Settings tabs and every knob want it, the tracker grabs it the way it always
-did, and no Button in the editor's tree holds it at all - neither the four tab names, a
+rests on the control whose text box the value is typed into instead: the ARP, VIB, TRM and
+Settings tabs and every knob want it, the tracker grabs it the way it always
+did, and no Button in the editor's tree holds it at all - neither the five tab names, a
 Settings row's checkboxes, a card's `+ Add macro` / `- Remove selected` pair and the two
 `+`/`-` buttons each knob builds inside itself, that pair being made only by the look and
 feel, so the theme's own `createSliderButton` takes the focus away while that look is in
@@ -1237,14 +1485,14 @@ and no row that offers one. Instrument values are the MIDI output channel
 (`0`–`15`), drawn with the column's dash as `-0` to `-15`, the same labels the
 tools panel's remap dropdowns use. Volume and Pan take `0`–`127` as up to three
 digits, displayed right-aligned like the pan column. The Command field accepts
-`0`–`127` and the seven letters `A`, `B`, `U`, `D`, `V`, `C` and `R`: an `A` typed as the command number
+`0`–`127` and the eight letters `A`, `B`, `U`, `D`, `V`, `C`, `R` and `T`: an `A` typed as the command number
 field's first character claims it and means `128`, the arpeggiator call, whose
 argument names the macro id, a `B` claims it and means `144`, the pitch bend, whose
 argument names a point on the wheel, a `U` or a `D` claims it and means `145` or
 `146`, a slide of the wheel to its top or to its bottom, whose argument says how many
 rows below the one that named the letter its extreme sits over rather than where on
 that wheel it goes, and a `V` claims it and means `147`, the vibrato, whose argument names
-which of the VIB MACRO tab's macros the column swings. A `C` claims it and means `148`,
+which of the VIB tab's macros the column swings. A `C` claims it and means `148`,
 the cut, whose argument names how many subticks of the Settings' grid a note is held for,
 counted from the row that named the letter — the note entered at that row, or, where that
 row named no note of its own, the note that column has still been holding from the rows
@@ -1280,28 +1528,41 @@ leaving the controller named over every row under it. The two letters are one-sh
 ramp being armed at that row and nothing of that column being left in force below it, so a
 row naming only an argument under one answers nothing and a further `I` or `O` row arms a
 fresh ramp of its own, while an argument of `0` arms no ramp at all and puts any ramp that
-was counting on away rather than sending one more of its values. The three of them say
-something about that channel's volume controller rather than about the column they sit on,
-which is what lets a letter spelled on any column naming that instrument reach one level and
-one ramp, a fade armed from one column and a letter answered from another naming the same
-instrument counting the same values, and what keeps them working in parallel with the other
-seven — a row naming one of them leaves a run, a wheel's ramp, a wobble's swing, a cut's gate
-and a retrigger's gate where they are, `I` stops a ramp the `O` had running and `O` stops one
-the `I` had, and `L` stops either of the two and forces the new level instead. Unlike a wheel's
+was counting on away rather than sending one more of its values. A `T` claims it and means
+`153`, the tremolo, whose argument names which of the TRM tab's macros the column swings the
+channel's volume about that level, `1`–`127`, the release spelled the same two ways a vibrato's
+and an arpeggiator call's are — the id `0` a row names beside the letter and the `OFF` the entry
+writes for an `o`, both drawn `OFF` — rather than naming how far or how fast that swing moves,
+those being the macro's own two settings. The four of them say something about that channel's
+volume controller rather than about the column they sit on, which is what lets a letter spelled
+on any column naming that instrument reach one level, one ramp and one swing, a tremolo armed
+from one column and a level letter answered from another naming the same instrument swinging
+about the level that one names and a fade and a swing naming the same level there, and what
+keeps them working in parallel with the other four — a row naming one of them leaves a run, a
+wheel's ramp, a wobble's swing, a cut's gate and a retrigger's gate where they are, `I` stops a
+ramp the `O` had running and `O` stops one the `I` had, `L` stops either of the two and forces
+the new level instead, and none of the four puts a tremolo's swing away while that swing keeps
+swinging over the rows under them, the level letter moving the point that swing measures about
+from that row's own sample on rather than ending it or starting a fresh one. Unlike a wheel's
 ramp, a controller has no neutral state a row can put a channel back to, so a fade that
 stopped by itself, at its arming clip's end or under a `0` leaves the volume at whatever value
 had last been sent rather than at a level of its own, and where no `L` has ever named a level
-for a channel the level its ramps fade to and from is the default `127`. A cut's lengths and
+for a channel the level its ramps fade to and from, and the level a swing modulates about, is
+the default `64`. A cut's lengths and
 a retrigger's periods are the only
 arguments that reach past `127`: the field is three digits deep for them, so a cut tops at
 `999` subticks and a retrigger's period reaches the same `999`, while the level an `L` names
-and the step an `I` or an `O` moves top at the field's own `127`, and the two numbers just below
+and the step an `I` or an `O` moves and the macro id a `T` names top at the field's own `127`,
+and the two numbers just below
 that top, `128` and `129`, are the `OFF` and the `STP` spellings rather than lengths or periods,
 which is what leaves a cut or a retrigger of 128 or 129 subticks without a spelling of its own,
-neither of the two spellings being asked for beside any of the three volume letters — the level
-letter has no move to go off and nothing to stop, and the two fades hold at the volume their
-last value reached rather than at a point of a wheel, their own stopping being the `0` their
-field already spells.
+neither of the two spellings being asked for beside the level letter or either of the two fades
+— the level letter has no move to go off and nothing to stop, and the two fades hold at the
+volume their last value reached rather than at a point of a wheel, their own stopping being the
+`0` their field already spells — while beside the tremolo letter the `OFF` spelling is its
+release, the id `0` the field cannot spell on its own being drawn `OFF` for it the way a
+vibrato's is, and its `STP` spelling is refused rather than written, a swing having no move of
+the wheel to stop.
 The claim is only the command number field's, which is what keeps `V` a note letter where the
 note column is
 asked for: typed there it still types an F natural, the way the slide letter `D` still
@@ -1315,19 +1576,20 @@ since the number field tops at the highest CC `127` and only the letters themsel
 reach above it: typing `146` into that field gives the highest CC rather than the
 slide letter, an older build's `143` cannot be typed back at all, and an interpolation
 ramp climbs toward that highest CC rather than inventing a command. Each letter has to
-leave an argument behind, so a call and a vibrato start at the release id `0`, a bend starts at the
+leave an argument behind, so a call, a vibrato and a tremolo start at the release id `0`, a bend starts at the
 wheel's centre `64`, a slide starts at the default span of `8` rows, a cut starts at a length of
 `3` subticks of that grid, a retrigger starts at a period of `3` subticks apart, a level letter
-starts at the default level `127` and the two fade letters start at a step of `10` volume, which is what
+starts at the default level `64` and the two fade letters start at a step of `10` volume, which is what
 makes a row naming only the `B` bend nowhere rather than lock the wheel to its bottom,
 a row naming only a slide letter take its extreme over 8 rows rather than over
 none at all, a row naming only the `V` read as `V OFF` rather than run the default macro, a row
+naming only the `T` read as `T OFF` rather than run the default tremolo, a row
 naming only the `C` or the `R` holding the note it entered for 3 subticks or striking
 it again every 3 of them rather than spelling the release instead of the gate that row asks for and
 a row naming only the `L`, the `I` or the `O` setting the channel to the default level or fading over
 `10` volume every sub-tick rather than setting it to silence or holding at nothing at all, which would
 read as a fade that never moves. The call pair is drawn orange and the three wheel pairs, the
-vibrato pair, the cut pair, the retrigger pair and the three volume letters are lilac, every
+vibrato pair, the cut pair, the retrigger pair and the four volume letters are lilac, every
 value in the view being decimal, and a letter or a number a row carries from above
 draws dim like any other carried command. So does the argument carried beside
 it, and that argument is the newest one that column's rows entered rather than
@@ -1338,12 +1600,15 @@ argument is the span the rows below are still taking toward the extreme rather
 than a new point on that wheel. Under a carried cut letter it is the length the
 notes entering those rows are held for rather than a point of anything, and under
 a carried retrigger letter it is the period the notes entering those rows are
-struck again at rather than a point of anything either, and the cut `C`, the
-retrigger `R` and the level letter `L` are the three command letters that are not answered by the
-rows under them but keep being carried down them, the two of them as gates and `L` as a level
-sitting with the plain CC numbers the column answers, which is what gates every note entering a
-row under either gate rather than only the row that named it, and what lets an argument typed
-under a carried `L` name a new level for that instrument's own volume controller there rather
+struck again at rather than a point of anything either, and under a carried tremolo letter it is
+the macro id that column's swing moves to rather than a point of anything either, and the cut
+`C`, the retrigger `R`, the level letter `L` and the tremolo letter `T` are the four command letters
+that are not answered by the rows under them but keep being carried down them, the two of them as
+gates, `L` as a level sitting with the plain CC numbers the column answers and `T` as a call whose
+swing keeps swinging over the rows under it rather than being re-armed at each of them, which is
+what gates every note entering a row under either gate rather than only the row that named it, and
+what lets an argument typed under a carried `L` or a carried `T` name a new level or a new macro
+for that instrument's own volume controller there rather
 than a length or a period — the note entered
 at the letter's own row being cut or re-struck there too, a row naming nothing but
 a note under either letter being cut as well or re-struck from that row as well,
@@ -1358,7 +1623,12 @@ nor an argument, and the same `0` read beside a named or a carried vibrato lette
 lands that vibrato's own release there rather than a call of macro `0`, since id
 `0` calls nothing — the entry writing the `OFF` a row spells for an `o` being the
 other way of spelling it, both of them drawing `OFF` and both of them leaving the
-column carrying neither the letter nor an argument below, and the same `0` read beside a named or a carried slide letter
+column carrying neither the letter nor an argument below, and the same `0` read beside a named or a carried
+tremolo letter lands that tremolo's own release there rather than a call of macro `0`, both of
+its spellings drawing `OFF` and both of them leaving the column carrying neither the letter nor
+an argument below, that release putting the swing away rather than the note away and leaving the
+channel's volume at whatever value of the controller the swing had last sent rather than putting
+it back at the level, and the same `0` read beside a named or a carried slide letter
 lands that release there rather than a slide over no rows at all, since the
 narrowest span the field can ask for takes one row, and the same `0` read beside
 a named or a carried cut letter is the note column's own
@@ -1388,15 +1658,17 @@ two letters rather than digits, since neither is a number the field could spell:
 an `o` or an `O` lands the `OFF` the drawing reads, switching the pitchbending
 off and putting the wheel back at its centre beside a wheel letter, going
 the arpeggiator run off beside a call, taking a vibrato's swing off beside the
-vibrato letter and spelling the note column's own note-off beside the cut
+vibrato letter, taking a tremolo's swing off beside the tremolo letter — which leaves the
+channel's volume at whatever value of the controller that swing had last sent rather than at its
+level — and spelling the note column's own note-off beside the cut
 letter or beside the retrigger letter, drawn `OFF` the way its `===` is drawn and
 closing the note that channel has been holding at that row — and, beside the
 retrigger letter, putting the period away for the rows below rather than carrying
 it on, the strike that period had still left waiting for going with it. An
 `s` or an `S` lands the `STP`, which stops whatever move the wheel was making
 and leaves it sitting on the point it had got to, beside a wheel letter only —
-an `s` aimed at the vibrato letter, at the cut letter or at the retrigger letter
-is refused rather than written, since a wobble, a note-length gate and a
+an `s` aimed at the vibrato letter, at the tremolo letter, at the cut letter or at the retrigger letter
+is refused rather than written, since a wobble, a volume swing, a note-length gate and a
 retrigger have no move of the wheel of their own to stop, an `R` row's one
 wheel answer being the take-back of a swing a wobble above it had left in force
 on that same column rather than a move the letter makes, and happening whatever
@@ -1405,14 +1677,14 @@ the cell keeping the argument it had and the swing, the gate or the period above
 still running over the rows below it. A letter neither of those two claims is
 ignored rather than written, the cell keeping the value it had, and it types
 no note in the note column beside it either, so an `s` aimed at a call, at a
-vibrato, at a cut, at a retrigger or at a plain CC asks nothing of a run, a
-swing, a gate or a period that has no wheel to stop, an `R` row named beside or
+vibrato, at a tremolo, at a cut, at a retrigger or at a plain CC asks nothing of a run, a
+swing, a volume swing, a gate or a period that has no wheel to stop, an `R` row named beside or
 under a carried letter being the one row that answers a wheel for something other
 than its own kind of move — a row naming only a number under a carried letter
 leaving a swing above it alone, since it is the row that named the letter whose
 take-back that is.
 
-The ARP MACRO tab's steps are typed the same way rather than one press at a time: the
+The ARP tab's steps are typed the same way rather than one press at a time: the
 arrows and Page Up/Down move the step cursor over the cards it draws, with `Tab` joining
 the down arrow, and a sign and up to three digits then build one step's number in the
 cell the cursor sits on, which draws that number while it lasts rather than the step's
@@ -1430,7 +1702,7 @@ the run's own release, and the cursor stays where it was the way `Delete` and `B
 leave it. `Delete` and `Backspace` make a step sound nothing, which
 sustains the step before it rather than the base note.
 
-The VIB MACRO tab has no numbers to type, so its own keyboard does only what its cards
+The VIB tab has no numbers to type, so its own keyboard does only what its cards
 need: the arrows and `Tab` move a macro cursor from card to card, `PageUp` and `PageDown`
 go to the list's own ends — the nearest defined macro at or below the top rather than one
 card up — and where there is no cursor yet the arrows start from the highest id a row can
@@ -1442,6 +1714,22 @@ pick, and the two knobs take a typed amount in their text box as well as a drag,
 them leaving a point of its own. Defining a macro and taking one away are one action each
 as well, so a card whose three settings were all touched and that was then defined and
 removed leaves five points of the line rather than one.
+
+The TRM tab is the same again for the third time, its own keyboard doing only what its
+cards need: the arrows and `Tab` move a macro cursor from card to card, `PageUp` and
+`PageDown` go to the list's own ends - the nearest defined tremolo at or below the top
+rather than one card up - and where there is no cursor yet the arrows start from the
+highest id a row can name, which is what `- Remove selected` answers against as well.
+The three settings on a card are turned by JUCE's own controls rather than typed into a
+cell: the shape dropdown is dragged over the same six spellings a vibrato's card offers,
+its change writing the shape to the macro so a row already calling that id swings by it
+from there and leaving one point of the undo line for that one pick, and the two knobs
+take a typed amount in their text box as well as a drag, the amplitude taking the whole
+count of volume points it reaches each way of the level and the cycle taking whole
+sub-ticks one wave takes, each of them leaving a point of its own. Defining a tremolo and
+taking one away are one action each as well, so a card whose three settings were all
+touched and that was then defined and removed leaves five points of the line rather than
+one.
 
 
 ## MIDI model
@@ -1459,11 +1747,13 @@ removed leaves five points of the line rather than one.
 * The Volume column sends no controller at all: an explicit volume cell is the velocity
   a note entered on that row is struck at, `127` (`kVolDefaultVel`) until that column ever
   named one, and a row whose volume field is empty takes the velocity its column carried
-  above it. What a MIDI output channel sounds its notes at is the Command column's three
-  volume letters instead: `L` sets the channel's level and sends it at its own row, and
-  `I` and `O` ramp that level up from nothing and down to nothing one value every subtick
-  of the Settings' grid, all three driving the controller the Settings tab names for them
-  (CC7 channel volume by default). A pan cell still sends its configured controller (CC10
+  above it. What a MIDI output channel sounds its notes at is the Command column's four
+  volume letters instead: `L` sets the channel's level and sends it at its own row, `I` and
+  `O` ramp that level up from nothing and down to nothing one value every subtick of the
+  Settings' grid, and `T` swings the volume about that level by one of the TRM tab's macros,
+  all four driving the controller the Settings tab names for them (CC7 channel volume by
+  default), whose level nothing has named sits at `64`
+  (`kVolDefaultLevel`). A pan cell still sends its configured controller (CC10
   channel pan by default), sent before the note handling, so even a row that only holds a
   note-off (`===`) applies it. Carried (implicit) values do not re-send.
 * Command column: values `0`–`127` are CC numbers with a `0`–`127` value,
@@ -1659,7 +1949,7 @@ removed leaves five points of the line rather than one.
   of the clip whose rows armed it: a ramp still climbing there has no rows below that
   clip left to finish it even when its own wheel never left the centre, so only the
   ramp needs putting away and no message is what takes it back.
-* Command `147`, entered as the letter `V`, runs one of the VIB MACRO tab's macros and its
+* Command `147`, entered as the letter `V`, runs one of the VIB tab's macros and its
   argument names that macro's id, `1`–`127`, the release spelled the same two ways an
   arpeggiator call spells it — the id `0` a row names beside the letter and the `OFF` the
   entry writes for an `o`, both drawn `OFF` — which puts the pitchbending away and takes the
@@ -1738,6 +2028,92 @@ removed leaves five points of the line rather than one.
     wobble's own rows lived in since a column that armed a swing without striking a note has no note
     whose clip says where it sits, and a swing whose next point sits more than a row behind where
     this block starts, which is what a scrub or a jump leaves a swing ended at where it had got to
+    rather than one swinging late at that point.
+* Command `153`, entered as the letter `T`, runs one of the TRM tab's macros and its
+  argument names that macro's id, `1`–`127`, the release spelled the same two ways an
+  arpeggiator call and a vibrato spell it — the id `0` a row names beside the letter and the
+  `OFF` the entry writes for an `o`, both drawn `OFF` — which puts the volume swing away at
+  that row rather than the pitch: the controller has no neutral state a row can put a channel
+  back to, so the rows under a release keep whatever value of it the swing had last sent rather
+  than sit at the level the swing modulated about. A release leaves the column calling nothing
+  rather than calling id `0`, which is why a further row there that names only an argument arms
+  nothing, while a row under a carried `T` naming another macro's id re-arms the swing there:
+  the cycle counts again from that row and the new stretch measures its shape, its amplitude and
+  its cycle from the level that channel is at rather than from wherever the previous one's last
+  point had got the channel's volume, which is what keeps a quieter macro's cycle from jumping
+  onto the loud value the first stretch had left there. An `STP` one asks nothing at all, a
+  volume swing having no move of the wheel to stop, and leaves the swing above still swinging
+  over the rows below it — the editor refuses the `s` spelling beside the tremolo letter rather
+  than writing it, so that argument is one a saved state or a shot's own flag puts there. The
+  pair is drawn lilac like the wheel's own, and as one of the four volume letters it closes
+  nothing this column was in: a `T` row under a carried arpeggiator call leaves that run
+  stepping on and a run another tracker channel of the same MIDI channel was in is left alone
+  as well, the swing being keyed to that MIDI channel rather than to the column a row sits in.
+* What that swing does with the volume:
+  * it modulates about whatever level that channel already has where it was armed — a level an
+    `L` row named, or the default `64` where nothing ever named one — rather than about a point
+    of its own, which is what lets one row's `L` be the level a tremolo below it swings about.
+    The swing is clipped at the controller's own top 127 or bottom 0 where that level has no
+    room above or below it for the macro's full amplitude. A level letter row under a swing that
+    is still running moves the point it measures about to the level that row asks for rather than
+    ending the swing or starting a new one, and neither strikes a note nor releases the one the
+    row above it held, so the swing carries on across it, its own point and that row's being one
+    level rather than a jump;
+  * it re-reads the macro's three settings at every point of its cycle rather than once at the
+    arming row, which is what leaves a shape, an amplitude or a cycle turned on the tab while a
+    swing was swinging changing that swing from where it is rather than holding what the arming
+    row had still in force, and what ends a swing whose macro was taken away at its next point
+    rather than at the row that took it, saying nothing of its own and leaving the channel's
+    volume at whatever value of the controller the swing had got to, a release row below being
+    what puts that away;
+  * its cycle is the macro's own, counted in sub-ticks on the grid the Settings row "Subticks per
+    row" names, and it is never drawn with fewer than 8 points of it, so a cycle 6 sub-ticks wide
+    is exactly one row wide at the default 6 while a cycle 8 sub-ticks wide at that default is
+    four thirds of a row wide with one point per sub-row step and crosses the rows it sits in
+    rather than starting on each of them, one 12 sub-ticks wide is two rows wide cut at the
+    twelfths of a cycle rather than the eighths it asked for at least, and one a single sub-tick
+    wide is still drawn with the 8 a cycle is never drawn fewer of, so the controller is named 8
+    times inside that grid rather than once over it and 6 cycles of it land inside one row;
+  * its points are counted from the arming row in transport position and its phase from that count,
+    the way a run's steps, a ramp's steps and a wobble's points are rather than read off the rows
+    or carried round from the point before, which is what a transport jump that makes this block
+    play a row again leaves on the same point of the cycle instead of advancing it twice and what
+    keeps a swing that cycled many times over many blocks exact rather than drifted by its own
+    fractions;
+  * it sends the controller the Settings tab's volume row names, CC7 channel volume by default,
+    to the MIDI channel that row's instrument names like every other command row: the value is
+    that level plus the shape's share of the macro's own height, and that height is the
+    amplitude's count of whole volume points of the controller's own `0`–`127` rather than a
+    share of a half of it like a wobble's — so a knob at 30 reaches 30 above the level and 30
+    below it, its first point sitting on the level itself, and a knob at the whole 127 about the
+    default level has no room on either side of it, the three points of the cycle above the level
+    landing on the controller's top 127 while that peak would name 191 and the three below it
+    landing on nothing while that trough would name minus 63, the swing being clipped rather than
+    folded back. Only a point that changes that channel's volume says anything, which is what
+    leaves the arming row's own point, sitting on the level, sending nothing of its own and a row
+    that armed a tremolo under an `L` row leaving that row's own level ahead of the swing's first
+    point; and unlike a wobble, whose amplitude at off moves the wheel nowhere and so says nothing
+    at all, a tremolo whose amplitude is at off still names that level at every point of its
+    cycle, such a macro still being a macro rather than no macro at all;
+  * the six shapes are two curves and their folds, the same six a wobble's card offers: Sin curves
+    and Triangle ramps in four straight sides whose corners sit on the cycle's quarters rather than
+    bunched at its ends — climbing to its far top a quarter of the way in, back through the level
+    by halfway and to its own bottom three quarters in — and the `Up` spellings of each have the
+    cycle's second half inverted, so the volume only ever goes above that level, while the `Down`
+    spellings have its first half inverted, so it only ever goes below it; at full amplitude that
+    has the sinusoidal `Up` landing on the controller's top twice a cycle with nothing above the
+    level's room to go to and the sinusoidal `Down` landing on nothing twice, the fold being the
+    half the plain shape swung to the far side in;
+  * it never ends by itself: a cycle repeats for as long as the column carries the letter, so what
+    puts a swing away is the row that released it, the end of the clip whose rows armed it — where
+    that clip armed the tremolo with no note of its own there is nothing to release and no note-off
+    to close it, so the clip's end takes the swing away and nothing else, the all-notes-offs being
+    the ones the transport's own start asks for rather than any of the clip's, and the channel's
+    volume is left at whatever value the swing had last sent there — the loop that closes a column
+    whose clip was deleted or is no longer under the playhead, which names the clip the tremolo's
+    own rows lived in since a column that armed a swing without striking a note has no note whose
+    clip says where it sits, and a swing whose next point sits more than a row behind where this
+    block starts, which is what a scrub or a jump leaves a swing ended at where it had got to
     rather than one swinging late at that point.
 * Command `148`, entered as the letter `C`, gates how long a note is held rather than
   moving the wheel or running a macro, and its argument names that length in subticks on
@@ -2081,24 +2457,30 @@ removed leaves five points of the line rather than one.
   hold leaves the wheel sitting on that same point, since a row's own sub-row steps
   are flushed only after that row's command has answered and are left waiting there
   for an ended ramp rather than moving the wheel before the answer. A wobble counts its
-  cycle the same way rather than over the rows: the VIB MACRO tab's cycle knob spells
+  cycle the same way rather than over the rows: the VIB tab's cycle knob spells
   whole subticks one sin or triangle cycle takes, so a cycle of 6 is exactly one row
   wide at the default 6 while a cycle of 8 is four thirds of a row wide and one of
   12 is two rows wide, and it is that width over the 8 points a cycle is never drawn
   with fewer of that says how far apart the wheel's own moves are - one point per
   sub-row step at a cycle of the default 8, and 8 points inside those parts rather than
-  one move over them at a cycle narrower than that
+  one move over them at a cycle narrower than that. A tremolo counts its wave the same
+  way again: the TRM tab's cycle knob spells whole sub-ticks one wave of it takes, so
+  the default cycle of 8 is four thirds of a row wide and its points are 1000 samples
+  apart at the default 6 while a cycle of 6 is one row wide and its points are 750 of
+  them apart, and a cycle of 1 is still drawn with the 8 points a wave is never drawn
+  fewer of, naming the channel's volume 8 times inside that grid at 125 samples apart
+  rather than once over it
 * Rows per beat (default 4, i.e. one row per 16th note)
 * New pattern length in rows (default 64, maximum 1024) — resizing an existing
   pattern never discards rows: shortening hides the tail and enlarging brings it
   back; only rows inside the visible length are played
 * Snap to grid, adaptive grid, fixed grid size
 * Record octave and step skip
-* Volume letter CC and Pan column CC (default 7 and 10): the controller the `L`, `I` and
-  `O` letters drive and the controller the Pan column drives, each `0`–`127`. The Volume
-  column itself drives no controller now that it only names the velocity a note entered
-  beside it is struck at, so the volume row is what points the three letters at any
-  controller a synth listens to.
+* Volume letter CC and Pan column CC (default 7 and 10): the controller the `L`, `I`,
+  `O` and `T` letters drive and the controller the Pan column drives, each `0`–`127`. The
+  Volume column itself drives no controller now that it only names the velocity a note entered
+  beside it is struck at, so the volume row is what points the four letters at any
+  controller a synth listens to, and the level nothing has named sits at `64` there.
 * Undo steps (default 50, range `0`–`200`): how many model states the undo keys
   (`Ctrl+Z` or `Alt+Z`) can walk back — changing a setting is itself an undoable
   action, so the row's own value rewinds too, however it was moved: a drag along
@@ -2129,12 +2511,16 @@ removed leaves five points of the line rather than one.
   the argument it was, which for the older encoding was the ignored value, so
   the macro that call now names — usually id `0`, the release — has to be
   re-entered by hand. This build's own bend letter, its two slide letters, its
-  vibrato letter, its cut letter and its retrigger letter are command values `144`–`149` that an
+  vibrato letter, its cut letter, its retrigger letter, its three volume letters and its
+  tremolo letter are command values `144`–`153` that an
   older build could not have
-  written, so no older row turns into a bend, a slide, a wobble, a gate or a retrigger and none of
-  those calls becomes one; an older state has no `VIBS` section either, since
-  nothing older than the letter `V` had a vibrato to save, so the read arrives
-  with the one default macro a fresh song defines rather than with an empty tab.
+  written, so no older row turns into a bend, a slide, a wobble, a gate, a retrigger, a
+  volume letter or a tremolo and none of those calls becomes one; an older state has no
+  `VIBS` section either, since nothing older than the letter `V` had a vibrato to save,
+  so the read arrives with the one default macro a fresh song defines rather than with an
+  empty tab, and it has no `TRMS` section either, since nothing older than the letter `T`
+  had a volume tremolo to save, so the read arrives there with the one default tremolo a
+  fresh song defines rather than with an empty tab as well.
 * The base note a call steps from belongs to the column rather than to the
   channel, so a call in a column that has named no note, or whose note a note-off
   took away, sounds nothing rather than stepping off whatever note another clip
@@ -2196,7 +2582,9 @@ removed leaves five points of the line rather than one.
   a run having no wheel to stop and the row sounding nothing and leaving the run
   above it as it was, an `s` beside a vibrato letter refused the same way, a swing
   having no move of the wheel to stop either and leaving the swing above still
-  swinging, an `s` beside the cut letter refused the same way, a note-length gate
+  swinging, an `s` beside the tremolo letter refused the same way, a volume swing
+  having no move of the wheel to stop either and leaving the swing above still
+  modulating that channel's volume over the rows below it, an `s` beside the cut letter refused the same way, a note-length gate
   having no move of the wheel to stop either and leaving the gate above still
   gating the rows below it, an `s` beside the retrigger letter refused the same way again and
   leaving the period above still striking the rows below it — an `R` row named with that letter
@@ -2259,7 +2647,29 @@ removed leaves five points of the line rather than one.
   pitch rather than as a shape — the plug-in sends one per point of a cycle that
   changes the wheel's position and no more, that being one every sub-row step at a
   cycle 8 subticks or wider and never more than 8 points over a cycle at a narrower
-  one.
+  one. A volume tremolo never ends by itself either: its cycle repeats for as long as the
+  column carries the letter `T`, so what puts the swing away is a release row — the id
+  `0` beside the letter or the `OFF` the entry writes for an `o`, the two reading
+  the same way a call's and a vibrato's release does — the end of the clip whose rows
+  armed the swing, which is what a tremolo a clip armed with no note of its own needs
+  since no note-off of it was ever going to close it, nothing of it was ever going to
+  release anything and the channel's volume is all that is left to put away there, the
+  all-notes-offs being the ones the transport's own start asks for rather than any of
+  the clip's, or a swing whose next point sits more than a row behind where this block
+  starts, which is what a scrub or a jump leaves ended at where it had got to rather
+  than one swinging late at that point — and all of those leave the channel's volume at
+  whatever value of the controller the swing had last sent rather than at the level it
+  modulated about, since that controller has no neutral state to put a channel back to.
+  None of the other three volume letters puts such a swing away and the letter itself
+  closes no run, gate or ramp this column was in either, the swing being keyed to the
+  MIDI channel the letter's row named rather than to the column it sits in, so a `T`
+  spelled on a parallel column of the same instrument retargets the swing its first
+  column had armed rather than arming a second one; a swing whose macro was taken away
+  ends at its next point rather than at the row that took it, says nothing of its own
+  and leaves the volume at whatever value the swing had got to — there at the controller's
+  own top rather than at the level it modulated about, which is what leaves a channel
+  loud rather than one already back at its level — and a note-off row below still releases
+  the note the letter's row struck without putting that volume back.
 * No audio processing of any kind.
 * The Linux VST3 build exposes the plug-in as an effect (`Fx` category). Hosts
   that hide MIDI effects (Reaper in some routing setups) can use the
@@ -2327,7 +2737,7 @@ removed leaves five points of the line rather than one.
   shape is gone in that host rather than only in the fixture; what that section
   still covers at the engine alone is the moved-clip-from-time-0 scenario, which
   has not been asked in a host at all.
-* What the three volume letters leave behind where a fade stops is the plug-in's own
+* What the four volume letters leave behind where a fade or a swing stops is the plug-in's own
   reading rather than a controller's: a ramp counts itself away only at the level or
   the nothing it was fading to, and the volume a channel was last sent is left in force
   below that, since a CC has no neutral state a row, a release point or a fresh
@@ -2341,14 +2751,32 @@ removed leaves five points of the line rather than one.
   the one that clip's own end puts away, the way a slide's ramp keeps climbing there,
   and stopping this one at its gone clip's end would leave the channel stuck at
   wherever that fade had got to just as the fade's own stopping does further down.
+  The same holds for a tremolo's swing: it is put away at the end of the clip whose rows
+  armed it only, a swing a deleted clip armed keeping its cycle over any further clip of
+  that channel, and what that swing leaves is whatever value of the controller its last
+  point had sent - the point of a cycle being the controller's own value rather than a
+  move, so even a macro whose amplitude is at off names that level at every one of them
+  rather than saying nothing at all, which is what a wobble at off does instead.
   Neither letter ever says a level of its own, either: where no `L` has named one for
-  a channel, the level its ramps fade to and from is the default `127`, and where an
-  `I` or an `O` spells the `0` its field can spell, that letter arms no ramp, sends
-  nothing of its own and leaves the level it was fading to in force rather than
-  restating it once more.
+  a channel, the level its ramps fade to and from and the level a swing modulates about
+  is the default `64`, the middle of the controller's `0`-`127` rather than its top, so a
+  fade there says the default's eight values one sub-tick apart rather than fourteen and
+  a default tremolo's peak would name 128 and sits on the 127 the controller cannot pass;
+  and where an `I` or an `O` spells the `0` its field can spell, that letter arms no ramp,
+  sends nothing of its own and leaves the level it was fading to in force rather than
+  restating it once more. The same default and the same clipping make a swing about a
+  re-based level read the way the CoreTest pins it: an `L 100` spelled one row under a
+  swing armed at the row above moves the point it modulates about to 100 from that row's
+  own send on, that row's own 100 sitting ahead of the swing's first point above the new
+  level, the cycle counting on from where it had got rather than restarting there, the
+  peak above 100 would name 130 and is clipped to 127 while the trough still lands inside
+  the `0`-`127`, and a level named on a parallel column of the same instrument reaches
+  that one channel's swing rather than giving each column a level of its own, the level
+  and the swing both being the channel's own rather than a column's.
 * Command kinds beyond plain CC, the arpeggiator call, the pitch wheel, the vibrato that
-  wobbles it, the note-length cut, the note retrigger and the three volume letters (a
-  dedicated
+  wobbles it, the note-length cut, the note retrigger and the four volume letters - the
+  level letter, the two fades and the tremolo that swings the level from the same
+  column - (a dedicated
   pitch bend CC105/CC106 pair rather than the standard pitch wheel message, tempo, song
   position) are future work.
 * Selection snaps to channel boundaries: a cell is one channel's visible
@@ -2441,6 +2869,139 @@ Right tools panel: Transpose, Remapping, Selection Interpolation with scope: Sel
 Tabs on top: Tracker / Macros / Settings; Macros tab for arpeggiator/glide macro setup.
 Testing target: Reaper.
 Decisions
+This round takes the same Command column one letter further and makes the tracker's own cells land
+what they had been spelling, the user asking that a value be committed when they click away rather
+than needing an Enter of its own while `Escape` still drops what is half typed, that a new letter run
+a volume tremolo - "implemented the same way as vibrato macro and follows the same rules, but
+modulates channel volume CC", its level starting from `L`, 64 where nothing set one, its modulation
+going around, above or below it depending on the lfo shape the same way a wobble's does, its
+maximum modulation being 127 and the values that reach out of the 0-127 range being clipped rather
+than folded back, its speed being sub-ticks per one lfo wave cycle the same as a wobble's and the
+same six wave shapes being on offer, and the default MIDI channel volume `L` value being 64 - and
+that the two macro tabs' buttons be spelled `ARP` and `VIB` rather than `ARP MACRO` and `VIB MACRO`
+beside the new `TRM` one. The click is spent ahead of every path a press has for a target: the
+tracker's `commitEditBuffer` split so `commitPendingEdit` applies and clamps what the cursor's own
+cell had built, marks it changed and says whether anything landed, and `mouseDown` calls it right
+after `grabKeyboardFocus`, so the value reaches the cell the cursor was left on rather than the one
+the click landed on, never spilling into that one, a click on the cell the cursor already sits on
+committing as well and the cursor then ending where the click landed; only `mouseDown` commits, so a
+keyboard move of the cursor still discards the buffer rather than landing it and walking the cursor
+over a run of cells still reads them. The letter claims the field's own command value `153` and is
+drawn lilac as one of the four volume letters, `T 1` with its macro id or `T OFF` with its release.
+What it runs is a `TremState` per MIDI output channel - on / id / origin / count / height / cycle /
+points / rowEnd / swingClip with `endSwing()` putting a swing away and `swingRunning()` naming
+whether it still has points of its own left to say - sitting beside the `vols` array rather than in
+another piece of `ChannelState`, since the level it modulates about, the ramps and the level itself
+all belong to that channel: the swing's base is re-read at every flush from `vols[m].level`, which is
+what makes an `L` spelled under a running swing move the point its cycle measures about from that
+row's own send on rather than ending the swing or starting a fresh one, its cycle counting on from
+where it had got while the new level's own value sits ahead of the swing's next point. The value sent
+is `jlimit (0, kCcTop, base + round (shape * height))` through `flushTrem` at the three places the
+engine walks rows and at the clip-end teardown, the shape coming from `tremShape (type, phase)` over
+the same sampler a wobble's cycle is drawn with and the height being the amplitude's count of whole
+volume points of that controller rather than a share of a half of a wheel, so the peak a default
+tremolo would name at 128 and the whole amplitude's 191 and minus 63 land on the 127 and the nothing
+the controller can pass rather than being folded back; the point of a tremolo being the controller's
+own value rather than a move, so a macro whose amplitude is at off still names that level at every
+point of its cycle rather than moving nothing at all and saying nothing, which is what a wobble at
+off does instead. The letter is one of the volume letters everywhere the engine reads one, so it ends
+no run, no ramp, no wobble, no cut and no retrigger above it and none of those four letters puts a
+swing away, and the editor refuses the `STP` spelling beside it, a swing having no move of the wheel
+to stop, so that argument is one a saved state or a shot's own flag leaves there. The model grows the
+grow-only tremolo table beside the vibrato's - `kMaxTremMacros` 127, `kTremTypeTop` 5, `kTremAmpTop`
+127, `kTremFreqTop` 127 and a fresh tremolo at `kTremDefaultAmp` 64 and `kTremDefaultFreq` 8 over
+`kTremCyclePoints` 8 in the engine - with `firstUndefTremId` / `lastDefTremId` doing the same gap
+work the vibrato's pair does, the saved form writing a `TRMS` section of one `TRM` child per macro
+that is present with `id` / `type` / `amp` / `freq` properties beside the other two, the read
+clamping all three through the same limits the knobs use, an older state naming no section leaving
+the read with `defineTrem (1)` rather than with an empty tab, and `kVolDefaultLevel` going from 127
+to 64 - the middle of the controller rather than its top - which is what every fixture below had to
+be reworked against. The new `TremoloMacrosPanel` mirrors the vibrato's card by card, its amplitude
+knob spelling whole volume points with `setRange (0.0, (double) kTremAmpTop, 1.0)` rather than the
+hundredths of full pitchbend a vibrato's walks, its labels naming `AMPLITUDE (volume points)` and
+`CYCLE (sub-ticks per wave)`, its cards named `T 1` in the lilac the wheel's own commands are read
+in rather than an arpeggiator call's orange and its strip, cursor, undo points and hit-test order
+being the vibrato's read a third time; the five tab buttons going 86 / 64 / 64 / 64 / 86 so the
+three macro tabs' names are all plain 64 px ones and the bar keeps the 364 px it had, `SETTINGS`
+still ending at 370. The round's own bug came from the tracker's drawing rather than from its
+engine: `commandArgumentReleases` did not name the tremolo letter, so a `T OFF` release was drawn
+carried over dim with its argument below its own row while the engine had put the swing away there,
+and the fix adds that letter to it with a comment paragraph naming why a release leaves the column
+calling nothing rather than calling id `0`, the release kind at the entry's own path having already
+named it, which is what had made the crops of the release look right at the row and wrong under it.
+Everything was probed against the built engine before it went anywhere: CoreTest going 518 to 586
+checks at PASS 0 failures, its fade fixtures reworked rather than left claiming the old default -
+the fourteen values becoming the default's eight landing on the 64, the `L 127` fixture now naming
+a level the default no longer is and the `I` below it climbing back to that 127 at the 25000th
+sample - and the tremolo fixtures spliced in pinning the sinusoidal 30 over a cycle 6 sub-ticks wide
+as 64, 85, 94, 85, 64, 43, 34, 43 at 750 samples apart, the full 127 about the default level as
+64, 127, 127, 127, 64, 0, 0, 0 with the peak's 191 and the trough's minus 63 clipped, the default
+64 over a cycle 8 as 64, 109, 127, 109, 64, 19, 0, 19 with the peak's 128 sitting on the 127, the
+six shapes differing at their own folds, a cycle one sub-tick wide naming the controller 8 times at
+125 samples apart, an `L 100` spelled one row under a swing re-basing it over a whole cycle with
+130 clipped to 127, a level named on a parallel column reaching that one swing and stating 40 at
+the 24000th, a release leaving the volume at whatever value the swing had last sent with nothing
+asked for at or past the 12000th sample, a `T STP` asking nothing and a further id re-arming the
+swing over a quieter macro measured from the level rather than from the value the first stretch had
+left, a macro taken away ending the swing at its next point with the channel left at the
+controller's own top, a clip's end putting a swing away that armed no note of its own and a
+tremolo on a column parallel to a wobble of the same instrument modulating over that wobble's own
+27 wheel messages at 1000 samples apart rather than its 750; UiTest going 846 to 875 checks at
+PASS 0 failures with the TRM tab's card section, its Enter block and the click-commit fixtures,
+Smoke staying at 13 with the serialised state growing from 2463 to 2533 bytes for the new section
+alone. Both trees rebuilt, the Linux one first with the build tree's own bundle and artifacts left
+otherwise intact: its `.so` going from 6166392 to 6232968 bytes at 4f373a439d3b64d7528bcce3fe83530be69e211c1dac7c612f5e590850dd7585,
+the Windows module from 3766784 to 3795968 at 2182300d9d19c31feeb748e1ff57e3522a775b978b2525dfd8dd386b1eb869a0
+with the cross build kept at `-j 2` past the msvc path export, `moduleinfo.json` regenerated over
+that bundle by the Linux tree's own `ReTrektor_vst3_helper` and reading byte-identical to the
+Linux one at 990 bytes and b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee, the
+installed bundle at /home/corthax/.vst3/Corthax/Re.Trektor.vst3 refreshed by rsync -a --checksum
+over the whole directory with the `diff -r` between the built and installed trees reading clean,
+and the two tracked tarballs regenerated from their own trees at 2579302 to 2589615 bytes and
+1a1cc831938e47dc559bf5ed4a5a3e1d553bd5b0f0dfa9a48ae29338d4ccdfb0 for the linux one and 1681945 to
+1693168 at b86eebfef335429d412e0d5f7940022128048eaf63bdac3c669a48c0ee8a9a05 for the windows one.
+Sixteen shots retaken at 1240x760 with DISPLAY=:0 rather than the twelve the round above kept -
+the `--tab=trm` alias joining the `macros` and `vibs` ones, `arp`, `vib` and `trm` now being
+matched against the buttons' own lowercased text since they no longer spell two words, and
+`--trem-shape=`, `--trem-amp=`, `--trem-cycle=`, `--trem-macros=`, `--trem-call=` and
+`--trem-call-id=` joining the vibrato's three - each with its `--dump` alongside: every dump
+count sitting 6 above the round above's because of the trem panel's six hidden controls, the
+tracker's and the four gate and retrigger shots at 38 OUTSIDE PARENT lines, macros at 34, vibs
+and trems at 32 and settings at 20, the top bar still reading `TRACKER` 6,5 86x28, `ARP` 92,5
+64x28, `VIB` 156,5 64x28, `TRM` 220,5 64x28 and `SETTINGS` 284,5 86x28 so nothing in the bar
+shifted, and the crops pinned for the `T 1` carried dim with its argument over the rows below
+a call and for the `T OFF` reading bright at its own row with nothing at all carried under it.
+README went from 447 lines and 29016 bytes to 476 lines and 31600 bytes, keeping only the user-facing
+claims: its top bar bullets and its `ARP`, `VIB` and `TRM` tab bullets, the `T` row of its
+Command-letter table at 153, its argument-default paragraph gaining the `L` at 64 and the release
+id 0 an `A`, a `V` and a `T` leave with `STP` refused beside all four volume letters, its volume-letters
+intro naming four letters and the 64 default, its Macros section gaining the tremolo card's paragraph
+and its keyboard map's `ARP` row, its older-state bullet extended from `144`-`149` to `144`-`153`
+with the missing `VIBS` and `TRMS` sections both arriving as id 1, and its future-work line naming
+the volume tremolo as done rather than as work. project.md took the same reading through the
+standing sections rather than through the entries below them - the undo panels' list naming the
+`ARP`, `VIB` and `TRM` panels, the tab-button spelling block, the Enter-spent sweep going from three
+panels to four, the EditorShot tab aliases and its tremolo flags, the shot paragraph noting that
+target has flags for the tremolo letter but none for the other three volume letters, the CoreTest
+volume-letters rework and its tremolo block, the UiTest TRM card and click-commit block, the
+Mouse map's half-typed row, its per-macro-card knobs and its click-commit paragraph, the Keyboard
+map's five tab names, its `T` claim and its TRM paragraph, the MIDI model's eight letters, its
+Command 153 bullet with what that swing does with the volume as sub-bullets beside the wobble's,
+its four volume letters reaching one level, one ramp and one swing, its two default 64s and its
+`OFF` being the tremolo's release while its `STP` stays refused, the Settings' Subticks row naming
+the tremolo's wave and its volume-CC row naming the fourth letter, and its Known limitations
+growing the tremolo through the refused-`s` reading, the never-ends reading and the volume-letters
+one with its re-based level and its clipping - that file going from 6616 lines and 698220 bytes to
+7177 lines and 750598 bytes and self-consistent about that count in the entry it adds, the entry
+sitting immediately under the Session block's Decisions line ahead of the round above's. Neither
+file's paren balance moved, the README's staying 0 and project.md's staying -3, the shapes, the
+clipping and the new state's fields being spelled with words rather than with brackets. Left open
+rather than invented: no shot flag for the level letter or for either fade, so what those three
+draw is still left to the UiTest's cells rather than to a pinned image; a `T STP` only ever
+arriving from a saved state or a shot's flag; and the click commit staying a mouse-down's own,
+a keyboard move of the cursor still discarding what was typed rather than landing it. Dropped
+rather than carried: the vibrato macro's amplitude wording, a tremolo counting whole volume
+points of its controller rather than a share of a half of a wheel.
 This round takes the controller off the Volume column and puts a level and two fades on the Command
 column's three new letters, the user's ask that that column stop driving a CC and set only the
 velocity a note entered beside it is struck at, and that `L`, `I` and `O` own the volume one MIDI
