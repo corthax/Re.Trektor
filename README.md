@@ -96,11 +96,12 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   button — parks the plug-in's playhead at the clicked beat, rounded to the current
   grid when snapping is on, so a paste, a slice or a clip menu acts where the mouse
   was. While the host plays, its transport owns the playhead instead.
-* **Tracker** — the active pattern's rows, five columns per channel, with the
-  column visibility chips (`I` `V` `P` `C`) above each channel so a hidden field can
-  always be restored: one chip hides one field of one channel. A horizontal
-  scrollbar appears when the channels are wider than the window; drag its thumb,
-  click to jump, or shift + mouse wheel.
+* **Tracker** — the active pattern's rows, six columns per channel, with the
+  column visibility chips (`I` `V` `P` `C` `D`) above each channel so a hidden field can
+  always be restored: one chip hides one field of one channel. The delay column's
+  `D` chip starts hidden, so a fresh channel shows the same four fields it always
+  did. A horizontal scrollbar appears when the channels are wider than the window;
+  drag its thumb, click to jump, or shift + mouse wheel.
 * **ARP / VIB / TRM tabs** — one card per defined macro, plus `+ Add macro`
   and `- Remove selected`, and a vertical scrollbar strip when the cards do not fit.
 * **Right panel** — Transpose, Instrument Remapping and Selection Interpolation,
@@ -126,9 +127,10 @@ for a brand-new one. The size belongs to the plug-in instance, not to the saved 
   The clipboard is not saved with the song and survives a pattern switch.
 * The cell menu keeps Clear (Selection / Cell / Channel / Pattern), Copy selection,
   Cut selection and two paste submenus, **Paste** and **Paste (Additive)**, each
-  carrying Everything / Note / Instrument / Volume / Pan / Command / Command Value.
-  The plain paste writes every field the buffer carries, empty ones included, so a
-  field the copied cell left empty clears the target's; the additive one lets only
+  carrying Everything / Note / Instrument / Volume / Pan /
+  Command / Command Value / Delay. The plain paste writes every field the buffer carries,
+  empty ones included, so a field the copied cell left empty clears the target's; the
+  additive one lets only
   the fields the buffer really carries land, so the target keeps its own value where
   the buffer was empty. Cut is the copy followed by emptying exactly the cells it
   took, leaving the painted selection and the cursor where they were, so a following
@@ -148,14 +150,24 @@ for a brand-new one. The size belongs to the plug-in instance, not to the saved 
 
 ## Columns
 
-Each pattern row has five columns per tracker channel: Note, Instrument, Volume, Pan
-and Command.
+Each pattern row has six columns per tracker channel: Note, Instrument, Volume, Pan,
+Command and Delay.
 
 * Instrument names the **MIDI output channel** (`0`–`15`), drawn `-0` to `-15`. When
   unset, the last value used on that tracker channel is reused. Volume, Pan and Command
   carry the same way; the command carries its letter and its argument together.
   Carried values are drawn dimmer, and only instrument, volume and pan carry when a
   note exists, while command carries even on empty rows.
+* Delay is the column's own, the last one, and the channel's `D` chip is what brings it
+  in; a fresh pattern keeps it hidden. It holds a percent of a row, `00`–`99`, drawn in
+  its own lighter blue, and `--` where nothing has named it yet. A row spelling a percent
+  pushes what that row itself sends — its note-on and note-off, its pan, its command
+  answer — down by that percent of a row; a row spelling nothing keeps the percent the
+  column carries down from above, the percent carrying through empty rows the way the
+  command does, and the row that spells `00` is what stops the delaying. Arpeggio steps,
+  wheel ramps, wobbles, cut lengths and retrigger periods keep counting from the row that
+  armed them rather than from a delayed one, so delaying a row moves only that row's own
+  messages.
 * Volume names the velocity a note entered on that row is struck at, `127` until the
   column ever named one; it sends no controller at all. Pan sends CC10 (channel pan)
   by default; the Settings tab can point it at any controller `0`–`127`. That controller
@@ -445,6 +457,11 @@ keyboard focus: it rests on the control whose text box the value is typed into.
   the notes, runs and wobbles of a clip the playhead has left. A volume ramp armed by
   such a clip is left counting toward its level rather than stopped there, the level
   being the output channel's rather than the clip's rows.
+* A delay is a percent of a row, and a row is far longer than the host's blocks —
+  thousands of samples against the plug-in's 512 — so a delayed row's messages are held
+  over until the block they belong to rather than being pinned to the block they were
+  found in. An older saved song has no delay column at all, so its channels come up with
+  the column hidden and its rows play where they always did.
 * Note entry assumes a US keyboard layout.
 * The Windows x86-64 build above was checked at a real Windows 11 host: it loads, its
   editor renders and it works, so nothing in the tree is bent for Windows. Wine is a

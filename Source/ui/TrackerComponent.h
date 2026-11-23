@@ -13,7 +13,7 @@ class TrackerComponent final : public juce::Component,
                                private juce::Timer
 {
 public:
-    enum class Field { note = 0, inst, vol, pan, cmdNum, cmdVal };
+    enum class Field { note = 0, inst, vol, pan, cmdNum, cmdVal, delay };
 
     explicit TrackerComponent (ReTrektorAudioProcessor& processor);
     ~TrackerComponent() override = default;

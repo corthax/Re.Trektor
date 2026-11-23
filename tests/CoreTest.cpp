@@ -36,6 +36,7 @@ void seedSteps (Song& s, int id, int jump)
 struct NoteEvent
 {
     int offset;
+    int absolute; // where the event sits from the start of the run rather than in its own block
     bool on;
     int channel;
     int note;
@@ -45,6 +46,7 @@ struct NoteEvent
 struct ControllerEvent
 {
     int offset;
+    int absolute;
     int channel;
     int number;
     int value;
@@ -66,6 +68,7 @@ struct Harness
     std::vector<int> bends;
     std::vector<RawEvent> raw;
     double ppq = 0.0;
+    int blockStartSample = 0; // how far into the run the block being played sits
 
     static constexpr int blockSize = 512;
     static constexpr double sampleRate = 48000.0;
@@ -81,6 +84,7 @@ struct Harness
             t.playing = playing;
             t.bpm = bpm;
             t.ppq = ppq;
+            blockStartSample = (int) (ppq * sampleRate * 60.0 / bpm + 0.5);
 
             juce::MidiBuffer midi;
             engine.process (song, midi, t, blockSize, sampleRate);
@@ -92,13 +96,19 @@ struct Harness
                     const auto m = metadata.getMessage();
 
                     if (m.isNoteOn())
-                        notes.push_back ({ metadata.samplePosition, true, m.getChannel(),
+                        notes.push_back ({ metadata.samplePosition,
+                                           blockStartSample + metadata.samplePosition,
+                                           true, m.getChannel(),
                                            m.getNoteNumber(), m.getVelocity() });
                     else if (m.isNoteOff())
-                        notes.push_back ({ metadata.samplePosition, false, m.getChannel(),
+                        notes.push_back ({ metadata.samplePosition,
+                                           blockStartSample + metadata.samplePosition,
+                                           false, m.getChannel(),
                                            m.getNoteNumber(), 0 });
                     else if (m.isController())
-                        controllers.push_back ({ metadata.samplePosition, m.getChannel(),
+                        controllers.push_back ({ metadata.samplePosition,
+                                                 blockStartSample + metadata.samplePosition,
+                                                 m.getChannel(),
                                                  m.getControllerNumber(), m.getControllerValue() });
                     else if (m.isPitchWheel())
                         bends.push_back (m.getPitchWheelValue());
@@ -129,6 +139,8 @@ struct Harness
                     raw.push_back ({ metadata.samplePosition, kind, pitch });
                 }
             }
+
+            const int blockAbs = (int) std::llround (ppq * sampleRate * 60.0 / bpm);
 
             ppq += beatsPerBlock();
         }
@@ -5502,6 +5514,219 @@ int main()
                "the tremolo the parallel column armed modulates the channel the same instrument names all over the wobble's own rows, its cycle being 1000 samples apart rather than the wobble's 750 and its points being volume points rather than wheel positions");
     }
 
+
+    //== The delay column =====================================================
+    {
+        std::cout << "The delay column's own field, its bits and its saved form\n";
+        check (kVisDelay == 16 && kVisAll == 31 && kVisDefault == 15,
+               "the delay column has a visibility bit of its own above the command's, every-field names all five and a fresh channel column starts without it");
+        check (kPasteDelay == 64 && kPasteAll == 127 && kPasteAdditive == 128,
+               "the delay column has a paste bit of its own, the mode bit moved above it so every-field still reaches it");
+
+        Song s;
+        check ((s.patterns[0].vis[(size_t) 0] & kVisDelay) == 0,
+               "a fresh channel column hides the delay column, its chip being the way to ask for it");
+
+        Cell d;
+        check (d.delay == kEmpty && d.empty(),
+               "a cell of its own starts with the delay column naming nothing and still reads as empty");
+
+        s.patterns[0].cell (0, 0).delay = 50;
+        check (! s.patterns[0].cell (0, 0).empty(),
+               "a cell holding only a delay is not empty, so trimming keeps a row whose only content is a percent");
+
+        Song back;
+        back.fromValueTree (s.toValueTree());
+        check (back.patterns[0].cell (0, 0).delay == 50,
+               "the delay column survives the saved form as the seventh int of a cell");
+
+        // an older state's block is six ints to a cell rather than seven: the reader
+        // tells that from the length the block came in at, which is what leaves every
+        // delay empty there rather than an older command's argument read as a percent
+        auto older = s.toValueTree();
+        juce::ValueTree patternNode = older.getChildWithName ("PATTERNS").getChild (0);
+        juce::MemoryBlock seven;
+        check (patternNode.getProperty ("data").toString().isNotEmpty()
+               && seven.fromBase64Encoding (patternNode.getProperty ("data").toString()),
+               "the saved form's own block is what the older spelling is rebuilt from");
+        {
+            const auto* src = static_cast<const juce::int16*> (seven.getData());
+            const size_t count = seven.getSize() / sizeof (juce::int16);
+            juce::MemoryBlock six;
+            six.setSize ((count / 7) * 6 * sizeof (juce::int16));
+            auto* dst = static_cast<juce::int16*> (six.getData());
+            size_t o = 0;
+
+            for (size_t i = 0; i + 7 <= count; i += 7)
+                for (int f = 0; f < 6; ++f)
+                    dst[o++] = src[i + (size_t) f];
+
+            patternNode.setProperty ("data", six.toBase64Encoding(), nullptr);
+        }
+        Song oldWay;
+        oldWay.fromValueTree (older);
+        check (oldWay.patterns[0].cell (0, 0).delay == kEmpty
+               && oldWay.patterns[0].cell (0, 0).cmdVal == s.patterns[0].cell (0, 0).cmdVal,
+               "an older state's six-int block reads six to the cell, so its command argument keeps its place and nothing there becomes a delay");
+    }
+    {
+        std::cout << "A row naming a percent of a row strikes its own messages later\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (4); // the clip ends at 1.0 ppq, the 24000th sample
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).vol = 100;
+        p.cell (1, 0).note = 61;
+        p.cell (2, 0).note = 62;
+        p.cell (3, 0).note = 63;
+        p.cell (0, 0).delay = 50; // half of the row's own 6000 samples at four rows a beat
+        h.runBlocks (50);
+
+        static const int shiftedOn[] = { 3000, 9000, 15000, 21000 };
+        std::vector<int> ons;
+        for (const auto& e : h.notes)
+            if (e.on)
+                ons.push_back (e.absolute);
+        check (ons == std::vector<int> (shiftedOn, shiftedOn + 4),
+               "the delay named at the first row lands every row of that channel half of its 6000-sample row later, at the 3000th, 9000th, 15000th and 21000th sample rather than at 0, 6000, 12000 and 18000");
+
+        static const int shiftedOff[] = { 9000, 15000, 21000 };
+        std::vector<int> offs;
+        for (const auto& e : h.notes)
+            if (! e.on && e.absolute < 24000)
+                offs.push_back (e.absolute);
+        check (offs == std::vector<int> (shiftedOff, shiftedOff + 3),
+               "the releases the rows below entered with their notes move with those notes, each sitting at its own row's delayed sample");
+
+        bool lastLate = false;
+        for (const auto& e : h.notes)
+            if (e.on && e.note == 63 && e.absolute == 21000)
+                lastLate = true;
+        check (lastLate,
+               "the last note of the clip is struck late rather than dropped for sitting past the block that owned its row");
+
+        int endOff = -1;
+        for (const auto& e : h.notes)
+            if (! e.on && e.note == 63)
+                endOff = e.absolute;
+        check (endOff == 24000,
+               "the clip's own end still closes that note at its own sample, the end being a place of the clip rather than of a row");
+    }
+    {
+        std::cout << "A delay carried down until a 0 stops it\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (4);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (1, 0).note = 61;
+        p.cell (2, 0).note = 62;
+        p.cell (2, 0).delay = 25; // the percent turns on two rows in, and carries from there
+        p.cell (3, 0).note = 63;
+        p.cell (3, 0).delay = 0;  // the stopping of the delaying rather than a delay of no part of a row
+        h.runBlocks (50);
+
+        static const int carried[] = { 0, 6000, 13500, 18000 };
+        std::vector<int> ons;
+        for (const auto& e : h.notes)
+            if (e.on)
+                ons.push_back (e.absolute);
+        check (ons == std::vector<int> (carried, carried + 4),
+               "the rows above the delay answer on their own samples, the row that named 25 lands a quarter of the row later at the 13500th sample, and the 0 spelled at the last row puts that row back at its own 18000th");
+
+        bool percentKept = false;
+        for (const auto& e : h.notes)
+            if (e.on && e.note == 62)
+                percentKept = true;
+        check (percentKept, "the percent the row named reaches the row that spelled it, which is what a row naming only a note under it keeps");
+    }
+    {
+        std::cout << "The delay being of a whole row, whatever the grid says\n";
+        Harness h;
+        h.song.settings.rowsPerBeat = 8; // a row is 3000 samples rather than 6000
+        h.song.settings.subticksPerRow = 2;
+        auto& p = h.song.patterns[0];
+        p.setLength (8);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (2, 0).delay = 50;
+        p.cell (4, 0).note = 64; // the row under the delay, answering 1500 samples past its own
+        h.runBlocks (40);
+
+        std::vector<int> ons;
+        for (const auto& e : h.notes)
+            if (e.on && e.absolute > 12000)
+                ons.push_back (e.absolute);
+        check (! ons.empty() && ons[0] == 13500,
+               "at eight rows a beat a delay of 50 lands 1500 samples past the row rather than 3000, the percent being of the row that got shorter rather than of the sub-row grid the Settings put at 2");
+
+        Harness wide;
+        wide.song.settings.rowsPerBeat = 8;
+        wide.song.settings.subticksPerRow = 12; // the sub-row grid doubled rather than the row
+        auto& q = wide.song.patterns[0];
+        q.setLength (8);
+        q.cell (0, 0).note = 60;
+        q.cell (0, 0).inst = 0;
+        q.cell (2, 0).delay = 50;
+        q.cell (4, 0).note = 64;
+        wide.runBlocks (40);
+
+        std::vector<int> again;
+        for (const auto& e : wide.notes)
+            if (e.on && e.absolute > 12000)
+                again.push_back (e.absolute);
+        check (! again.empty() && again[0] == 13500,
+               "the same delay lands at the same sample with 12 sub-ticks of the row rather than 2, which is what makes it independent of that grid");
+    }
+    {
+        std::cout << "What a delayed row moves, its pan and its controller with its note\n";
+        Harness h;
+        auto& p = h.song.patterns[0];
+        p.setLength (4);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).pan = 40;
+        p.cell (0, 0).cmd = 7;
+        p.cell (0, 0).cmdVal = 90;
+        p.cell (0, 0).delay = 50;
+        h.runBlocks (50);
+
+        bool panLate = false, volumeLate = false;
+        for (const auto& e : h.controllers)
+        {
+            if (e.absolute == 3000 && e.number == 10 && e.value == 40)
+                panLate = true;
+            if (e.absolute == 3000 && e.number == 7 && e.value == 90)
+                volumeLate = true;
+        }
+        check (panLate && volumeLate,
+               "the row's pan and its plain controller answer at the delayed sample rather than at the row, the row's own messages moving together");
+    }
+    {
+        std::cout << "A delayed row leaving an arpeggiator's steps on the row's own grid\n";
+        Harness h;
+        seedSteps (h.song, 1, 1);
+        auto& p = h.song.patterns[0];
+        p.setLength (4);
+        p.cell (0, 0).note = 60;
+        p.cell (0, 0).inst = 0;
+        p.cell (0, 0).cmd = kArpCmd;
+        p.cell (0, 0).cmdVal = 1;
+        p.cell (0, 0).delay = 50;
+        h.runBlocks (50);
+
+        bool ownLate = false, stepKept = false;
+        for (const auto& e : h.notes)
+        {
+            if (e.on && e.note == 60 && e.absolute == 3000)
+                ownLate = true;
+            if (e.on && e.note == 61 && e.absolute == 1000)
+                stepKept = true; // the sub-row grid's own 1000 samples at 6 sub-ticks of the row
+        }
+        check (ownLate && stepKept,
+               "the delay moves the strike of the row itself to the 3000th sample while the run's step below it still answers at the sub-row grid's own 1000th, the steps counting from the row rather than from the delayed arrival");
+    }
 
     std::cout << (failures == 0 ? "PASS" : "FAILED") << " (" << failures << " failures)\n";
     return failures == 0 ? 0 : 1;

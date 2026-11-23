@@ -301,6 +301,22 @@ constexpr int kVolDefaultLevel = 64; // the volume an L, I or O fades to or from
 constexpr int kFadeDefaultStep = 10; // volume a bare I or O moves every sub-tick
 constexpr int kVolDefaultVel = 127; // velocity a note is struck at when the volume column never named one
 
+/** The delay column's own field: a percent of a row the rows of that tracker channel
+    are struck later at than their own row. It is not a command the Command column
+    carries a letter for but the column beside it, spelled with two digits 0..kDelayTop
+    and drawn "--" where the column names nothing. A 0 entered there is what stops the
+    delaying rather than a delay of no part of a row, and the value keeps being carried
+    down under the row that named it the way the instrument, volume and pan columns do,
+    which is what lets one row's number delay a whole passage until another row's 0
+    turns it off. The percent is of a whole row and nothing else: the Settings' sub-ticks
+    per row say nothing about where the delay lands, so a delay of 50 sits half a row
+    past the row that named it whichever grid is in force, and what it moves is only
+    that row's own messages - the note that row entered or released, its pan, its plain
+    controller and its command's own answer - while an arpeggiator's steps, a wheel
+    ramp, a wobble, a cut's sub-ticks and a retrigger's periods keep counting from the
+    row itself. */
+constexpr int kDelayTop = 99; // the widest delay the column can name, in percent of a row
+
 constexpr int kMaxTremMacros = 127; // tremolo macros, ids 1..127; the id 0 call releases
 constexpr int kTremTypeTop = 5;    // the highest of the six tremolo shapes
 constexpr int kTremTypeSin = 0;    // a normal sinusoidal swing, both above and below the channel's level
@@ -315,13 +331,19 @@ constexpr int kTremDefaultAmp = 64; // the amplitude a newly defined macro start
 constexpr int kTremDefaultFreq = 8; // the cycle a newly defined macro starts at, in sub-ticks
 constexpr int kMaxUndoSteps = 200; // most undo steps the undo line can be asked for
 
-/** Column visibility bits: the chips above a channel toggle one field of one
-    channel, so the state is one byte per channel (see Pattern::vis). */
+/** Column visibility bits: the chips above a channel (I V P C D) toggle one field of
+    one channel, so the state is one byte per channel (see Pattern::vis). The delay
+    column has a bit of its own above the command's, and it is the one field a fresh
+    channel column does not show, which is what kVisDefault spells; kVisAll names
+    every field and is what a state or a table that says nothing about the delay
+    column must not be read as. */
 constexpr std::uint8_t kVisInst = 1;
 constexpr std::uint8_t kVisVol = 2;
 constexpr std::uint8_t kVisPan = 4;
 constexpr std::uint8_t kVisCmd = 8;
-constexpr std::uint8_t kVisAll = 15;
+constexpr std::uint8_t kVisDelay = 16; // the delay column's own bit, the sixth field of a channel
+constexpr std::uint8_t kVisAll = 31;   // every field of a channel, the delay one among them
+constexpr std::uint8_t kVisDefault = 15; // what a fresh channel column starts showing: the delay column stays hidden until its chip is asked for
 
 //==============================================================================
 /** A single tracker cell (one row of one tracker channel). */
@@ -333,10 +355,12 @@ struct Cell
     int pan = kEmpty;     // kEmpty or 0..127
     int cmd = kEmpty;     // kEmpty, 0..127 = CC; 128 = arpeggiator call (A); 144 = pitch bend (B); 145/146 = wheel slide up/down (U/D); 147 = vibrato (V); 148 = cut (C); 149 = retrigger (R); 150 = MIDI channel volume level (L); 151/152 = volume ramp in/out (I/O); 153 = volume tremolo (T)
     int cmdVal = kEmpty;  // kEmpty, 0..127 or a cut's or a retrigger's own subticks to kRetrigTopTicks: a macro id, a point on the wheel, a slide's rows, a vibrato or tremolo macro id, a cut's subticks, a retrigger's sub-ticks, an L's level, an I's or an O's step or a T's swing; kArgOff = OFF and kArgStp = STP above the field's own top
+    int delay = kEmpty;   // kEmpty or 0..kDelayTop: percent of a row this channel's rows are struck late by; 0 stops the delaying
 
     bool empty() const noexcept
     {
-        return note == kEmpty && inst == kEmpty && vol == kEmpty && pan == kEmpty && cmd == kEmpty;
+        return note == kEmpty && inst == kEmpty && vol == kEmpty && pan == kEmpty && cmd == kEmpty
+            && delay == kEmpty;
     }
 
     bool hasCommand() const noexcept { return cmd != kEmpty; }
@@ -349,7 +373,8 @@ struct Cell
     already exist inside a row range. Only linear ramps are supported: the blank
     cells between two neighbouring anchors take the linear position between them.
     In the note column a note-off (`===`) has no number to ramp to or from, so it
-    closes a segment instead of anchoring one. */
+    closes a segment instead of anchoring one. The delay column is one such column
+    of its own, ramped in percent of a row rather than in a count of the grid. */
 enum class InterpField
 {
     note = 0, // 0..127, a note-off ends the segment
@@ -357,7 +382,8 @@ enum class InterpField
     vol,      // 0..127
     pan,      // 0..127
     cmdNum,   // 0..128, the CC number the column carries or the arpeggiator call
-    cmdVal    // 0..127, the command argument
+    cmdVal,   // 0..127, the command argument
+    delay     // 0..kDelayTop, the delay column's percent of a row
 };
 
 //==============================================================================
@@ -373,14 +399,15 @@ constexpr int kPasteVol = 4;
 constexpr int kPastePan = 8;
 constexpr int kPasteCmd = 16;    // command number
 constexpr int kPasteCmdVal = 32; // command argument
-constexpr int kPasteAll = 63;
+constexpr int kPasteDelay = 64;  // the delay column's own percent
+constexpr int kPasteAll = 127;
 
 /** Not a field bit but a mode bit to add to the filter (kPasteAll | kPasteAdditive
     means everything, additively): only the buffer's non-empty fields land, so an
     empty clipboard field leaves the target's own value in place rather than
     clearing it. A cell whose every field is empty writes nothing at all, and a
     paste that writes nothing at all leaves no undo point behind. */
-constexpr int kPasteAdditive = 64;
+constexpr int kPasteAdditive = 128;
 
 /** Cell clipboard content: every copied cell with its offset inside the copied
     rectangle, measured from its top-left cell. A Ctrl-drag hole stays a hole
@@ -414,17 +441,17 @@ struct Pattern
 
     /** Column visibility is per pattern and per tracker channel: one byte per
         channel column, with a bit for each field (instrument, volume, pan,
-        command). The chips above a channel toggle one field of one channel, so
-        hiding the volume of channel 2 leaves the other channels alone. Like the
+        command, delay). The chips above a channel toggle one field of one channel,
+        so hiding the volume of channel 2 leaves the other channels alone. Like the
         channel capacity, the flags grow only: columns past the visible channel
         count keep their state so raising the count again restores it. */
     std::vector<std::uint8_t> vis;
 
     /** Field index used by the chips (0 instrument, 1 volume, 2 pan,
-        3 command) mapped to its visibility bit. */
+        3 command, 4 delay) mapped to its visibility bit. */
     static constexpr std::uint8_t fieldBit (int field) noexcept
     {
-        const int bit = field < 0 || field > 3 ? 3 : field;
+        const int bit = field < 0 || field > 4 ? 4 : field;
         return (std::uint8_t) (1u << bit);
     }
 
@@ -470,7 +497,7 @@ struct Pattern
         for (auto& r : rows)
             r.resize ((size_t) channels);
 
-        vis.assign ((size_t) channels, kVisAll);
+        vis.assign ((size_t) channels, kVisDefault);
     }
 
     Cell& cell (int row, int ch) noexcept
@@ -578,7 +605,7 @@ struct Pattern
         channels = newChannels;
 
         if ((int) vis.size() < channels)
-            vis.resize ((size_t) channels, kVisAll); // fresh columns start visible
+            vis.resize ((size_t) channels, kVisDefault); // fresh columns start visible, the delay one aside
 
         trimHiddenChannels();
     }

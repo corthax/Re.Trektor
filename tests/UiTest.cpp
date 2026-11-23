@@ -1151,13 +1151,14 @@ int main()
             auto* scope = combos[0];
             auto* fieldBox = combos[3];
 
-            check (fieldBox->getNumItems() == 6
+            check (fieldBox->getNumItems() == 7
                        && fieldBox->getItemText (0) == "Note"
                        && fieldBox->getItemText (1) == "Instrument"
                        && fieldBox->getItemText (2) == "Volume"
                        && fieldBox->getItemText (3) == "Pan"
                        && fieldBox->getItemText (4) == "CC number"
-                       && fieldBox->getItemText (5) == "CC value",
+                       && fieldBox->getItemText (5) == "CC value"
+                       && fieldBox->getItemText (6) == "Delay",
                    "the field dropdown offers every column the tool can ramp");
 
             check (fieldBox->getSelectedId() == 1,
@@ -4502,6 +4503,82 @@ int main()
             }
         }
     }
+
+    //== The delay column =====================================================
+    {
+        // the tracker edits the active pattern, which is what the fixtures below
+        // read; the file's own pattern alias went with an undo earlier, so the
+        // delay column's checks ask the tracker for the pattern it is really in
+        auto* live = song.activePattern();
+        check (live != nullptr, "the tracker still has an active pattern to hold the delay column");
+        auto& dp = *live;
+        dp.setLength (64);
+        dp.setChannels (2);
+
+        std::cout << "  ok   ~~ delay phase\n";
+        // the newest column, drawn last and hidden until its chip is asked for
+        const auto delayChip = tracker->chipBoundsFor (0, 4);
+        const auto cmdChip = tracker->chipBoundsFor (0, 3);
+        check (! delayChip.isEmpty(), "channel 0 has a fifth chip of its own for the delay column");
+        check (delayChip.getX() > cmdChip.getX() && delayChip.getWidth() == cmdChip.getWidth(),
+               "the D chip sits to the right of the C one and is as wide as it, five chips sharing the header's pitch");
+
+        check (! dp.showColumn (0, 4), "a channel column starts with the delay column hidden");
+        check (tracker->fieldBoundsFor (0, rtr::TrackerComponent::Field::delay).isEmpty(),
+               "the hidden delay column takes no field of its own, so a fresh channel is as wide as the four columns it shows");
+
+        tracker->refresh();
+        const auto otherChannelDelay = tracker->chipBoundsFor (1, 4);
+        check (! otherChannelDelay.isEmpty(),
+               "the second channel column has its own D chip to click");
+        tracker->mouseDown (makeEvent (*tracker, { (float) otherChannelDelay.getCentreX(),
+                                                   (float) otherChannelDelay.getCentreY() }));
+        check (dp.showColumn (1, 4) && ! dp.showColumn (0, 4),
+               "clicking another channel's D chip brings that channel's delay in and leaves this one hidden, the bit being per channel column");
+
+        tracker->refresh();
+        tracker->mouseDown (makeEvent (*tracker, { (float) delayChip.getCentreX(), (float) delayChip.getCentreY() }));
+        check (dp.showColumn (0, 4), "clicking this channel's D chip brings its delay in");
+
+        const auto delayField = tracker->fieldBoundsFor (0, rtr::TrackerComponent::Field::delay);
+        check (! delayField.isEmpty() && delayField.getWidth() > 0,
+               "the delay column now has a field of its own to draw and edit");
+
+        const auto volField = tracker->fieldBoundsFor (0, rtr::TrackerComponent::Field::vol);
+        check (delayField.getX() > volField.getX() && delayField.getWidth() < volField.getWidth(),
+               "the delay field is the last of the five and is narrower than the three-digit volume, two digits being all it holds");
+
+        for (int i = 0; i < 32
+             && ! (tracker->getCursorField() == rtr::TrackerComponent::Field::delay
+                   && tracker->getCursorChannel() == 0); ++i)
+        {
+            tracker->keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys(), 0));
+        }
+
+        check (tracker->getCursorField() == rtr::TrackerComponent::Field::delay && tracker->getCursorChannel() == 0,
+               "the cursor can move onto the delay field of a channel that shows it");
+
+        tracker->setCursorRow (40);
+        tracker->keyPressed (juce::KeyPress ('4', juce::ModifierKeys(), '4'));
+        tracker->keyPressed (juce::KeyPress ('5', juce::ModifierKeys(), '5'));
+        check (dp.cell (40, 0).delay == 45 && dp.cell (40, 0).cmd == rtr::kEmpty,
+               "two digits land a percent of a row in the delay column rather than in the command beside it");
+
+        check (dp.cell (40, 0).note == rtr::kEmpty, "the delay column answers for itself, no note being needed beside a percent");
+
+        // and the percent carries down until a 0 stops it
+        dp.cell (41, 0).note = 60;
+        dp.cell (41, 0).inst = 0;
+        dp.cell (42, 0).delay = 0;
+        check (dp.cell (42, 0).delay == 0,
+               "a 0 spelled in the delay column stays a 0 rather than turning into nothing, which is what stops the delaying below it");
+
+        // hidden columns carry no delay bit of their own on a fresh channel
+        dp.setChannels (4);
+        check ((dp.vis[(size_t) 3] & rtr::kVisDelay) == 0 && ! dp.showColumn (3, 4),
+               "a channel grown in later starts with the delay column hidden too");
+    }
+
 
     //== Floating window size ==========================================
     {

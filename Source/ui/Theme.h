@@ -26,6 +26,7 @@ inline const juce::Colour pan { 0xffc77fe0 };
 inline const juce::Colour cmdCC { 0xff48c9b0 };
 inline const juce::Colour cmdMacro { 0xffe06c4f };
 inline const juce::Colour cmdOther { 0xffd8b4e8 };
+inline const juce::Colour delay { 0xff8fd9ff }; // the delay column's light blue, a lighter one than the volume's blue
 
 inline const juce::Colour clipFill { 0xff25303c };
 inline const juce::Colour clipFillSelected { 0xff2f4a63 };

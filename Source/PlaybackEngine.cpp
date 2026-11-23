@@ -22,6 +22,7 @@ void PlaybackEngine::reset()
         c.lastVol = kVolDefaultVel;
         uiRow[(size_t) i].store (-1);
         uiMidiChannel[(size_t) i].store (c.lastInst);
+        delayed[(size_t) i].clear();
     }
 
     for (int i = 0; i < kMidiChannelCount; ++i)
@@ -1861,16 +1862,83 @@ void PlaybackEngine::flushVolume (std::vector<PendingEvent>& events, int midiCh,
 }
 
 //==============================================================================
+/** What a column armed at one of its rows and left delaying: the whole pair of
+    that row's messages sits at one later sample, counted from the row as a percent
+    of that row, so it is placed in the block that reaches it rather than bunched
+    onto the row that armed it or dropped for sitting past that block's end. A
+    delayed row's messages keep the order they were sent in and answer at one
+    sample, which is what keeps a note-off ahead of the note-on entered at it
+    there as much as at the row itself. */
+void PlaybackEngine::flushDelay (std::vector<PendingEvent>& events, int ch, double ppqStart,
+                                 double ppqLimit, double ppqPerSample, int numSamples)
+{
+    auto& waiting = delayed[(size_t) ch];
+
+    if (waiting.empty())
+        return;
+
+    std::vector<DelayedRow> rest;
+
+    for (auto& entry : waiting)
+    {
+        if (entry.time > ppqLimit + 1.0e-9)
+        {
+            rest.push_back (std::move (entry));
+            continue;
+        }
+
+        const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
+                                         (int) std::llround ((entry.time - ppqStart)
+                                                                / juce::jmax (1.0e-12, ppqPerSample)));
+
+        for (auto& e : entry.messages)
+            events.push_back ({ offset, e.order, e.message });
+    }
+
+    waiting = std::move (rest);
+}
+
 void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int row,
-                                 std::vector<PendingEvent>& events, int offset,
-                                 const Song& song, double rowPpq)
+                                 std::vector<PendingEvent>& events, int rowOffset,
+                                 const Song& song, double rowPpq, double ppqPerSample)
 {
     std::set<std::pair<int, int>> notesThisRow;
+
+    // one row of one channel is a whole row wide in transport, whatever the Settings'
+    // sub-ticks say about it, so the delay column's percent reads against that width
+    // rather than against the grid: half a row of 25 samples is 12 or 13 samples of
+    // it at any sub-ticks per row
+    const double rowBeats = 1.0 / (double) juce::jmax (1, song.settings.rowsPerBeat);
+    const double rowSamples = rowBeats / juce::jmax (1.0e-12, ppqPerSample);
 
     for (int ch = 0; ch < pattern.channels && ch < kMaxTrackerChannels; ++ch)
     {
         const auto& cell = pattern.rows[(size_t) row][(size_t) ch];
         auto& state = channels[(size_t) ch];
+
+        // the delay column carries down like the instrument, volume and pan columns do,
+        // and a 0 named there is what stops the delaying rather than a delay of no part
+        // of a row, which is what leaves the rows under such a row struck on their own
+        // samples again
+        if (cell.delay != kEmpty)
+            state.lastDelay = juce::jlimit (0, kDelayTop, cell.delay);
+
+        // where this channel's own sample sits once the delay its column leaves
+        // in force is applied: nothing named yet and a 0 named there both delay
+        // nothing, so the row's messages stay where the row sits
+        const int delayPct = state.lastDelay > 0 ? state.lastDelay : 0;
+        const int offset = rowOffset
+                              + ( delayPct > 0
+                                    ? (int) std::llround (rowSamples * (double) delayPct / 100.0)
+                                    : 0);
+
+        // what this channel sends at this row, kept aside so it can either go out
+        // here or wait for the block that reaches the sample it was delayed to:
+        // the messages below answer through this rather than the block's own
+        // event list, and `outer` is where they land once the row is done with
+        auto& outer = events;
+        std::vector<PendingEvent> mine;
+        auto& events = mine;
 
         // carry: explicit values become the new "last used" for this tracker channel
         if (cell.inst != kEmpty)
@@ -2339,6 +2407,23 @@ void PlaybackEngine::processRow (const Pattern& pattern, const Clip& clip, int r
         // block that reaches them rather than being bunched onto this row's samples
 
         uiRow[(size_t) ch].store (row);
+
+        if (delayPct == 0)
+        {
+            // nothing to wait for: the row's messages go out here
+            outer.insert (outer.end(),
+                          std::make_move_iterator (mine.begin()),
+                          std::make_move_iterator (mine.end()));
+            continue;
+        }
+
+        // the whole row's pair of messages moved that percent of the row past it, kept
+        // for the flush below, which places it at its own sample in whichever block
+        // gets there - a row's own sample is a whole row away from the next one, so a
+        // delay of a part of that row reaches past this block whenever the block is
+        // narrower than a row is, the way a run's steps and a cut's release wait
+        delayed[(size_t) ch].push_back ({ rowPpq + rowBeats * (double) delayPct / 100.0,
+                                          std::move (mine) });
     }
 }
 
@@ -2384,7 +2469,15 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
     // notes, so these releases are ordered ahead of the note-ons this block
     // queues at the same sample.
     if (justStarted || jumped)
+    {
         allNotesOff (events, 0);
+
+        // what a column had armed at one of its rows and left delaying belongs to
+        // the position the transport left, so it goes with it rather than landing
+        // over the pass the transport means now
+        for (auto& w : delayed)
+            w.clear();
+    }
 
     if (justStarted)
     {
@@ -2447,6 +2540,12 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
         // strikes waited on over the same rows a gate it does have does
         if (c.retrigTime >= 0.0)
             flushRetrig (events, ch, ppqStart, juce::jmin (ppqEnd, c.cutRowEnd), ppqPerSample, numSamples, song);
+
+            // a row's own messages that its column delayed past this block wait
+            // here: they are nearer than a row than any of the grids above, but
+            // they were armed at a row the block before this one owned, so their
+            // bound is the block's own end rather than a row's
+            flushDelay (events, ch, ppqStart, ppqEnd, ppqPerSample, numSamples);
     }
 
     // a volume ramp counts on the same grid rather than on one per column, so its
@@ -2521,7 +2620,7 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
             const int offset = juce::jlimit (0, juce::jmax (0, numSamples - 1),
                                              (int) std::llround ((rowTime - ppqStart) / juce::jmax (1.0e-12, ppqPerSample)));
 
-            processRow (*pattern, clip, row, events, offset, song, rowTime);
+            processRow (*pattern, clip, row, events, offset, song, rowTime, ppqPerSample);
 
             const double rowEnd = rowTime + 1.0 / rowsPerBeat;
 
@@ -2562,6 +2661,11 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                 flushCut (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
 
                 flushRetrig (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+
+                // the row this channel just processed may have left its own
+                // messages delaying past this block's end; a delay is a part of
+                // the row, so the row's own end is what they wait up to
+                flushDelay (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples);
             }
 
             // the ramp a volume letter armed at this row counts its values from this
@@ -2610,7 +2714,7 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
 
                 if (rowTime < ppqStart - kRowAlignEps)
                 {
-                    processRow (*pattern, clip, rowAtStart, events, 0, song, rowTime);
+                    processRow (*pattern, clip, rowAtStart, events, 0, song, rowTime, ppqPerSample);
 
                     const double rowEnd = rowTime + 1.0 / rowsPerBeat;
 
@@ -2649,6 +2753,11 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
                         flushCut (events, ch, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
 
                         flushRetrig (events, ch, rowTime, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples, song);
+
+                        // the sample a delayed row moved to reads against this
+                        // block's own start rather than the row's, the way every
+                        // offset this block hands the host does
+                        flushDelay (events, ch, ppqStart, juce::jmin (ppqEnd, rowEnd), ppqPerSample, numSamples);
                     }
 
                     // a ramp a volume letter armed at this row counts from this row as
@@ -2813,6 +2922,10 @@ void PlaybackEngine::process (const Song& song, juce::MidiBuffer& midi, const Tr
             if (c.activeNote >= 0)
                 stopNote (events, 0, ch, c.activeMidiCh, c.activeNote);
 
+            // a row this column armed and left delaying has no rows under the playhead
+            // left to answer it either, so its messages go with the clip rather than
+            // opening a pitch nothing below can close
+            delayed[(size_t) ch].clear();
             c.endArp();
 
             // a wobble the same clip had armed belongs to that clip too, so the

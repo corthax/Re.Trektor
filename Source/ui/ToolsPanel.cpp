@@ -107,6 +107,7 @@ ToolsPanel::ToolsPanel (ReTrektorAudioProcessor& processor)
     interpolateFieldBox.addItem ("Pan", 4);
     interpolateFieldBox.addItem ("CC number", 5);
     interpolateFieldBox.addItem ("CC value", 6);
+    interpolateFieldBox.addItem ("Delay", 7); // the delay column's percent of a row
     interpolateFieldBox.setSelectedId (1); // Note
     styleCombo (interpolateFieldBox);
     addAndMakeVisible (interpolateFieldBox);

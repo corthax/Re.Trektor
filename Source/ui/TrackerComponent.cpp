@@ -272,6 +272,9 @@ void TrackerComponent::layoutFields()
     const int instW = (int) (charW * (float) fieldGlyphs (Field::inst)) + kFieldPad;
     const int volW = (int) (charW * (float) fieldGlyphs (Field::vol)) + kFieldPad;
     const int panW = (int) (charW * (float) fieldGlyphs (Field::pan)) + kFieldPad;
+    // the delay column is two digits wide, the same room its "--" reads in, so
+    // a delay of 99 is never clipped
+    const int delayW = (int) (charW * (float) fieldGlyphs (Field::delay)) + kFieldPad;
 
     int x = gutterWidth - scrollX;
 
@@ -312,6 +315,12 @@ void TrackerComponent::layoutFields()
             x += numW + valW;
         }
 
+        // the delay column is the last field of a channel and the one a fresh
+        // channel column does not show, so its room is only there once its chip
+        // has been asked for
+        if (p.showColumn (ch, 4))
+            add (Field::delay, delayW);
+
         // the channel's cell spans the fields it shows, and stops before the
         // gap that separates the channels, so a selected cell reads as its own
         // column rather than as a band across the pattern
@@ -346,7 +355,7 @@ juce::Rectangle<int> TrackerComponent::toggleBounds (int channel, int index) con
     if (note.isEmpty())
         return {};
 
-    const int w = juce::jmax (7, (note.getWidth() - 2) / 4);
+    const int w = juce::jmax (7, (note.getWidth() - 2) / 5);
     return { note.getX() + 1 + index * w, 18, juce::jmax (6, w - 1), 13 };
 }
 
@@ -570,11 +579,12 @@ void TrackerComponent::drawHeader (juce::Graphics& g, juce::Rectangle<int> heade
         // is cut out of a plate in the letter's own colour, so a hidden chip is
         // exactly as legible as a shown one and only its fill says which state
         // the field is in.
-        const char* labels[4] = { "I", "V", "P", "C" };
-        const bool states[4] = { p.showColumn (ch, 0), p.showColumn (ch, 1),
-                                 p.showColumn (ch, 2), p.showColumn (ch, 3) };
+        const char* labels[5] = { "I", "V", "P", "C", "D" };
+        const bool states[5] = { p.showColumn (ch, 0), p.showColumn (ch, 1),
+                                 p.showColumn (ch, 2), p.showColumn (ch, 3),
+                                 p.showColumn (ch, 4) };
 
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 5; ++i)
         {
             auto btn = visibleColumn (toggleBounds (ch, i));
 
@@ -633,7 +643,7 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
     const int rowsPerBeat = juce::jmax (1, song.settings.rowsPerBeat);
 
     // carry tables for display
-    struct Eff { int inst = -1, vol = -1, pan = -1, cmd = -1, cmdVal = -1; };
+    struct Eff { int inst = -1, vol = -1, pan = -1, cmd = -1, cmdVal = -1, delay = -1; };
     std::vector<std::vector<Eff>> eff ((size_t) p.channels);
 
     for (int ch = 0; ch < p.channels; ++ch)
@@ -654,6 +664,11 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
             if (cell.inst != kEmpty) c.inst = cell.inst;
             if (cell.vol != kEmpty) c.vol = cell.vol;
             if (cell.pan != kEmpty) c.pan = cell.pan;
+            // the delay column carries down on its own rather than only where a
+            // note exists, like the command beside it does, which is what lets
+            // one row's percent delay the rows under it until another row's 0
+            // stops it there
+            if (cell.delay != kEmpty) c.delay = cell.delay;
 
             // the argument is part of what the column carries, which is what a
             // row under a command that named one shows it as well as the letter,
@@ -1065,6 +1080,34 @@ void TrackerComponent::drawRows (juce::Graphics& g, juce::Rectangle<int> area)
 
                         break;
                     }
+
+                    case Field::delay:
+                        // the delay column reads as the percent of a row that
+                        // channel strikes its rows later at, in a light blue of
+                        // its own two digits wide; a column naming nothing reads
+                        // as "--" the same way an empty field of another column
+                        // does, and a value the column carries down under the row
+                        // that named it reads dimmer like every other carried
+                        // value - a 0 spelled there is the stopping of the
+                        // delaying rather than a delay of no part of a row
+                        if (cell.delay != kEmpty)
+                        {
+                            text = valueString (cell.delay, fieldGlyphs (Field::delay));
+                            colour = theme::delay;
+                        }
+                        else if (carried.delay >= 0)
+                        {
+                            text = valueString (carried.delay, fieldGlyphs (Field::delay));
+                            colour = theme::delay;
+                            dim = true;
+                        }
+                        else
+                        {
+                            text = "--";
+                            colour = theme::textDim.withAlpha (0.45f);
+                        }
+
+                        break;
                 }
 
                 if (cursorHere && editing && fr.field != Field::cmdNum)
@@ -1171,13 +1214,13 @@ void TrackerComponent::mouseDown (const juce::MouseEvent& e)
 
             const auto chipField = [] (int i)
             {
-                constexpr Field fields[4] = { Field::inst, Field::vol, Field::pan, Field::cmdNum };
-                return i >= 0 && i < 4 ? fields[i] : Field::note;
+                constexpr Field fields[5] = { Field::inst, Field::vol, Field::pan, Field::cmdNum, Field::delay };
+                return i >= 0 && i < 5 ? fields[i] : Field::note;
             };
 
             for (int ch = 0; ch < p.channels; ++ch)
             {
-                for (int i = 0; i < 4; ++i)
+                for (int i = 0; i < 5; ++i)
                 {
                     if (! toggleBounds (ch, i).contains (e.getPosition()))
                         continue;
@@ -1340,19 +1383,21 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
     pasteMenu.addItem (11, "Pan");
     pasteMenu.addItem (12, "Command");
     pasteMenu.addItem (13, "Command Value");
+    pasteMenu.addItem (14, "Delay");
     menu.addSubMenu ("Paste", pasteMenu, hasCellClipboard());
 
-    // the additive submenu repeats the same seven leaves under a run of ids
+    // the additive submenu repeats the same eight leaves under a run of ids
     // after the undo pair's, so both runs map by one subtraction each and
     // neither range reaches into the other's
     juce::PopupMenu additiveMenu;
-    additiveMenu.addItem (17, "Everything");
-    additiveMenu.addItem (18, "Note");
-    additiveMenu.addItem (19, "Instrument");
-    additiveMenu.addItem (20, "Volume");
-    additiveMenu.addItem (21, "Pan");
-    additiveMenu.addItem (22, "Command");
-    additiveMenu.addItem (23, "Command Value");
+    additiveMenu.addItem (18, "Everything");
+    additiveMenu.addItem (19, "Note");
+    additiveMenu.addItem (20, "Instrument");
+    additiveMenu.addItem (21, "Volume");
+    additiveMenu.addItem (22, "Pan");
+    additiveMenu.addItem (23, "Command");
+    additiveMenu.addItem (24, "Command Value");
+    additiveMenu.addItem (25, "Delay");
     menu.addSubMenu ("Paste (Additive)", additiveMenu, hasCellClipboard());
 
     // the undo pair sits last so the menu reads as the actions the cursor is on
@@ -1360,8 +1405,8 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
     // first paste submenu's run because one callback sees all of them by number
     // alone, and the additive submenu starts past them. the two counts grey the
     // pair out at the ends of the line
-    menu.addItem (14, "Undo", proc.getUndoDepth() > 0);
-    menu.addItem (15, "Redo", proc.getUndoRedoCount() > 0);
+    menu.addItem (15, "Undo", proc.getUndoDepth() > 0);
+    menu.addItem (16, "Redo", proc.getUndoRedoCount() > 0);
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition (),
                         [this] (int result)
@@ -1375,7 +1420,7 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                             static const int pasteMasks[] = { kPasteAll, kPasteNote,
                                                               kPasteInst, kPasteVol,
                                                               kPastePan, kPasteCmd,
-                                                              kPasteCmdVal };
+                                                              kPasteCmdVal, kPasteDelay };
 
                             if (result == 1)
                             {
@@ -1414,15 +1459,15 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                                 // are emptied, so a following paste moves them
                                 cutSelectionToClipboard();
                             }
-                            else if (result >= 7 && result <= 13 && hasCellClipboard())
+                            else if (result >= 7 && result <= 14 && hasCellClipboard())
                             {
                                 // the submenu items map to the paste filter bits:
-                                // 7 is Everything, 8..13 name one field each. the
+                                // 7 is Everything, 8..14 name one field each. the
                                 // plain mode writes all of them, so an empty field
                                 // in the buffer clears the target's own value
                                 pasteClipboardAtCursor (pasteMasks[result - 7]);
                             }
-                            else if (result >= 17 && result <= 23 && hasCellClipboard())
+                            else if (result >= 18 && result <= 25 && hasCellClipboard())
                             {
                                 // the same leaves again, the same masks, only with
                                 // the additive mode bit: inside each copied cell a
@@ -1431,9 +1476,9 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                                 // leaves the target's value alone, and a cell that
                                 // is empty in every field writes nothing at all,
                                 // which leaves no undo point behind
-                                pasteClipboardAtCursor (pasteMasks[result - 17] | kPasteAdditive);
+                                pasteClipboardAtCursor (pasteMasks[result - 18] | kPasteAdditive);
                             }
-                            else if (result == 14)
+                            else if (result == 15)
                             {
                                 // the same shape as the Ctrl+Z key: a half-typed
                                 // value is what the press closes, and pressing
@@ -1443,7 +1488,7 @@ void TrackerComponent::showContextMenu (const juce::MouseEvent& e)
                                 if (! cancelPendingEdit())
                                     undoStep();
                             }
-                            else if (result == 15)
+                            else if (result == 16)
                             {
                                 redoStep();
                             }
@@ -1489,6 +1534,8 @@ void TrackerComponent::clearFieldAt (int row, int channel, Field field)
             cell.cmd = kEmpty;
             cell.cmdVal = kEmpty;
             break;
+
+        case Field::delay: cell.delay = kEmpty; break;
     }
 }
 
@@ -1730,6 +1777,7 @@ int TrackerComponent::maxDigitsFor (Field field) const
         case Field::pan: return 3; // 0-127
         case Field::cmdNum: return 3; // a plain CC 0-127
         case Field::cmdVal: return 3; // 0-127, to 999 beside a cut letter, or the release's OFF and a hold's STP
+        case Field::delay: return 2; // a percent of a row, 0 .. 99
         default: return 0;
     }
 }
@@ -1744,6 +1792,7 @@ int TrackerComponent::fieldGlyphs (Field field) const
         case Field::pan: return 3; // 0-127
         case Field::cmdNum: return 3; // a plain CC, or one letter for a command kind
         case Field::cmdVal: return 3; // the argument is always decimal, so a macro id, a point on the wheel, the release's OFF or a hold's STP need three
+        case Field::delay: return 2; // two digits of percent, the same room its "--" reads in
         default: return 1;
     }
 }
@@ -1770,6 +1819,11 @@ int TrackerComponent::clampValue (Field field, int value) const
             // those are clamped to their own top at the entry, where the kind the cursor
             // answers against is known
             return juce::jlimit (0, 127, value);
+
+        case Field::delay:
+            // the delay column names a percent of a row and nothing wider, so a
+            // typed run of digits cannot name a delay past 99 of the row
+            return juce::jlimit (0, kDelayTop, value);
         default: return value;
     }
 }
@@ -1844,6 +1898,14 @@ void TrackerComponent::applyValue (Field field, int value)
         case Field::inst: cell.inst = clampValue (field, value); break;
         case Field::vol: cell.vol = clampValue (field, value); break;
         case Field::pan: cell.pan = clampValue (field, value); break;
+
+        case Field::delay:
+            // the delay column answers for its own channel only, its percent kept
+            // in the cell rather than spent here: a 0 typed there is what stops
+            // the delaying on the rows under it rather than a delay of no part of
+            // a row, which is what lets one row's number delay a whole passage
+            cell.delay = clampValue (field, value);
+            break;
         case Field::cmdNum:
             cell.cmd = clampValue (field, value);
 
@@ -1973,6 +2035,7 @@ void TrackerComponent::moveCursor (int deltaRow, int deltaField)
             if (p.showColumn (ch, 1)) f.push_back (Field::vol);
             if (p.showColumn (ch, 2)) f.push_back (Field::pan);
             if (p.showColumn (ch, 3)) { f.push_back (Field::cmdNum); f.push_back (Field::cmdVal); }
+            if (p.showColumn (ch, 4)) f.push_back (Field::delay);
 
             return f;
         };

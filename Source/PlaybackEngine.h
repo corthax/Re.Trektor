@@ -84,6 +84,15 @@ private:
         int lastPan = -1;
         int lastCmd = -1;
         int lastCmdVal = -1;
+
+        /** What percent of a row this channel's column last left delaying its rows,
+            the delay column's own value carried down under the row that named it the
+            way the instrument, volume and pan columns carry theirs. A 0 is what stops
+            the delaying rather than a delay of no part of a row, and nothing named yet
+            is -1, which delays nothing; only that row's own messages move, an arpeggiator's
+            steps, a wheel's ramp, a wobble's points, a cut's sub-ticks and a retrigger's
+            periods still counting from the row itself. */
+        int lastDelay = -1;
         int columnNote = -1; // the note this channel's column last named, empty until one does
         int activeNote = -1;
         int activeMidiCh = 0;
@@ -531,6 +540,18 @@ private:
         juce::MidiMessage message;
     };
 
+    /** One row's own messages that its column left delaying past the block that
+        held that row: the whole pair is kept and placed at one later sample, counted
+        from the row as a percent of that row rather than of the Settings' sub-row grid,
+        so a delayed row's note-on, note-off, pan, controller and command answer wait
+        for the block that reaches them the way a run's steps, a ramp's, a wobble's
+        points, a cut's release and a retrigger's strikes do. */
+    struct DelayedRow
+    {
+        double time = -1.0;                  // where the row's own sample moved to, in transport position
+        std::vector<PendingEvent> messages;  // what the row sent of its own, in the order it sent it
+    };
+
     void allNotesOff (std::vector<PendingEvent>& events, int offset, bool soundOff = false);
 
     /** Sounds the arpeggiator steps of one channel that belong to the position
@@ -970,14 +991,35 @@ private:
                       int offset, double rowPpq, const juce::Uuid& clipUid,
                       const Song& song);
 
+    /** One tracker row's own messages: `offset` is where the row sits in the block,
+        and what the row sends of its own goes out `offset` plus the delay its column
+        leaves in force, so a column naming 50 strikes that row's note-on, note-off,
+        pan, controller or command answer half a row later. The delay is a percent of
+        a whole row, which is what makes it independent of the Settings' sub-ticks;
+        the row's `ppqPerSample` is what reads that percent in samples. */
+    /** Where the block this flush runs over reaches, in transport position: a delayed
+        row's messages land there at their own sample and wait for the block that gets
+        there when they do not, which is what keeps a delay wider than one block's own
+        samples from being bunched onto the row that armed it or dropped for sitting
+        past this block's end. A transport that jumped away drops what is still waiting
+        below it, those rows having left the position the transport meant. */
+    void flushDelay (std::vector<PendingEvent>& events, int ch, double ppqStart,
+                     double ppqLimit, double ppqPerSample, int numSamples);
+
     void processRow (const Pattern& pattern, const Clip& clip, int row,
                      std::vector<PendingEvent>& events, int offset,
-                     const Song& song, double rowPpq);
+                     const Song& song, double rowPpq, double ppqPerSample);
 
     void startNote (std::vector<PendingEvent>& events, int offset, int ch, int midiCh, int note, int velocity);
     void stopNote (std::vector<PendingEvent>& events, int offset, int ch, int midiCh, int note);
 
     std::array<ChannelState, kMaxTrackerChannels> channels;
+
+    /** What each tracker column has armed at one of its rows and left delaying past
+        the block that held that row, oldest first: the delay column's state belongs to
+        the column that named the percent, so the pair waits there rather than on the
+        output channel a volume letter's ramp waits on. */
+    std::array<std::vector<DelayedRow>, kMaxTrackerChannels> delayed {};
 
     /** What the MIDI output channels sound their notes at: the level an L, I or O
         row last named and the ramp such a row left counting on. These belong to the

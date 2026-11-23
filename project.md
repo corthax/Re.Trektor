@@ -503,10 +503,34 @@ cmake --build tests/build -j"$(nproc)"
   over the wobble's own rows, its points being volume points rather than wheel positions and its
   cycle being 1000 samples apart rather than the wobble's 750, while that wobble keeps its own 27
   wheel messages over those blocks, a letter spelled on a parallel column disturbing nothing of it,
-  the tremolo being a volume letter rather than one that ends a swing above it.
+  the tremolo being a volume letter rather than one that ends a swing above it, and the
+  delay column's percent of a row spelled at it: a row naming it moving that row's own
+  note-on and note-off, its pan and its command answer down by that percent of a row
+  while the arpeggio steps, the wheel ramps, the wobbles, the cut lengths and the
+  retrigger periods keep counting from the row that armed them, so a row at 50 percent
+  strikes its note 3000 samples into a 6000-sample row and the clip's end still closes
+  that note on time; the percent carrying down through the rows below, empty ones
+  included, until the row spelling `0` stops the delaying there and the rows below it
+  play on their own; the same spelling reaching 13500 samples rather than the 12000 a
+  quarter row would say on a grid of 8 rows per beat and 2 subticks, and a fresh grid
+  with 12 subticks to a row answering the same spelling there; a pan and a command
+  answer spelled beside the delayed note landing at the same 3000 samples as the note
+  itself, the row's arpeggio step beside it still stepping at the row's own 1000; the
+  messages a delay pushes past the block they were found in being held over to the block
+  they belong to rather than pinned to that block's last sample, which is what keeps a
+  row's delayed messages spread rather than bunched where the block ran out; the delay
+  being the cell's seventh int in a saved pattern so an older state's six-int cells
+  reload with nothing named there, the column hidden and the rows playing where they
+  always did, and an older state's whole-pattern visibility bytes keeping the delay's bit
+  off whatever else they spelled; and a paste carrying that column under its own filter
+  in both its plain and its additive modes
 * `ReTrektorSmoke` – loads the built VST3, checks MIDI behavior and state
 * `ReTrektorUiTest` – drives the editor components (tracker keys, column chips
-  clicked per channel, selection gestures — a click selecting one cell, a drag
+  clicked per channel — the delay column's `D` chip among them, that column being hidden
+  on a fresh channel, the click reaching only the channel column it was clicked in, and
+  its two digits being drawn in their own lighter blue with a percent carried down below
+  drawn dimmer than the row that spelled it and `--` where nothing ever has, the cursor
+  reaching the field through `Tab` and typing a percent into it —, selection gestures — a click selecting one cell, a drag
   sweeping a rectangle of cells, a Shift-drag unioning another column and a Ctrl-drag
   taking a band away, all named through the channel columns' bounds and read back
   cell by cell —, the cell clipboard — Ctrl+C copying what the gestures
@@ -780,7 +804,7 @@ cmake --build tests/build -j"$(nproc)"
   active pattern to N/2 rows and grow it back to N — both exercise the
   resize-preserves-data behaviour, `--hide=0v1c` to hide the volume column of
   channel 0 and the command column of channel 1 (channel digit plus
-  `i`/`v`/`p`/`c` pairs, so a shot can show that chips hide per channel and that
+  `i`/`v`/`p`/`c`/`d` pairs, so a shot can show that chips hide per channel and that
   a hidden chip inverts its plate instead of dimming), and
   every value being drawn in that one decimal spelling, and `--drag-preview=IDX`
   compositing the image JUCE floats at the cursor while pool item IDX is dragged
@@ -833,6 +857,12 @@ cmake --build tests/build -j"$(nproc)"
   `--slide-arg=129` is the `STP` its `s` writes, so a shot shows the lilac `D STP` with
   that letter and that spelling carried dim over the rows under it, and the narrowest
   slide a row can ask for taking one row rather than the `0` spelling a slide over none),
+  `--delay=ROW,PERCENT` spelling a percent of a row in tracker channel 0's delay column
+  at that row and spelling the `0` that stops the delaying three rows under it, which is
+  what brings that channel's `D` chip in on a fresh pattern since the column is hidden
+  until asked for, so a shot shows the column's two digits in their own lighter blue, the
+  percent carried dim over the rows between and the rows above and below holding `--`, the
+  channel growing wider by the field the column now has, and
   `--vib-shape=`, `--vib-amp=` and `--vib-cycle=` to set the three settings a wobble runs on
   vibrato macro 1 - the shape one of the VIB tab's own six spellings (Sin, Sin Up, Sin
   Down, Triangle, Triangle Up, Triangle Down, with their spaces and dashes optional) or the
@@ -956,18 +986,22 @@ DISPLAY=:0 tests/build/ReTrektorEditorShot_artefacts/Release/ReTrektorEditorShot
   its right end repeated the top bar's position label and overprinted the bar
   numbers there, so it is gone — the playhead line and its marker stay because
   they show where in the timeline the position is, which the top bar cannot.
-* **Tracker** – the active pattern's rows. Column visibility chips (`I`, `V`,
-  `P`, `C`) sit above each channel's note column and stay visible so hidden
-  columns can always be restored: one chip hides one field of that one channel,
-  so hiding the volume of channel 2 leaves the volume of every other channel
-  alone. A hidden chip inverts rather than dims — its plate takes the letter's
-  colour and the letter is cut out of it in the plate's — so a hidden chip
+* **Tracker** – the active pattern's rows, six fields per channel. Column visibility
+  chips (`I`, `V`, `P`, `C`, `D`) sit above each channel's note column and stay visible
+  so hidden fields can always be restored: one chip hides one field of that one channel,
+  so hiding the volume of channel 2 leaves the volume of every other channel alone. The
+  delay column's `D` chip is the exception to staying visible: it is there to click but
+  the column starts hidden, so a fresh channel draws the same fields it always did and
+  grows by the delay field only when its own `D` chip is clicked. A hidden chip inverts
+  rather than dims — its plate takes the letter's colour and the letter is cut out of it
+  in the plate's — so a hidden chip
   reads as legibly as a shown one and only the fill says which state the field
   is in. The flags belong to the pattern and the channel, and they follow the
   grow-only channel capacity — a channel dropped by the CHANNELS slider keeps
   its flags, so widening the pattern again restores them. Field widths follow
   the widest text a field can show, so a decimal volume of `0`–`127` needs three
-  digits like the pan column. The command cell's two halves each take room for
+  digits like the pan column and the delay column's percent two, drawn in its own
+  lighter blue than the volume's. The command cell's two halves each take room for
   their own widest spelling rather than splitting the cell in half: the number's
   half takes its three CC digits with a two-pixel inner trim and the argument's
   half its three glyphs with a wider pad, so a macro id, a point on the wheel, a slide's
@@ -1484,7 +1518,9 @@ Every numeric field is decimal only: the plug-in has no other spelling on offer
 and no row that offers one. Instrument values are the MIDI output channel
 (`0`–`15`), drawn with the column's dash as `-0` to `-15`, the same labels the
 tools panel's remap dropdowns use. Volume and Pan take `0`–`127` as up to three
-digits, displayed right-aligned like the pan column. The Command field accepts
+digits, displayed right-aligned like the pan column, and the delay column takes
+`0`–`99` as up to two, its own `clampValue` keeping a typed `100` or a typed `999`
+at 99 rather than wrapping it. The Command field accepts
 `0`–`127` and the eight letters `A`, `B`, `U`, `D`, `V`, `C`, `R` and `T`: an `A` typed as the command number
 field's first character claims it and means `128`, the arpeggiator call, whose
 argument names the macro id, a `B` claims it and means `144`, the pitch bend, whose
@@ -1734,16 +1770,17 @@ one.
 
 ## MIDI model
 
-* Each pattern row has 5 columns per tracker channel: Note, Instrument,
-  Volume, Pan and Command.
+* Each pattern row has 6 columns per tracker channel: Note, Instrument,
+  Volume, Pan, Command and Delay.
 * Instrument selects the **MIDI output channel** (0–15). When unset, the last
   value used on that tracker channel is reused. The same carry applies to
-  volume, pan and command, the command carrying its letter and its argument
+  volume, pan, command and delay, the command carrying its letter and its argument
   together and that argument being the newest one the column's rows entered
   rather than the one the letter itself named. Carried values are drawn
   dimmer; volume, pan and instrument only carry when a note exists, command
   carries even on empty
-  rows.
+  rows, and so does the delay, its percent being a property of the channel rather than
+  of the note a row holds.
 * The Volume column sends no controller at all: an explicit volume cell is the velocity
   a note entered on that row is struck at, `127` (`kVolDefaultVel`) until that column ever
   named one, and a row whose volume field is empty takes the velocity its column carried
@@ -1756,6 +1793,19 @@ one.
   (`kVolDefaultLevel`). A pan cell still sends its configured controller (CC10
   channel pan by default), sent before the note handling, so even a row that only holds a
   note-off (`===`) applies it. Carried (implicit) values do not re-send.
+* The Delay column's `0`–`99` is a percent of the row's own length the messages a row
+  sends land later at: that row's note-on and note-off, its pan and its command answer
+  are pushed down by that percent of a row (a row of 6000 samples at 50 percent striking
+  3000 samples in) while the arpeggiator's steps, a wheel ramp or slide, a wobble's points,
+  a cut's length and a retrigger's period keep counting from the row that armed them rather
+  than from a delayed one, so the sub-tick machinery is untouched by a delay. The percent
+  carries down the channel until a row spelling `0` stops the delaying there and the rows
+  under it play on their own. A row's messages are emitted into the block they land in rather
+  than the block their row was read in: rows run to thousands of samples against the host's
+  512-sample blocks, so a delay of a few percent crosses a block boundary constantly and the
+  messages are deferred into a later block rather than clamped onto the earlier block's last
+  sample, which would bunch them at one sample. A clip's end still closes a delayed note at
+  its own time, since only that row's note-on moved.
 * Command column: values `0`–`127` are CC numbers with a `0`–`127` value,
   drawn teal. Entering just an argument, with the command number left empty,
   keeps the cell implicit and plays that argument on the command number the
@@ -2842,6 +2892,15 @@ one.
   across a reload. The depth comes from Settings but a 32 MB budget also drops
   the oldest states, so a pattern wide or long enough keeps fewer of them than
   the row asks for.
+* The delay column moves only what a row itself sends: its note-on and note-off, its pan
+  and its command answer. The sub-tick machinery keeps counting from the row that armed it,
+  so an arpeggiator call spelled on a delayed row still steps its notes at that row's own
+  subticks, and a wheel ramp, a slide, a wobble's points, a cut's length and a retrigger's
+  period keep their own grid rather than being shifted by the row's percent. The percent is
+  capped at 99 of a row, so a delay of a whole row belongs to moving the row instead. A
+  fresh transport start, a jump and a clip taken away clear whatever a delay had deferred,
+  so messages pushed past a clip's end are dropped there rather than played into the next
+  clip.
 * Note entry assumes a US keyboard layout.
 
 
@@ -2869,6 +2928,111 @@ Right tools panel: Transpose, Remapping, Selection Interpolation with scope: Sel
 Tabs on top: Tracker / Macros / Settings; Macros tab for arpeggiator/glide macro setup.
 Testing target: Reaper.
 Decisions
+This round gives the tracker a sixth field per channel, the delay column the user asked
+for - "delay column - last column, two digits, displayed with light blue color, empty is
+"--", hidden by default. add D button to track's I V P C hide/show column buttons. value
+activates delaying this track rows by a % (up to 99). value 0 stops delaying. sub-tick
+independent." - whose two loose ends the user settled before anything was written: the
+percent carries down the channel under the row that spelled it until a row spelling 0 stops
+it, the Command column's carry rather than the instrument's, so it carries over empty rows
+as well; and only what the delayed row itself sends moves, "sub-tick independent" being read
+as the arpeggiator's steps, a wheel ramp or slide, a wobble's points, a cut's length and a
+retrigger's period keeping their own count from the row that armed them rather than from a
+delayed one.
+`Model.h` grows `delay` in `rtr::Cell` beside the command's pair, `kDelayTop` at 99 and the
+visibility byte's fourth bit `kVisDelay` at 16 while `kVisAll` stays at 15 for what a fresh
+channel draws and a new `kVisDefault` says so at 15 - an older state's vis byte thus keeps
+the column hidden with the mask untouched - and `fieldBit` widened to name five fields.
+`pasteCells` learned `kPasteDelay` at 64, which is why the additive filter's bit moved from
+64 to 128, and the cell menu's two paste submenus renumber their dropdown ids behind it, the
+plain paste's fields sitting at 7..14 with Delay last, Undo/Redo at 15/16 and the additive
+submenu at 18..25. The state writes seven int16s per cell rather than six and the reader
+takes the stride from the block length, `count == cells * 7 ? 7 : 6`, so an older state's
+six-int cells reload with `delay = kEmpty`, play where they always did and come up with the
+column hidden. `InterpField` gained `delay` so the tools panel's Interpolation can ramp a
+percent under an added "Delay" item at id 7, the mapping already being one off the item id.
+The delay is deferred rather than offset: a percent of a row is thousands of samples against
+the host's 512-sample blocks, so the existing clamp of an offset to `numSamples - 1` would
+bunch every delayed message at one sample rather than spread it. The engine keeps a `DelayedRow`
+of the arrival's ppq time and the messages themselves per tracker channel, `ChannelState::lastDelay`
+carrying the percent and `processRow` shadowing the events it is handed with the row's own
+`mine` so what is deferred is exactly that row's emissions - its note-on and note-off, its pan,
+its command answer - and `flushDelay()` emitting an entry once its time falls inside the block
+being processed, at the offset that time names. It runs at the three sites the engine walks rows,
+the top of a block, after each row and after a jump back, and a fresh transport start, a jump and
+a clip taken away clear whatever a channel had deferred.
+The tracker side reads the column as its own: `Theme.h` gains `theme::delay` at 0xff8fd9ff,
+a lighter blue than the volume's, the `Field` enum grows `delay` as the seventh, `layoutFields`
+adds its two-glyph width gated on `showColumn (ch, 4)`, `drawHeader` reads a fifth chip label
+and state, `toggleBounds` re-pitches the chips from four to five per channel at
+`(note.getWidth() - 2) / 5` so they keep sharing the channel's pitch rather than spilling past
+it, `drawRows` grows the case that draws the percent in that blue with a carried one at 42
+per cent alpha and `--` in the dim text where nothing has named one, and `maxDigitsFor`,
+`fieldGlyphs`, `clampValue`, `applyValue`, `clearFieldAt` and the `fieldsFor` the cursor walks
+follow, the popup menu's two submenus gaining their Delay item with the new ids.
+Everything was probed against the built engine before it went anywhere: CoreTest going 586 to
+604 checks at PASS 0 failures with the saved-form round trip - the seven-int block written and
+read back beside a hand-rebuilt six-int older block reloading with nothing named there - a
+four-row clip at 50 per cent striking its note at the 3000th sample of a 6000-sample row while
+the clip's end still closes that note at the 24000th, a 25 per cent spelled at one row and a 0
+at the next giving note-ons at 0, 6000, 13500 and 18000 with the delayed row the only one moved,
+the same spelling on a grid of 8 rows per beat and 2 subticks reaching the 13500th rather than
+the 12000 a quarter row would say and a fresh 12-subtick grid answering it there, a pan and a
+command answer spelled beside the delayed note landing at the same 3000th while the arpeggiator's
+step spelled beside it still answers at the sub-row grid's own 1000th, and a delayed message
+being found in the block its own time names rather than the one its row was read in; UiTest going
+875 to 891 checks at PASS 0 failures with the fifth chip sitting to the right of the `C` one at the
+same pitch, its click reaching only the channel column it was clicked in, the column hidden on a
+fresh channel and on one the CHANNELS slider grew later, the field's bounds present and narrower
+than the volume's, the cursor reaching it through `Tab` and typing 45 into it and 0 there stopping
+it, and the cell menu's dropdown now spelling "Delay" as its seventh item; Smoke staying at 13 with
+the serialised state growing from 2533 to 2761 bytes for the column's seventh int over the demo
+pattern.
+Two things had to be moved rather than weakened along the way: the round's UiTest section sits
+after the undo-depth fixtures because a typed percent and a chip click each spend a point of the
+50-step line those checks count, and it takes `song.activePattern()` rather than the file's
+top-level `auto& p = song.patterns.front()`, that alias having gone stale once the undo and redo
+fixtures rebuild the pattern vector - the stale reference being what turned the first run into a
+segfault inside `Pattern::cell` at a channel count of 18.4 quintillion rather than at 2.
+Both trees rebuilt, the Linux one first with its bundle otherwise intact: its `.so` going from
+6232968 to 6231224 bytes at d58d9435288a47aeb5b6acd7855783f1227b887007d206aa88c4782ac0f1aa35 and
+the Windows module going from 3795968 to 3803648 at fb78c8ad77dc8f42795407c1f4f6bb2d14d290ec2d1b9ff82929777a7af6eb3e
+with the cross build kept at `-j 2` past the msvc path export, `moduleinfo.json` regenerated over
+that bundle by the Linux tree's own `ReTrektor_vst3_helper` and reading byte-identical to the
+Linux one at 990 bytes and b5db3e6f2540699356e34c5362666e2fe3340f554d5e211bd523290dca1e83ee, the
+installed bundle at /home/corthax/.vst3/Corthax/Re.Trektor.vst3 refreshed by rsync -a --checksum
+over the whole directory with the `diff -r` between the built and installed trees reading clean
+and both binaries at the same hash as the built one, and the two tracked tarballs regenerated from
+their own trees at 2589615 to 2594695 bytes and f682f6d8355b0c6d35ecf914dfc50b5839c21be7308e7b6e847eea4aee6762b8 for
+the linux one and 1693168 to 1697466 at 7526c7dc4b4d94231c3f8eb9c2510c91762a58fceb7fb6abc7409d326f3104bd for the
+windows one, the glibc pin still reading GLIBC_2.38 at the newest. Eight shots retaken at
+1240x760 with DISPLAY=:0 each with its `--dump` alongside - the tracker plain, with the new
+`--delay=ROW,PERCENT` and with the `d` letter joining the `--hide=` pairs - and every count
+coming back where the round above had left it, the tracker's three at 38 OUTSIDE PARENT lines,
+macros at 34, vibs and trems at 32 and settings at 20, so the fifth chip and the sixth field push
+nothing out of its parent; the crop pinned for the delay column reading the bright 50 at its own
+row, the 50 carried dim over the two rows under it, the 0 that stops the delaying below them and
+`--` above, that channel's `D` chip drawn on its plate while the channel that never asked keeps
+it inverted.
+The doc pair went with the same reading: README.md's Tracker bullet naming six columns and the
+`D` chip with the column starting hidden, its paste submenu naming the Delay item, its Columns
+intro naming six and gaining the delay bullet with the carry, the stop and the sub-tick sentence,
+and its Behaviour to know gaining what a delay does with the host's blocks and what an older song
+keeps - the file going from 476 lines and 31600 bytes to 493 lines and 32945 bytes; project.md
+taking the same through its standing sections rather than only through the entries below them, the
+Tests section's CoreTest and UiTest claims gaining the fixtures, the EditorShot paragraph gaining
+the `d` hide letter and the `--delay=` flag, the Layout's chip list gaining the fifth chip with the
+one exception to staying visible and the field-widths sentence gaining the column's two glyphs, the
+Keyboard map's number entry gaining the column's two digits and its clamp, the Mouse map alone
+needing nothing since the fifth chip behaves as its four siblings do, the MIDI model going to seven
+columns, its carry naming the delay as a column that carries over empty rows and a new bullet for
+the percent with its samples, and Known limitations gaining the delay's untouched sub-ticks, its
+99 cap and its deferral at a clip's end - that file going from 7177 lines and 750598 bytes to
+7341 lines and 765361 bytes and self-consistent about that count in this entry, the entry sitting
+immediately under the Session block's Decisions line ahead of the round above's. Neither file's
+paren balance moved, the README's staying 0 and project.md's staying -3, the percent, the samples
+and the deferral being spelled with words rather than with brackets. Nothing but the two documents,
+the two trees' artifacts, the two tarballs and the installed bundle went with it.
 This round takes the same Command column one letter further and makes the tracker's own cells land
 what they had been spelling, the user asking that a value be committed when they click away rather
 than needing an Enter of its own while `Escape` still drops what is half typed, that a new letter run

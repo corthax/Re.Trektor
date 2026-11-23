@@ -54,6 +54,7 @@ int fieldValue (const Cell& c, InterpField field) noexcept
         case InterpField::pan:    return c.pan;
         case InterpField::cmdNum: return c.cmd;
         case InterpField::cmdVal: return c.cmdVal;
+        case InterpField::delay:  return c.delay;
     }
 
     return kEmpty;
@@ -69,6 +70,7 @@ void setFieldValue (Cell& c, InterpField field, int value) noexcept
         case InterpField::pan:    c.pan = value; break;
         case InterpField::cmdNum: c.cmd = value; break;
         case InterpField::cmdVal: c.cmdVal = value; break;
+        case InterpField::delay:  c.delay = value; break;
     }
 }
 
@@ -79,6 +81,7 @@ int fieldTop (InterpField field) noexcept
     {
         case InterpField::inst:   return kMidiChannelCount - 1;
         case InterpField::cmdNum: return kCcTop; // a ramp stays a plain CC number
+        case InterpField::delay:  return kDelayTop; // percent of a row, two digits of it
 
         case InterpField::note:
         case InterpField::vol:
@@ -208,6 +211,7 @@ int Pattern::pasteCells (const CellClipboard& clip, int anchorRow,
         if (src.pan != kEmpty) bits |= kPastePan;
         if (src.cmd != kEmpty) bits |= kPasteCmd;
         if (src.cmdVal != kEmpty) bits |= kPasteCmdVal;
+        if (src.delay != kEmpty) bits |= kPasteDelay;
         return bits;
     };
 
@@ -252,6 +256,8 @@ int Pattern::pasteCells (const CellClipboard& clip, int anchorRow,
             dst.cmd = src.cmd;
         if ((mask & kPasteCmdVal) != 0)
             dst.cmdVal = src.cmdVal;
+        if ((mask & kPasteDelay) != 0)
+            dst.delay = src.delay;
 
         ++written;
     }
@@ -1103,18 +1109,21 @@ juce::ValueTree Song::toValueTree() const
         auto* vdst = static_cast<std::uint8_t*> (visBlock.getData());
 
         for (int c = 0; c < visCols; ++c)
-            vdst[c] = c < (int) p.vis.size() ? p.vis[(size_t) c] : kVisAll;
+            vdst[c] = c < (int) p.vis.size() ? p.vis[(size_t) c] : kVisDefault;
 
         pv.setProperty ("vis", visBlock.toBase64Encoding(), nullptr);
 
-        // Packed row data: 6 ints per cell over the capacity rectangle, so rows
+        // Packed row data: seven ints per cell over the capacity rectangle, so rows
         // and channel columns hidden past the pattern's visible size (kept by
-        // resizing without deleting) survive a state round-trip.
+        // resizing without deleting) survive a state round-trip. The delay column
+        // is the seventh of them, so an older state's block reads six to the cell
+        // and leaves every delay empty rather than putting a command's argument
+        // where a delay would be.
         const int capRows = p.capacity();
         const int capCols = p.channelCapacity();
         static const Cell emptyCell;
         juce::MemoryBlock data;
-        data.setSize ((size_t) capRows * (size_t) capCols * 6 * sizeof (juce::int16));
+        data.setSize ((size_t) capRows * (size_t) capCols * 7 * sizeof (juce::int16));
 
         auto* dst = static_cast<juce::int16*> (data.getData());
         size_t i = 0;
@@ -1132,6 +1141,7 @@ juce::ValueTree Song::toValueTree() const
                 dst[i++] = (juce::int16) cell.pan;
                 dst[i++] = (juce::int16) cell.cmd;
                 dst[i++] = (juce::int16) cell.cmdVal;
+                dst[i++] = (juce::int16) cell.delay;
             }
         }
 
@@ -1313,7 +1323,7 @@ void Song::fromValueTree (const juce::ValueTree& root)
             {
                 const auto* vsrc = static_cast<const std::uint8_t*> (visBlock.getData());
                 const int visCols = juce::jmin ((int) visBlock.getSize(), kMaxTrackerChannels);
-                p.vis.resize ((size_t) visCols, kVisAll);
+                p.vis.resize ((size_t) visCols, kVisDefault);
 
                 for (int c = 0; c < visCols; ++c)
                     p.vis[(size_t) c] = (std::uint8_t) (vsrc[c] & kVisAll);
@@ -1331,7 +1341,7 @@ void Song::fromValueTree (const juce::ValueTree& root)
             }
 
             if ((int) p.vis.size() < capCols)
-                p.vis.resize ((size_t) capCols, kVisAll);
+                p.vis.resize ((size_t) capCols, kVisDefault);
 
             juce::MemoryBlock data;
 
@@ -1339,13 +1349,20 @@ void Song::fromValueTree (const juce::ValueTree& root)
             {
                 const auto* src = static_cast<const juce::int16*> (data.getData());
                 const size_t count = data.getSize() / sizeof (juce::int16);
+                // the block says which layout it is by its own length: this build
+                // writes seven ints to a cell, an older one six, so the cell count
+                // the pattern's capacity rectangle asks for tells the two apart
+                // rather than the delay column being invented out of an older
+                // state's last argument
+                const size_t cells = (size_t) capRows * (size_t) capCols;
+                const size_t stride = count == cells * 7 ? (size_t) 7 : (size_t) 6;
                 size_t i2 = 0;
 
                 for (int r = 0; r < capRows; ++r)
                 {
                     for (int c = 0; c < capCols; ++c)
                     {
-                        if (i2 + 6 > count)
+                        if (i2 + stride > count)
                             break;
 
                         auto& cell = p.rows[(size_t) r][(size_t) c];
@@ -1364,6 +1381,10 @@ void Song::fromValueTree (const juce::ValueTree& root)
                         const int rawCmd = (int) src[i2++];
                         cell.cmd = rawCmd >= kArpCmd && rawCmd <= kOlderCmdTop ? kArpCmd : rawCmd;
                         cell.cmdVal = src[i2++];
+                        // the seventh int of the cell is the delay column's, which an
+                        // older state never wrote: what it has no room for reads as the
+                        // column naming nothing rather than as a delay of no percent
+                        cell.delay = stride == 7 ? (int) src[i2++] : kEmpty;
                     }
                 }
             }

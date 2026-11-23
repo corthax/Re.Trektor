@@ -491,6 +491,21 @@ int main (int argc, char** argv)
             args.remove (i);
         }
 
+    // the delay column spelled on a row, so a shot shows the column's two digits
+    // in its own light blue: row and percent, the channel being the first one as
+    // every other cell flag here assumes. The column is hidden on a fresh pattern,
+    // so the flag brings it in as well, which is what the channel's D chip does
+    int delayRow = -1;
+    int delayPercent = 50;
+    for (int i = args.size(); --i >= 0;)
+        if (args[i].startsWith ("--delay="))
+        {
+            const juce::String pair = args[i].fromFirstOccurrenceOf ("=", false, false);
+            delayRow = pair.upToFirstOccurrenceOf (",", false, true).getIntValue();
+            delayPercent = pair.fromFirstOccurrenceOf (",", false, true).getIntValue();
+            args.remove (i);
+        }
+
     int shotChannels = 0;
     for (int i = args.size(); --i >= 0;)
         if (args[i].startsWith ("--channels="))
@@ -557,8 +572,8 @@ int main (int argc, char** argv)
     else if (tab == "trems" || tab == "trem macro" || tab == "trm")
         tab = "trm";
 
-    // column visibility for the shot: each pair is a channel digit plus i/v/p/c
-    // (instrument, volume, pan, command), so "--hide=0v1c" hides the volume of
+    // column visibility for the shot: each pair is a channel digit plus i/v/p/c/d
+    // (instrument, volume, pan, command, delay), so "--hide=0v1c" hides the volume of
     // channel 0 and the command of channel 1
     juce::String shotHide;
     for (int i = args.size(); --i >= 0;)
@@ -673,6 +688,14 @@ int main (int argc, char** argv)
         {
             p.cell (slideDownRow, 0).cmd = rtr::kSlideDownCmd;
             p.cell (slideDownRow, 0).cmdVal = slideArg; // D 12: and the span down to its bottom
+        }
+
+        if (delayRow >= 0 && delayRow < p.length)
+        {
+            p.setColumn (0, 4, true); // the D chip's own bit: the column is hidden until asked for
+            p.cell (delayRow, 0).delay = delayPercent; // 50: the percent of a row its messages land later at
+            if (delayRow + 3 < p.length)
+                p.cell (delayRow + 3, 0).delay = 0; // and the 0 that stops the delaying below it, the rows between carrying the percent dim
         }
 
         if (vibShapeText.isNotEmpty() || vibAmplitude >= 0 || vibCycle >= 0)
@@ -914,6 +937,7 @@ int main (int argc, char** argv)
                 else if (letter == 'v') field = 1;
                 else if (letter == 'p') field = 2;
                 else if (letter == 'c') field = 3;
+                else if (letter == 'd') field = 4; // the delay column, hidden on a fresh pattern anyway
                 else
                     continue;
 
